@@ -1,0 +1,443 @@
+package com.david.pokedex_api.ui.composables
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.with
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.distinctUntilChanged
+import androidx.lifecycle.map
+import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
+import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.service.PokeApiService
+import com.david.pokedex_api.ui.theme.CardBorder
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.rememberCoroutineScope // <--- IMPORTANTE: Añadir este import
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.motionEventSpy
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalAnimationApi::class, ExperimentalFoundationApi::class) // Añadir ExperimentalFoundationApi
+@Composable
+fun DetallesDesplegables(
+    pokemon: PokemonDetailResponse,
+    evolutionChainDetailResponse: EvolutionChainDetailResponse?,
+    isLoadingEvolutionChain: Boolean,
+    onEvolutionPokemonClick: (pokemonName: String) -> Unit,
+    description: String?,
+    pokemonApiService: PokeApiService,
+    modifier: Modifier = Modifier
+) {
+    // selectedContent sigue siendo la fuente de verdad para el estado lógico
+    var selectedContent by remember { mutableStateOf<ContentPage?>(ContentPage.DESC) }
+
+    val density = LocalDensity.current
+    val buttonMeasures = remember { mutableStateListOf<Pair<Dp, Dp>>() }
+    val rowPaddingHorizontal = 16.dp
+
+    val contentPages = remember { ContentPage.entries.toList() } // Lista de páginas
+    val pagerState = rememberPagerState(pageCount = { contentPages.size })
+
+    // Sincronizar selectedContent cuando el Pager cambia por swipe
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .map { pageIndex -> contentPages.getOrNull(pageIndex) }
+            .collect { page ->
+                if (page != null && selectedContent != page) {
+                    selectedContent = page
+                }
+            }
+    }
+
+    // Sincronizar Pager cuando selectedContent cambia por clic en botón
+    LaunchedEffect(selectedContent) {
+        val targetPageIndex = selectedContent?.let { contentPages.indexOf(it) } ?: -1
+        if (targetPageIndex != -1 && targetPageIndex != pagerState.currentPage) {
+            launch { // Usar launch para la corrutina de scroll
+                pagerState.animateScrollToPage(targetPageIndex)
+            }
+        }
+    }
+
+    val selectedIndexFromContent = remember(selectedContent) { // Renombrado para claridad
+        selectedContent?.let { contentPages.indexOf(it) } ?: -1
+    }
+
+    val indicatorWidth by animateDpAsState(
+        targetValue = if (selectedIndexFromContent != -1 && selectedIndexFromContent < buttonMeasures.size) {
+            buttonMeasures[selectedIndexFromContent].second
+        } else {
+            0.dp
+        },
+        animationSpec = spring(),
+        label = "indicatorWidth"
+    )
+
+    val indicatorOffsetX by animateDpAsState(
+        targetValue = if (selectedIndexFromContent != -1 && selectedIndexFromContent < buttonMeasures.size) {
+            buttonMeasures[selectedIndexFromContent].first + rowPaddingHorizontal
+        } else {
+            rowPaddingHorizontal
+        },
+        animationSpec = spring(),
+        label = "indicatorOffsetX"
+    )
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // --- Row de IconButtons (sin cambios en su lógica interna) ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = rowPaddingHorizontal),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            contentPages.forEachIndexed { index, page -> // Iterar sobre la lista de páginas
+                if (index >= buttonMeasures.size) {
+                    buttonMeasures.add(Pair(0.dp, 0.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .onGloballyPositioned { layoutCoordinates ->
+                            val positionInRow =
+                                with(density) { layoutCoordinates.boundsInParent().left.toDp() }
+                            val width = with(density) { layoutCoordinates.size.width.toDp() }
+                            buttonMeasures[index] = Pair(positionInRow, width)
+                        }
+                ) {
+                    IconButton(
+                        onClick = {
+                            selectedContent = page // Esto disparará el LaunchedEffect para mover el Pager
+                        },
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        TextoMenu(
+                            when (page) {
+                                ContentPage.DESC -> "Desc"
+                                ContentPage.EVOS -> "Evos"
+                                ContentPage.STATS -> "Stats"
+                                ContentPage.MOVES -> "Movs"
+                                ContentPage.ABILITY -> "Habs"
+                                ContentPage.INTER -> "Tipos"
+                                ContentPage.REGI -> "Regis"
+                            },
+                            colorFondo = if (selectedContent == page) getPokemonTypeColor(pokemon.types[0].type.name) else Color.Transparent,
+                            colorTexto = if((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page){
+                                Color.White
+                            }else{
+                                CardBorder
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- Indicador (sin cambios) ---
+        if (selectedContent != null && selectedIndexFromContent != -1 && selectedIndexFromContent < buttonMeasures.size) {
+            Box(
+                Modifier // El Modifier del Box del indicador
+                    .padding(top = 0.dp)
+                    .height(3.dp)
+                    .width(indicatorWidth)
+                    .offset(x = indicatorOffsetX)
+                    .background(getPokemonTypeColor(pokemon.types[0].type.name)) // Asegúrate que esta función y pokemon.types[0] sean seguros
+            )
+        }
+
+        // --- HorizontalPager para el Contenido ---
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.55f) // O la altura que desees para el área de contenido
+                .padding(vertical = if (selectedContent == null) 0.dp else 8.dp),
+            // userScrollEnabled = true // Habilitado por defecto, puedes deshabilitarlo si es necesario
+        ) { pageIndex ->
+            // El contenido se renderiza aquí basado en la página actual del Pager
+            // No necesitas AnimatedContent aquí, HorizontalPager maneja las transiciones de swipe.
+            // Si quieres animaciones personalizadas entre páginas, es más complejo con Pager,
+            // pero el swipe por sí mismo ya es una transición.
+
+            val targetPage = contentPages.getOrNull(pageIndex)
+
+            // Contenedor para cada página, si necesitas padding o alineación específica
+            Box(
+                modifier = Modifier.fillMaxSize() // Cada página llena el espacio del Pager
+                // Puedes añadir padding aquí si es común a todas las páginas
+                // .padding(horizontal = 16.dp)
+            ) {
+                when (targetPage) {
+                    ContentPage.STATS -> {
+                        MuestraStatsBase(
+                            stats = pokemon.stats,
+                            colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+                            colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                Color.White
+                            }else{
+                                CardBorder
+                            },
+                        )
+                    }
+
+                    ContentPage.EVOS -> {
+                        if (isLoadingEvolutionChain && evolutionChainDetailResponse == null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        } else if (evolutionChainDetailResponse != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize() // Ocupa todo el espacio del Pager en esta página
+                                    .verticalScroll(rememberScrollState()) // Permite scroll vertical si el contenido es largo
+                                    .padding(bottom = 8.dp) // Padding en la parte inferior del contenido scrolleable
+                            ) {
+                                PokemonEvolutionChainView(
+                                    evolutionChainResponse = evolutionChainDetailResponse,
+                                    onPokemonClick = onEvolutionPokemonClick,
+                                    // Asumo que tienes estas funciones de color o pásalas como parámetros
+                                    color1 = getPokemonTypeColor(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
+                                    color2 = getPokemonTypeColorClear(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
+                                    colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                        Color.White
+                                    }else{
+                                        CardBorder
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth() // Que ocupe el ancho disponible
+                                    // .wrapContentHeight() // No es estrictamente necesario aquí, Column maneja la altura
+                                )
+                                Spacer(Modifier.height(16.dp)) // Espacio entre las dos vistas
+                                PokemonSpecialFormsView(
+                                    pokemonSpeciesUrl = pokemon.species.url,
+                                    pokemonName = pokemon.name, // Nombre base para evitar auto-clics
+                                    pokemonApiService = pokemonApiService,
+                                    onFormClick = { formName ->
+                                        onEvolutionPokemonClick(formName) // Navegar al hacer clic en una forma
+                                    },
+                                    // Asumo que tienes estas funciones de color o pásalas como parámetros
+                                    cardColor = getPokemonTypeColor(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
+                                    itemCardColor = getPokemonTypeColorClear(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
+                                    colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                        Color.White
+                                    }else{
+                                        CardBorder
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth() // Que ocupe el ancho disponible
+                                    // .wrapContentHeight() // No es estrictamente necesario aquí
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No se pudieron cargar los datos de evolución.")
+                            }
+                        }
+                    }
+
+                    ContentPage.DESC -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ){
+                            //descripción
+                            Row(
+                                modifier = Modifier.fillMaxSize().weight(0.55f),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ){
+                                description?.let { descText ->
+                                    MuestraDesc(
+                                        nombrePokemon = pokemon.name,
+                                        desc = descText,
+                                        colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+                                        colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                            Color.White
+                                        }else{
+                                            CardBorder
+                                        },
+                                    )
+                                } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("Descripción no disponible.")
+                                }
+                            }
+                            //sprites
+                            Row(
+                                modifier = Modifier.fillMaxSize().weight(0.45f),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ){
+                                LiveSprites(
+                                    pokemonName = pokemon.name,
+                                    colorTexto = CardBorder,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+
+                    ContentPage.MOVES -> {
+                        PokemonMovesList(
+                            moves = pokemon.moves,
+                            backgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                            pokemonApiService = pokemonApiService,
+                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                Color.White
+                            }else{
+                                CardBorder
+                            },
+                            modifier = Modifier.fillMaxHeight() // FillMaxHeight dentro del Box de la página
+                        )
+                    }
+
+                    ContentPage.ABILITY -> {
+                        PokemonAbilitiesList(
+                            abilities = pokemon.abilities,
+                            backgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                Color.White
+                            }else{
+                                CardBorder
+                            },
+                            pokemonApiService = pokemonApiService,
+                            modifier = Modifier.fillMaxWidth() // FillMaxHeight dentro del Box de la página
+                        )
+                    }
+
+                    ContentPage.INTER -> {
+                        PokemonTypeInteractionsTable(
+                            pokemonTypes = pokemon.types,
+                            pokemonApiService = pokemonApiService,
+                            tableBackgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                Color.White
+                            }else{
+                                CardBorder
+                            },
+                            // modifier = Modifier.fillMaxHeight() // Si es necesario
+                        )
+                    }
+
+                    ContentPage.REGI -> {
+                        PokemonRegionalFormsView(
+                            pokemonSpeciesUrl = pokemon.species.url,
+                            basePokemonName = pokemon.name,
+                            pokemonApiService = pokemonApiService,
+                            onFormClick = { formName ->
+                                onEvolutionPokemonClick(formName)
+                            },
+                            cardColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                            colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                Color.White
+                            }else{
+                                CardBorder
+                            },
+                            itemCardColor = getPokemonTypeColorClear(pokemon.types[0].type.name),
+                        )
+                    }
+
+                    null -> { // En caso de que targetPage sea null (no debería pasar con pageCount definido)
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Contenido no disponible")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun TextoMenu(title: String, colorFondo:Color, colorTexto:Color) {
+    Box(
+        modifier = Modifier.background(colorFondo).fillMaxSize().clip(RoundedCornerShape(2.dp)),
+        contentAlignment = Alignment.Center
+    ){
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            color = colorTexto,
+            style = TextStyle(
+                fontSize = 12.sp
+            ),
+//            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+enum class ContentPage {
+    DESC, EVOS, STATS, MOVES, ABILITY, INTER, REGI
+}

@@ -1,0 +1,333 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<document version="1.7">
+  <objects>
+    <object id="1" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Catalog</name>
+        </entry>
+        <entry key="Version">
+          <name>1.7</name>
+        </entry>
+        <entry key="Pages">
+          <ref id="3" gen="0" />
+        </entry>
+        <entry key="Outlines">
+          <ref id="2" gen="0" />
+        </entry>
+      </dict>
+    </object>
+    <object id="2" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Outlines</name>
+        </entry>
+      </dict>
+    </object>
+    <object id="3" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Pages</name>
+        </entry>
+        <entry key="Kids">
+          <arr>
+            <entry index="0">
+              <ref id="7" gen="0" />
+            </entry>
+          </arr>
+        </entry>
+        <entry key="Count">
+          <num>1</num>
+        </entry>
+      </dict>
+    </object>
+    <object id="4" gen="0">
+      <dict>
+        <entry key="CreationDate">
+          <string>D:20250616082310-07'00'</string>
+        </entry>
+        <entry key="ModDate">
+          <string>D:20250616082309-07'00'</string>
+        </entry>
+        <entry key="Author">
+          <string>Aspose.Pdf.SvgToPdfConverter</string>
+        </entry>
+        <entry key="Producer">
+          <string>Aspose Pty Ltd.</string>
+        </entry>
+        <entry key="Subject">
+          <string>Aspose</string>
+        </entry>
+        <entry key="Title">
+          <string>Aspose</string>
+        </entry>
+        <entry key="Creator">
+          <string>Aspose.Pdf.SvgToPdfConverter</string>
+        </entry>
+      </dict>
+    </object>
+    <object id="6" gen="0">
+      <stream>
+        <entry key="Filter">
+          <name>FlateDecode</name>
+        </entry>
+        <entry key="Length">
+          <num>0</num>
+        </entry>
+      </stream>
+    </object>
+    <object id="7" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Page</name>
+        </entry>
+        <entry key="Parent">
+          <ref id="3" gen="0" />
+        </entry>
+        <entry key="MediaBox">
+          <arr>
+            <entry index="0">
+              <num>0</num>
+            </entry>
+            <entry index="1">
+              <num>0</num>
+            </entry>
+            <entry index="2">
+              <num>384</num>
+            </entry>
+            <entry index="3">
+              <num>384</num>
+            </entry>
+          </arr>
+        </entry>
+        <entry key="Contents">
+          <ref id="8" gen="0" />
+        </entry>
+        <entry key="Resources">
+          <dict>
+            <entry key="Font">
+              <dict>
+                <entry key="C0_0">
+                  <ref id="13" gen="0" />
+                </entry>
+              </dict>
+            </entry>
+          </dict>
+        </entry>
+        <entry key="CropBox">
+          <arr>
+            <entry index="0">
+              <num>0</num>
+            </entry>
+            <entry index="1">
+              <num>0</num>
+            </entry>
+            <entry index="2">
+              <num>384</num>
+            </entry>
+            <entry index="3">
+              <num>384</num>
+            </entry>
+          </arr>
+        </entry>
+      </dict>
+    </object>
+    <object id="8" gen="0">
+      <stream>
+        <entry key="Filter">
+          <name>FlateDecode</name>
+        </entry>
+        <entry key="Length">
+          <num>570</num>
+        </entry>eJyFVU2PEzEMvedX5IxE8GfiSIjDIoS0t0W9IcRhpS5C7QEu/H2cmSntxoOqURUndexnv+eZ9CthBn/ejoVN8vM5jbPx/H5J4y/IXz4npPzHd4/++5m4WcZO+bxaAqVyUySCBoyZtRcT8LPtoNfSerXezAyNa2biooSmoKadLVco0gxZUJUaO4x03+eUyFohz0CaSQq6WzNQbOqwSLhwJbHWOvXac10wVw+9rqcUkNcINcQNMHaw3/dx7HPgkNoBR4ADuydY1pOvoczYiGuTAozQ5B3sweeUIqEz5VEUm2bGujIwrNGGCT+/hhwiBzg7Ndz3OaUQ+Dbpnn4uFTynhzfpaZmSMRw+Jauezom6lEbSm14ku1yyXqgpMIGwaLsJdLEGkfM635r3VzkfFzTrqC4zi16JOp6L5cX6ZL+yncFhu8dm/ZjDkNI25IvVtAijJ1bsOroltaAQslYCxJaxYiHr7F3uXVAysRSh6i22CjxiSC/avO+M3KsMou77uEKISkOoLkpw+rxubsVc2VW4dTPOBFa0moqzBeJUIa/Yx7qKbVg+8HMVi+MMPMQPoHYque/j6UPgmHqn1ZdqPMlmjVC0V/bcmNC6GVQgYKeS4OPpA9lBDkEwm57GunIyLKd3rmIcB+AhfgC1U8l9n/H+mQOH1OPiHsiVk+N4GTwc0ruP8B2ykU/T4Xj9gt58XiEfztc9ViqEoA2dJ+RipIJAw+frewBqH77lw+N/7v/bQn5Jnw7p6S9viIhi</stream>
+    </object>
+    <object id="9" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Font</name>
+        </entry>
+        <entry key="Subtype">
+          <name>CIDFontType2</name>
+        </entry>
+        <entry key="CIDSystemInfo">
+          <ref id="11" gen="0" />
+        </entry>
+        <entry key="BaseFont">
+          <name>ArialBold</name>
+        </entry>
+        <entry key="FontDescriptor">
+          <ref id="10" gen="0" />
+        </entry>
+        <entry key="CIDToGIDMap">
+          <ref id="12" gen="0" />
+        </entry>
+        <entry key="W">
+          <arr>
+            <entry index="0">
+              <num>39</num>
+            </entry>
+            <entry index="1">
+              <arr>
+                <entry index="0">
+                  <num>722.16796875</num>
+                </entry>
+              </arr>
+            </entry>
+          </arr>
+        </entry>
+        <entry key="DW">
+          <num>1000</num>
+        </entry>
+        <entry key="DW2">
+          <arr>
+            <entry index="0">
+              <num>880</num>
+            </entry>
+            <entry index="1">
+              <num>-1000</num>
+            </entry>
+          </arr>
+        </entry>
+      </dict>
+    </object>
+    <object id="10" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>FontDescriptor</name>
+        </entry>
+        <entry key="FontName">
+          <name>ArialBold</name>
+        </entry>
+        <entry key="FontBBox">
+          <arr>
+            <entry index="0">
+              <num>-627</num>
+            </entry>
+            <entry index="1">
+              <num>-376</num>
+            </entry>
+            <entry index="2">
+              <num>2000</num>
+            </entry>
+            <entry index="3">
+              <num>1055</num>
+            </entry>
+          </arr>
+        </entry>
+        <entry key="ItalicAngle">
+          <num>0</num>
+        </entry>
+        <entry key="Ascent">
+          <num>905</num>
+        </entry>
+        <entry key="Descent">
+          <num>-211</num>
+        </entry>
+        <entry key="Flags">
+          <num>32</num>
+        </entry>
+        <entry key="CapHeight">
+          <num>650</num>
+        </entry>
+        <entry key="StemV">
+          <num>0</num>
+        </entry>
+        <entry key="CIDSet">
+          <ref id="15" gen="0" />
+        </entry>
+      </dict>
+    </object>
+    <object id="11" gen="0">
+      <dict>
+        <entry key="Registry">
+          <string>Adobe</string>
+        </entry>
+        <entry key="Ordering">
+          <string>Identity</string>
+        </entry>
+        <entry key="Supplement">
+          <num>0</num>
+        </entry>
+      </dict>
+    </object>
+    <object id="12" gen="0">
+      <stream>
+        <entry key="Length">
+          <num>80</num>
+        </entry>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACc=</stream>
+    </object>
+    <object id="13" gen="0">
+      <dict>
+        <entry key="Type">
+          <name>Font</name>
+        </entry>
+        <entry key="Subtype">
+          <name>Type0</name>
+        </entry>
+        <entry key="BaseFont">
+          <name>HEQTLU+ArialBold</name>
+        </entry>
+        <entry key="Encoding">
+          <name>Identity-H</name>
+        </entry>
+        <entry key="DescendantFonts">
+          <arr>
+            <entry index="0">
+              <ref id="9" gen="0" />
+            </entry>
+          </arr>
+        </entry>
+        <entry key="ToUnicode">
+          <ref id="14" gen="0" />
+        </entry>
+      </dict>
+    </object>
+    <object id="14" gen="0">
+      <stream>
+        <entry key="Length">
+          <num>424</num>
+        </entry>
+        <entry key="Type">
+          <name>CMap</name>
+        </entry>
+        <entry key="CMapName">
+          <name>Aspose-Identity-UCS</name>
+        </entry>
+        <entry key="CIDSystemInfo">
+          <ref id="11" gen="0" />
+        </entry>
+        <entry key="WMode">
+          <num>0</num>
+        </entry>L0NJREluaXQgL1Byb2NTZXQgZmluZHJlc291cmNlIGJlZ2luDQoNCjEyIGRpY3QgYmVnaW4NCg0KYmVnaW5jbWFwDQoNCi9DSURTeXN0ZW1JbmZvIDMgZGljdCBkdXAgYmVnaW4NCi9SZWdpc3RyeSAoQWRvYmUpIGRlZg0KL09yZGVyaW5nIChJZGVudGl0eSkgZGVmDQovU3VwcGxlbWVudCAwIGRlZg0KZW5kIGRlZg0KDQovQ01hcE5hbWUgL0FzcG9zZS1JZGVudGl0eS1VQ1MgZGVmDQovQ01hcFR5cGUgMiBkZWYNCi9XTW9kZSAwIGRlZg0KDQoxIGJlZ2luY29kZXNwYWNlcmFuZ2U8MDAyNz4gPDAwMjc+DQplbmRjb2Rlc3BhY2VyYW5nZQ0KDQoxIGJlZ2luYmZyYW5nZQ0KPDAwMjc+IDwwMDI3PiA8MDA0ND4NCmVuZGJmcmFuZ2UNCmVuZGNtYXANCkNNYXBOYW1lIGN1cnJlbnRkaWN0IC9DTWFwIGRlZmluZXJlc291cmNlIHBvcA0KZW5kDQplbmQNCg==</stream>
+    </object>
+    <object id="15" gen="0">
+      <stream>
+        <entry key="Length">
+          <num>5</num>
+        </entry>AAAAAAE=</stream>
+    </object>
+  </objects>
+  <trailer>
+    <dict>
+      <entry key="Root">
+        <ref id="1" gen="0" />
+      </entry>
+      <entry key="Info">
+        <ref id="4" gen="0" />
+      </entry>
+      <entry key="ID">
+        <arr>
+          <entry index="0">
+            <string>E8-1F-BB-12-C0-D</string>
+          </entry>
+          <entry index="1">
+            <string>E8-1F-BB-12-C0-D</string>
+          </entry>
+        </arr>
+      </entry>
+      <entry key="Size">
+        <num>7</num>
+      </entry>
+    </dict>
+  </trailer>
+</document>
