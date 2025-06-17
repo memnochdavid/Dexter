@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,10 +62,14 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonTypeI
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegas
 import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalAnimationApi::class, ExperimentalFoundationApi::class) // Añadir ExperimentalFoundationApi
+@OptIn(
+    ExperimentalAnimationApi::class,
+    ExperimentalFoundationApi::class
+) // Añadir ExperimentalFoundationApi
 @Composable
 fun DetallesDesplegables(
     pokemon: PokemonDetailResponse,
@@ -159,7 +164,8 @@ fun DetallesDesplegables(
                 ) {
                     IconButton(
                         onClick = {
-                            selectedContent = page // Esto disparará el LaunchedEffect para mover el Pager
+                            selectedContent =
+                                page // Esto disparará el LaunchedEffect para mover el Pager
                         },
                         modifier = Modifier.align(Alignment.Center)
                     ) {
@@ -174,9 +180,9 @@ fun DetallesDesplegables(
                                 ContentPage.REGI -> "Regis"
                             },
                             colorFondo = if (selectedContent == page) getPokemonTypeColor(pokemon.types[0].type.name) else Color.Transparent,
-                            colorTexto = if((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page){
+                            colorTexto = if ((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             }
                         )
@@ -243,55 +249,63 @@ fun DetallesDesplegables(
                                 CircularProgressIndicator(color = color_progress_bar)
                             }
                         } else if (evolutionChainDetailResponse != null) {
-                            Column(
+                            LazyColumn(
                                 modifier = Modifier
-                                    .fillMaxSize() // Ocupa todo el espacio del Pager en esta página
-//                                    .verticalScroll(rememberScrollState()) // Permite scroll vertical si el contenido es largo
+                                    .fillMaxSize() // Esto le da restricciones máximas
                                     .padding(bottom = 8.dp) // Padding en la parte inferior del contenido scrolleable
                             ) {
-                                PokemonEvolutionChainView(
-                                    evolutionChainResponse = evolutionChainDetailResponse,
-                                    onPokemonClick = onEvolutionPokemonClick,
-                                    // Asumo que tienes estas funciones de color o pásalas como parámetros
-                                    color1 = getPokemonTypeColor(
-                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
-                                    ),
-                                    color2 = getPokemonTypeColorClear(
-                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
-                                    ),
-                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
-                                        Color.White
-                                    } else {
-                                        CardBorder
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth() // Que ocupe el ancho disponible
-                                    // .wrapContentHeight() // No es estrictamente necesario aquí, Column maneja la altura
-                                )
-                                Spacer(Modifier.height(16.dp)) // Espacio entre las dos vistas
-                                PokemonSpecialFormsView(
-                                    pokemonSpeciesUrl = pokemon.species.url,
-                                    pokemonName = pokemon.name, // Nombre base para evitar auto-clics
-                                    pokemonApiService = pokemonApiService,
-                                    onFormClick = { formName ->
-                                        onEvolutionPokemonClick(formName) // Navegar al hacer clic en una forma
-                                    },
-                                    // Asumo que tienes estas funciones de color o pásalas como parámetros
-                                    cardColor = getPokemonTypeColor(
-                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
-                                    ),
-                                    itemCardColor = getPokemonTypeColorClear(
-                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
-                                    ),
-                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
-                                        Color.White
-                                    } else {
-                                        CardBorder
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth() // Que ocupe el ancho disponible
-                                    // .wrapContentHeight() // No es estrictamente necesario aquí
-                                )
+                                item {
+
+                                    PokemonEvolutionChainView(
+                                        evolutionChainResponse = evolutionChainDetailResponse,
+                                        onPokemonClick = onEvolutionPokemonClick,
+                                        // Asumo que tienes estas funciones de color o pásalas como parámetros
+                                        color1 = getPokemonTypeColor(
+                                            pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                        ),
+                                        color2 = getPokemonTypeColorClear(
+                                            pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                        ),
+                                        colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
+                                            Color.White
+                                        } else {
+                                            CardBorder
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight(0.5f)
+                                        // .wrapContentHeight() // No es estrictamente necesario aquí, Column maneja la altura
+                                    )
+                                }
+                                item {
+                                    Spacer(Modifier.height(16.dp)) // Espacio entre las dos vistas
+                                }
+                                item {
+                                    PokemonSpecialFormsView(
+                                        pokemonSpeciesUrl = pokemon.species.url,
+                                        pokemonName = pokemon.name, // Nombre base para evitar auto-clics
+                                        pokemonApiService = pokemonApiService,
+                                        onFormClick = { formName ->
+                                            onEvolutionPokemonClick(formName) // Navegar al hacer clic en una forma
+                                        },
+                                        // Asumo que tienes estas funciones de color o pásalas como parámetros
+                                        cardColor = getPokemonTypeColor(
+                                            pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                        ),
+                                        itemCardColor = getPokemonTypeColorClear(
+                                            pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                        ),
+                                        colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
+                                            Color.White
+                                        } else {
+                                            CardBorder
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth() // Que ocupe el ancho disponible
+                                            .fillMaxHeight(0.5f)
+                                        // .wrapContentHeight() // No es estrictamente necesario aquí
+                                    )
+                                }
                             }
                         } else {
                             Box(
@@ -310,16 +324,18 @@ fun DetallesDesplegables(
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceBetween
-                        ){
+                        ) {
                             //descripción
                             Row(
-                                modifier = Modifier.fillMaxSize().weight(0.55f),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .weight(0.55f),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
-                            ){
+                            ) {
                                 description?.let { descText ->
                                     MuestraDesc(
-                                        nombrePokemon = pokemon.name,
+                                        numPokemon = pokemon.id.toString(),
                                         desc = descText,
                                         colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
                                         colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
@@ -328,16 +344,33 @@ fun DetallesDesplegables(
                                             CardBorder
                                         },
                                     )
-                                } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text("Descripción no disponible.")
+                                } ?: Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val descFormaEspecial =
+                                        descripcionesMegas.find { it.pokeId == pokemon.id }
+                                    MuestraDesc(
+                                        numPokemon = pokemon.id.toString(),
+                                        desc = descFormaEspecial?.desc
+                                            ?: "No hay descripción disponible.",
+                                        colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+                                        colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
+                                            Color.White
+                                        } else {
+                                            CardBorder
+                                        },
+                                    )
                                 }
                             }
                             //sprites
                             Row(
-                                modifier = Modifier.fillMaxSize().weight(0.45f),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .weight(0.45f),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
-                            ){
+                            ) {
                                 LiveSprites(
                                     pokemonName = pokemon.name,
                                     colorTexto = CardBorder,
@@ -423,11 +456,14 @@ fun DetallesDesplegables(
 
 
 @Composable
-fun TextoMenu(title: String, colorFondo:Color, colorTexto:Color) {
+fun TextoMenu(title: String, colorFondo: Color, colorTexto: Color) {
     Box(
-        modifier = Modifier.background(colorFondo).fillMaxSize().clip(RoundedCornerShape(2.dp)),
+        modifier = Modifier
+            .background(colorFondo)
+            .fillMaxSize()
+            .clip(RoundedCornerShape(2.dp)),
         contentAlignment = Alignment.Center
-    ){
+    ) {
         Text(
             text = title,
             fontWeight = FontWeight.Bold,

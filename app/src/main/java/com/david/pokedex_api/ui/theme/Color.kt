@@ -2,13 +2,15 @@ package com.david.pokedex_api.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-//sistem
+//sistema
 val background_app = Color(0xFFECECEC)
 val color_boton_busqueda = Color(0xFF2D82DC)
 val color_menu_busqueda1 = Color(0xC88269DA)
 val color_menu_busqueda2 = Color(0xC46650A4)
 val color_progress_bar = Color(0xFF247FEB)
 
+
+//paleta
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)
@@ -52,7 +54,7 @@ val azul40 = Color(0xFF292991)
 val azul20 = Color(0xFF14145A)
 
 
-//colores para los tipos de lo pokémon
+//colores para los tipos de los pokémon
 
 //tema light
 val color_planta_light = Color(0xFF4BAE4F)
@@ -129,7 +131,7 @@ val yellow_api = Color(0xFFF6DE76)
 
 
 
-
+/*
 //tema dark
 val color_planta_dark = Color(0xFF3A863D)
 val color_agua_dark = Color(0xFF1E6AC4)
@@ -149,3 +151,4 @@ val color_siniestro_dark = Color(0xFF463838)
 val color_normal_dark = Color(0xFF7C7E7C)
 val color_volador_dark = Color(0xFF5C87AF)
 val color_fantasma_dark = Color(0xFF5E335E)
+*/

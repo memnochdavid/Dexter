@@ -1,6 +1,7 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +77,7 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly, // Center para centrar el texto si es el único elemento
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -85,45 +86,54 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
-                color = colorTexto, // Asegúrate que CardBorder esté definido en tu tema o sea un Color
+                color = colorTexto,
                 modifier = Modifier
-                    // .wrapContentHeight() // No es necesario si el Row tiene altura fija o se ajusta al contenido
                     .padding(vertical = 10.dp, horizontal = 10.dp)
             )
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp), // Aumenté un poco el padding horizontal para el contenido
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val maxIndividualStatValue = 255f
+            // Asumiendo 6 estadísticas principales para el cálculo del total máximo.
+            // Si el número de stats puede variar o si `stats` no siempre tiene 6 elementos,
+            // este cálculo debería ser más dinámico (ej: maxIndividualStatValue * stats.size)
+            // o basarse en un número fijo de estadísticas esperadas para el total.
+            val expectedNumberOfStatsForTotal = 6
+            val maxTotalStatValue = maxIndividualStatValue * expectedNumberOfStatsForTotal
+
+            val totalBaseStat = remember(stats) { stats.sumOf { it.baseStat } }
+            val targetTotalProgress = if (maxTotalStatValue > 0) totalBaseStat / maxTotalStatValue else 0f
+
+            var animationStarted by remember { mutableStateOf(false) }
+
+            // Especificaciones de animación (pueden ser las mismas para todas las animaciones)
+            val animationSpecFloat = tween<Float>(durationMillis = 1000, delayMillis = 200)
+            val animationSpecInt = tween<Int>(durationMillis = 1000, delayMillis = 200)
+
             stats.forEach { statSlot ->
-                val maxStatValue = 255f
-                // El progreso objetivo real
-                val targetProgress = statSlot.baseStat / maxStatValue
+                val targetProgress = statSlot.baseStat / maxIndividualStatValue
+                val targetNumericStat = statSlot.baseStat
 
-                // Estado para controlar cuándo iniciar la animación (por ejemplo, cuando el composable aparece)
-                var animationStarted by remember { mutableStateOf(false) }
-
-                // Anima el valor del progreso
                 val animatedProgress by animateFloatAsState(
-                    targetValue = if (animationStarted) targetProgress else 0f, // Anima a targetProgress o inicia en 0
-                    animationSpec = tween(
-                        durationMillis = 1000, // Duración de la animación en milisegundos
-                        delayMillis = 200 // Retraso antes de que comience la animación
-                    ),
-                    label = "StatProgressAnimation" // Etiqueta para herramientas de depuración
+                    targetValue = if (animationStarted) targetProgress else 0f,
+                    animationSpec = animationSpecFloat,
+                    label = "StatProgressAnimation_${statSlot.stat.name}"
                 )
 
-                // Inicia la animación cuando el composable entra en la composición
-                LaunchedEffect(Unit) {
-                    animationStarted = true
-                }
+                val animatedNumericStat by animateIntAsState(
+                    targetValue = if (animationStarted) targetNumericStat else 0,
+                    animationSpec = animationSpecInt,
+                    label = "StatNumericAnimation_${statSlot.stat.name}"
+                )
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp), // Ajustado el padding vertical
+                        .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -136,25 +146,25 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
                     )
 
                     Text(
-                        text = statSlot.baseStat.toString(),
+                        text = animatedNumericStat.toString(),
                         fontSize = 14.sp,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = colorTexto,
                         modifier = Modifier
                             .weight(1.5f)
-                            .padding(horizontal = 8.dp), // Ajustado padding
+                            .padding(horizontal = 8.dp),
                         textAlign = TextAlign.End
                     )
 
                     Box(
                         modifier = Modifier
                             .weight(6.0f)
-                            .height(12.dp) // Ligeramente más alta para mejor visualización
-                            .clip(RoundedCornerShape(8.dp)) // Bordes un poco más redondeados
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(8.dp))
                     ) {
                         LinearProgressIndicator(
-                            progress = { animatedProgress }, // Usa el valor animado aquí
+                            progress = { animatedProgress },
                             modifier = Modifier.fillMaxSize(),
                             color = getStatColor(statSlot.stat.name),
                             trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
@@ -162,6 +172,69 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
                         )
                     }
                 }
+            }
+
+            // --- Fila para el Total ---
+            Spacer(modifier = Modifier.height(8.dp)) // Un pequeño espacio antes del total
+
+            val animatedTotalNumericStat by animateIntAsState(
+                targetValue = if (animationStarted) totalBaseStat else 0,
+                animationSpec = animationSpecInt,
+                label = "TotalStatNumericAnimation"
+            )
+
+            val animatedTotalProgress by animateFloatAsState(
+                targetValue = if (animationStarted) targetTotalProgress else 0f,
+                animationSpec = animationSpecFloat,
+                label = "TotalStatProgressAnimation"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Total",
+                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorTexto,
+                    fontWeight = FontWeight.Bold, // Poner en negrita el "Total"
+                    modifier = Modifier.weight(2.5f)
+                )
+
+                Text(
+                    text = animatedTotalNumericStat.toString(),
+                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorTexto,
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .padding(horizontal = 8.dp),
+                    textAlign = TextAlign.End
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(6.0f)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
+                    LinearProgressIndicator(
+                        progress = { animatedTotalProgress },
+                        modifier = Modifier.fillMaxSize(),
+                        color = getStatColor("total"), // Usa un color específico para el total
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        strokeCap = StrokeCap.Butt
+                    )
+                }
+            }
+            // --- Fin Fila para el Total ---
+
+            LaunchedEffect(Unit) { // Mover LaunchedEffect aquí para que se active una sola vez para todas las animaciones
+                animationStarted = true
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

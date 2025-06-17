@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun MuestraDesc(
-    nombrePokemon: String,
+    numPokemon: String,
     desc: String,
     colorFondo: Color,
     colorTexto: Color)
