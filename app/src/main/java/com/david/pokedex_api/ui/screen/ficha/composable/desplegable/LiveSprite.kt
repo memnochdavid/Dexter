@@ -34,6 +34,7 @@ import coil.util.DebugLogger
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.sql.SQLOutput
 
 
 const val BASE_GIF_URL = "https://projectpokemon.org/images/normal-sprite/"
@@ -65,6 +66,14 @@ fun LiveSprites(
     colorTexto : Color,
     modifier: Modifier = Modifier
 ){
+    // Adaptar el nombre del Pokémon para las mega evoluciones X/Y
+    val adaptedPokemonName = when {
+        pokemonName.contains("-mega-x") -> pokemonName.replace("-mega-x", "-megax")
+        pokemonName.contains("-mega-y") -> pokemonName.replace("-mega-y", "-megay")
+        else -> pokemonName
+    }
+    println("LiveSprites: NOMBRE ORIGINAL: - $pokemonName, NOMBRE ADAPTADO: - $adaptedPokemonName") // Para depuración
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -94,7 +103,7 @@ fun LiveSprites(
             verticalAlignment = Alignment.CenterVertically
         ){
             Row(
-                modifier = modifier.weight(0.45f),
+                modifier = modifier.weight(0.45f), // Considera si este peso sigue siendo adecuado
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ){
@@ -104,7 +113,7 @@ fun LiveSprites(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
                     PokemonAnimatedSpriteWithAccompanist(
-                        pokemonName = pokemonName,
+                        pokemonName = adaptedPokemonName, // Usar el nombre adaptado
                         esShiny = false,
                         modifier = Modifier.fillMaxSize(1f)
                     )
@@ -115,7 +124,7 @@ fun LiveSprites(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
                     PokemonAnimatedSpriteWithAccompanist(
-                        pokemonName = pokemonName,
+                        pokemonName = adaptedPokemonName, // Usar el nombre adaptado
                         esShiny = true,
                         modifier = Modifier.fillMaxSize(1f)
                     )
