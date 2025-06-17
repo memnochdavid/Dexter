@@ -1,4 +1,4 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.TypeResponseSlot
 import com.david.pokedex_api.api.service.PokeApiService
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChipSmall
 import com.david.pokedex_api.ui.theme.CardBorder // Asumo que tienes este color
+import com.david.pokedex_api.ui.theme.color_progress_bar
 import com.david.pokedex_api.util.TypeInteraction
 import com.david.pokedex_api.util.getCombinedDefensiveInteractions
 
@@ -79,7 +80,7 @@ fun PokemonTypeInteractionsTable(
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = color_progress_bar)
         }
     } else if (calculatedInteractions.isNotEmpty()) {
         // El resto del Composable es igual que antes, mostrando la tabla

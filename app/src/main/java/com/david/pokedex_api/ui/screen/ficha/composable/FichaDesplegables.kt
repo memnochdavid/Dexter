@@ -1,17 +1,8 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.with
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,16 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -56,18 +41,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.distinctUntilChanged
-import androidx.lifecycle.map
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.theme.CardBorder
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import androidx.compose.runtime.rememberCoroutineScope // <--- IMPORTANTE: Añadir este import
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.motionEventSpy
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.LiveSprites
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraDesc
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraStatsBase
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonAbilitiesList
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.PokemonEvolutionChainView
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonMovesList
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonRegionalFormsView
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.PokemonSpecialFormsView
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonTypeInteractionsTable
+import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalFoundationApi::class) // Añadir ExperimentalFoundationApi
@@ -230,9 +224,9 @@ fun DetallesDesplegables(
                         MuestraStatsBase(
                             stats = pokemon.stats,
                             colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
-                            colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             },
                         )
@@ -246,24 +240,28 @@ fun DetallesDesplegables(
                                     .padding(vertical = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator()
+                                CircularProgressIndicator(color = color_progress_bar)
                             }
                         } else if (evolutionChainDetailResponse != null) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize() // Ocupa todo el espacio del Pager en esta página
-                                    .verticalScroll(rememberScrollState()) // Permite scroll vertical si el contenido es largo
+//                                    .verticalScroll(rememberScrollState()) // Permite scroll vertical si el contenido es largo
                                     .padding(bottom = 8.dp) // Padding en la parte inferior del contenido scrolleable
                             ) {
                                 PokemonEvolutionChainView(
                                     evolutionChainResponse = evolutionChainDetailResponse,
                                     onPokemonClick = onEvolutionPokemonClick,
                                     // Asumo que tienes estas funciones de color o pásalas como parámetros
-                                    color1 = getPokemonTypeColor(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
-                                    color2 = getPokemonTypeColorClear(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
-                                    colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                    color1 = getPokemonTypeColor(
+                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                    ),
+                                    color2 = getPokemonTypeColorClear(
+                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                    ),
+                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                         Color.White
-                                    }else{
+                                    } else {
                                         CardBorder
                                     },
                                     modifier = Modifier
@@ -279,11 +277,15 @@ fun DetallesDesplegables(
                                         onEvolutionPokemonClick(formName) // Navegar al hacer clic en una forma
                                     },
                                     // Asumo que tienes estas funciones de color o pásalas como parámetros
-                                    cardColor = getPokemonTypeColor(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
-                                    itemCardColor = getPokemonTypeColorClear(pokemon.types.firstOrNull()?.type?.name ?: "normal"),
-                                    colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                    cardColor = getPokemonTypeColor(
+                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                    ),
+                                    itemCardColor = getPokemonTypeColorClear(
+                                        pokemon.types.firstOrNull()?.type?.name ?: "normal"
+                                    ),
+                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                         Color.White
-                                    }else{
+                                    } else {
                                         CardBorder
                                     },
                                     modifier = Modifier
@@ -320,9 +322,9 @@ fun DetallesDesplegables(
                                         nombrePokemon = pokemon.name,
                                         desc = descText,
                                         colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
-                                        colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                                        colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                             Color.White
-                                        }else{
+                                        } else {
                                             CardBorder
                                         },
                                     )
@@ -350,9 +352,9 @@ fun DetallesDesplegables(
                             moves = pokemon.moves,
                             backgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
                             pokemonApiService = pokemonApiService,
-                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                            textColor = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             },
                             modifier = Modifier.fillMaxHeight() // FillMaxHeight dentro del Box de la página
@@ -363,9 +365,9 @@ fun DetallesDesplegables(
                         PokemonAbilitiesList(
                             abilities = pokemon.abilities,
                             backgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
-                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                            textColor = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             },
                             pokemonApiService = pokemonApiService,
@@ -378,9 +380,9 @@ fun DetallesDesplegables(
                             pokemonTypes = pokemon.types,
                             pokemonApiService = pokemonApiService,
                             tableBackgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
-                            textColor = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                            textColor = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             },
                             // modifier = Modifier.fillMaxHeight() // Si es necesario
@@ -396,9 +398,9 @@ fun DetallesDesplegables(
                                 onEvolutionPokemonClick(formName)
                             },
                             cardColor = getPokemonTypeColor(pokemon.types[0].type.name),
-                            colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
-                            }else{
+                            } else {
                                 CardBorder
                             },
                             itemCardColor = getPokemonTypeColorClear(pokemon.types[0].type.name),

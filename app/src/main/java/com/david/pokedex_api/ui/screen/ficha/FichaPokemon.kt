@@ -1,4 +1,4 @@
-package com.david.pokedex_api.ui.screen
+package com.david.pokedex_api.ui.screen.ficha
 
 import android.annotation.SuppressLint
 import android.util.Log
@@ -7,31 +7,21 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,23 +39,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.constraintlayout.compose.Dimension
 import coil.compose.AsyncImage
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
-import com.david.pokedex_api.ui.composables.DetallesDesplegables
-import com.david.pokedex_api.ui.composables.Lottie
-import com.david.pokedex_api.ui.composables.NombreNumAlturaPeso
-import com.david.pokedex_api.ui.composables.PokemonTypeChip
-import com.david.pokedex_api.ui.composables.esTipoColorOscuro
-import com.david.pokedex_api.ui.composables.getPokemonTypeColor
-import com.david.pokedex_api.ui.composables.getPokemonTypeColorClear
-import com.david.pokedex_api.ui.composables.getPokemonTypeToIcon
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
+import com.david.pokedex_api.util.Lottie
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
+import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.util.shimmerBrush
@@ -196,7 +184,7 @@ fun PokemonDetailsView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.30f)
+                .height(200.dp)
                 .constrainAs(imagen) {
                     top.linkTo(parent.top)
                     start.linkTo(parent.start)
@@ -225,9 +213,9 @@ fun PokemonDetailsView(
             ){
                 NombreNumAlturaPeso(
                     colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
-                    colorTexto = if(esTipoColorOscuro(pokemon.types[0].type.name)){
+                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                         Color.White
-                    }else{
+                    } else {
                         CardBorder
                     },
                     nombre = pokemon.name,

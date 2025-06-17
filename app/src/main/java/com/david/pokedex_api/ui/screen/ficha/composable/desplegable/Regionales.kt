@@ -1,11 +1,10 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -13,16 +12,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.david.pokedex_api.api.model.SpecialForm
 import com.david.pokedex_api.api.service.PokeApiService
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.SpecialFormItemView
+import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlinx.coroutines.launch
 
 // Reutilizamos la data class SpecialForm, o puedes crear una específica si prefieres
@@ -147,7 +144,7 @@ fun PokemonRegionalFormsView(
 
     if (isLoading) {
         Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = color_progress_bar)
         }
         return
     }

@@ -4,7 +4,6 @@ package com.david.pokedex_api.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
-import android.util.Log
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,26 +19,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.content.ContextCompat.getDrawable
-import androidx.core.text.color
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
-import com.david.pokedex_api.api.model.PokemonSummary
 import com.david.pokedex_api.api.model.TypeResponseSlot
 import com.david.pokedex_api.api.service.PokeApiService
-import com.david.pokedex_api.ui.composables.ALL_POKEMON_TYPES
-import com.david.pokedex_api.ui.theme.blanco5
-import com.david.pokedex_api.ui.theme.rojo20
+import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.david.pokedex_api.R
 import com.david.pokedex_api.ui.theme.*
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+
 
 //globales
 var muestraDesc by mutableStateOf(false)
@@ -345,4 +340,49 @@ fun GifAnimado(drawableId: Int, modifier: Modifier = Modifier) {
         contentDescription = "Loading animation",
         modifier = modifier
     )
+}
+
+
+fun formatApiName(apiName: String?): String {
+    return apiName?.replace("-", " ")?.replaceFirstChar {
+        if (it.isLowerCase()) it.titlecase() else it.toString()
+    } ?: "Desconocido" // O devuelve una cadena vacía o maneja el nulo como prefieras
+}
+
+// También necesitarás formatPokemonName, que es similar pero puede tener ligeras diferencias
+// si quieres una capitalización específica para nombres de Pokémon.
+//fun formatPokemonName(apiName: String?): String {
+//    return apiName?.replace("-", " ")?.replaceFirstChar {
+//        if (it.isLowerCase()) it.titlecase() else it.toString()
+//    } ?: "Pokémon Desconocido"
+//}
+
+fun translateEvolutionTrigger(triggerApiName: String?): String {
+    if (triggerApiName.isNullOrBlank()) {
+        return "Desconocido"
+    }
+
+    // Usa Locale.getDefault() de java.util.Locale
+    return when (triggerApiName.lowercase()) {
+        "level-up" -> "Nivel"
+        "trade" -> "Intercambio"
+        "use-item" -> "Usar objeto"
+        "shed" -> "Mudar piel"
+        "spin" -> "Girar"
+        "tower-of-darkness" -> "Torre de la Oscuridad"
+        "tower-of-waters" -> "Torre de las Aguas"
+        "three-critical-hits" -> "3 Golpes Críticos"
+        "take-damage" -> "Recibir daño"
+        "other" -> "Otro método"
+        "agile-style-move" -> "Mov. Estilo Ágil"
+        "strong-style-move" -> "Mov. Estilo Fuerte"
+        "recoil-damage" -> "Daño de retroceso"
+        else -> {
+            triggerApiName.split('-').joinToString(" ") { part ->
+                part.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase() else it.toString()
+                }
+            }
+        }
+    }
 }

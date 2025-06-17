@@ -1,17 +1,14 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import android.content.Context
+import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.util.Log
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -31,8 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
-import coil.compose.AsyncImage
-import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import coil.util.DebugLogger
@@ -159,7 +154,7 @@ fun PokemonAnimatedSpriteWithAccompanist(
             loadDrawableFromUrl(context, imageUrl, imageLoader)
         }
         Log.d("PokemonGif", "Drawable para $pokemonName: ${drawable?.javaClass?.name}")
-        if (drawable is android.graphics.drawable.Animatable) {
+        if (drawable is Animatable) {
             Log.d("PokemonGif", "$pokemonName ES Animatable.")
         } else {
             Log.d("PokemonGif", "$pokemonName NO es Animatable. URL podría ser incorrecta o no es un GIF animado.")

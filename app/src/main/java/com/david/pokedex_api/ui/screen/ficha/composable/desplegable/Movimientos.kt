@@ -1,6 +1,5 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -9,19 +8,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +39,10 @@ import com.david.pokedex_api.api.model.VersionGroupDetail // Asegúrate que esta
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.theme.CardBorder // Asumo que tienes este color definido
 import com.david.pokedex_api.R
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.theme.color_progress_bar
 
 // Función auxiliar para formatear el nombre del método de aprendizaje (opcional)
 fun formatMoveLearnMethod(method: String): String {
@@ -248,7 +246,7 @@ fun MoveRow(
     ) {
         if (isLoadingDetails && (moveTypeName == null || movePower == null || moveDamageClassName == null)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = color_progress_bar)
             }
         } else {
             Column {

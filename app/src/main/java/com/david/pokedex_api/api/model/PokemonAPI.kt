@@ -302,6 +302,7 @@ data class AbilityDetailResponse(
 data class TypeDetailResponse(
     val id: Int,
     val name: String,
+    val names: List<NameEntry>,
     @SerializedName("damage_relations")
     val damageRelations: TypeDamageRelations
     // ... otros campos si los necesitas
@@ -350,4 +351,31 @@ data class TypeListResponse(
     @SerializedName("next") val next: String?, // URL for the next page of results, if any (types usually fit in one page)
     @SerializedName("previous") val previous: String?, // URL for the previous page of results, if any
     @SerializedName("results") val results: List<NamedApiResource> // The list of Pokémon types
+)
+data class ItemDetailResponse(
+    val id: Int,
+    val name: String, // Nombre original/API
+    val names: List<NameEntry>, // Nombres localizados
+    // ... otros campos del item si los necesitas ...
+    val sprites: ItemSprites? // Ejemplo: sprites.default
+)
+
+data class ItemSprites(
+    val default: String?
+)
+data class DisplayableEvolutionStage(
+    val pokemonName: String,         // Nombre del Pokémon ya formateado/traducido
+    val pokemonSpriteUrl: String,
+    val evolutionCondition: String?  // Condición de evolución ya construida, formateada y traducida
+    // (ej: "Nivel 36", "Piedra Trueno", "Intercambio equipando Roca del Rey")
+)
+
+data class DisplayableEvolutionChain(
+    val stages: List<DisplayableEvolutionStage>
+)
+data class GenericNamedResourceDetail(
+    val id: Int,
+    val name: String, // Nombre API original
+    val names: List<NameEntry> // Lista de nombres localizados
+    // Puedes añadir otros campos comunes si existen y son útiles
 )

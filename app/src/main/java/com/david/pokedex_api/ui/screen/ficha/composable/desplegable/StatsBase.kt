@@ -1,10 +1,8 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.copy
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -155,7 +151,7 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
                         modifier = Modifier
                             .weight(6.0f)
                             .height(12.dp) // Ligeramente más alta para mejor visualización
-//                            .clip(RoundedCornerShape(1.dp)) // Bordes un poco más redondeados
+                            .clip(RoundedCornerShape(8.dp)) // Bordes un poco más redondeados
                     ) {
                         LinearProgressIndicator(
                             progress = { animatedProgress }, // Usa el valor animado aquí

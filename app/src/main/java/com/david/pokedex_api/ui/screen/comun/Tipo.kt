@@ -1,6 +1,5 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.comun
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +38,7 @@ fun PokemonTypeChip(typeName: String, modifier: Modifier = Modifier) {
     ) {
         Surface( // Usamos Surface para poder darle forma y color de fondo
             shape = RoundedCornerShape(6.dp),
-            color = getPokemonTypeColor(typeName),//.copy(alpha = 0.2f), // Color de fondo semi-transparente
+            color = getPokemonTypeColorTypeChip(typeName),//.copy(alpha = 0.2f), // Color de fondo semi-transparente
             contentColor = blanco5, // Color del texto
 //            border = BorderStroke( // <-- AÑADIR BORDE AQUÍ
 //                width = 1.dp, // Grosor del borde
@@ -77,7 +76,7 @@ fun PokemonTypeChipSmall( // Versión más pequeña de tu PokemonTypeChip
     modifier: Modifier = Modifier,
     colorClaro : Boolean
 ) {
-    val typeColor = if(colorClaro) getPokemonTypeColorClear(typeName = typeName) else getPokemonTypeColor(typeName = typeName)
+    val typeColor = if(colorClaro) getPokemonTypeColorTypeChip(typeName = typeName) else getPokemonTypeColorTypeChip(typeName = typeName)
     // Determinar el color del texto para contraste (simple ejemplo)
     val contentColor = if (isDarkColor(typeColor)) Color.White else Color.Black
 
@@ -209,6 +208,54 @@ fun getTextColorForTypeBackground(backgroundColor: Color): Color {
     val luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
     return if (luminance > 0.5) Color.Black else Color.White // Texto negro sobre fondos claros, blanco sobre oscuros
 }
+@Composable
+fun getPokemonTypeGradientColors(typeName: String): Pair<Color, Color> {
+    return when (typeName.lowercase()) { // Convertimos a minúsculas para asegurar la coincidencia
+        "grass" -> color_planta_card_foto to color_planta_card
+        "water" -> color_agua_card_foto to color_agua_card
+        "fire" -> color_fuego_card_foto to color_fuego_card
+        "fighting" -> color_lucha_card_foto to color_lucha_card
+        "poison" -> color_veneno_card_foto to color_veneno_card
+        "steel" -> color_acero_card_foto to color_acero_card
+        "bug" -> color_bicho_card_foto to color_bicho_card
+        "dragon" -> color_dragon_card_foto to color_dragon_card
+        "electric" -> color_electrico_card_foto to color_electrico_card
+        "fairy" -> color_hada_card_foto to color_hada_card
+        "ice" -> color_hielo_card_foto to color_hielo_card
+        "psychic" -> color_psiquico_card_foto to color_psiquico_card
+        "rock" -> color_roca_card_foto to color_roca_card
+        "ground" -> color_tierra_card_foto to color_tierra_card
+        "dark" -> color_siniestro_card_foto to color_siniestro_card
+        "normal" -> color_normal_card_foto to color_normal_card
+        "flying" -> color_volador_card_foto to color_volador_card
+        "ghost" -> color_fantasma_card_foto to color_fantasma_card
+        else -> MaterialTheme.colorScheme.surface to MaterialTheme.colorScheme.surface // Color por defecto
+    }
+}
+fun getPokemonTypeColorTypeChip(typeName: String): Color {
+    return when (typeName.lowercase()) {
+        "grass" -> color_planta_light
+        "fire" -> color_fuego_light
+        "water" -> color_agua_light
+        "bug" -> color_bicho_light
+        "normal" -> color_normal_light
+        "poison" -> color_veneno_light
+        "electric" -> color_electrico_light
+        "ground" -> color_tierra_light
+        "fairy" -> color_hada_light
+        "fighting" -> color_lucha_light
+        "psychic" -> color_psiquico_light
+        "rock" -> color_roca_light
+        "ghost" -> color_fantasma_light
+        "ice" -> color_hielo_light
+        "dragon" -> color_dragon_light
+        "dark" -> color_siniestro_light
+        "steel" -> color_acero_light
+        "flying" -> color_volador_light
+        else -> Color.LightGray // Color por defecto
+    }
+}
+
 
 fun esTipoColorOscuro(nombreTipo:String): Boolean {
     return when (nombreTipo.lowercase()) {

@@ -1,45 +1,30 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion
 
 
-import androidx.activity.result.launch
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,35 +34,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.isEmpty
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.error
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.david.pokedex_api.api.model.ChainLink
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.EvolutionDetail
-import com.david.pokedex_api.api.model.SpecialForm
-import com.david.pokedex_api.api.service.PokeApiService
-import com.david.pokedex_api.ui.theme.CardBorder
-import com.david.pokedex_api.util.muestraDesc
-import com.david.pokedex_api.util.muestraEvos
-import com.david.pokedex_api.util.muestraStats
-import com.david.pokedex_api.util.vistaDatos
-import kotlinx.coroutines.delay
+import com.david.pokedex_api.api.viewModel.PokemonViewModel
+import com.david.pokedex_api.util.formatApiName
 
 fun getPokemonIdFromSpeciesUrl(url: String): Int? {
     // URL es como "https://pokeapi.co/api/v2/pokemon-species/1/"
@@ -93,31 +69,52 @@ fun getPokemonSpriteUrl(pokemonId: Int): String {
 @Composable
 fun EvolutionStageView(
     chainLink: ChainLink,
-    evolutionDetail: EvolutionDetail?, // Puede ser null para la base de la evolución
-    onClick: (String) -> Unit,
-    color: Color = Color.Black,
+    builtEvolutionCondition: String?, // <-- NUEVO: Condición ya construida por el padre
+    onClick: (String) -> Unit, // onClick seguirá usando el nombre API o el ID
+    viewModel: PokemonViewModel = viewModel(), // <-- Obtiene la instancia del ViewModel
+    color: Color = Color.LightGray, // Usar colores más neutrales por defecto o de Theme
     colorTexto: Color = Color.Black,
     modifier: Modifier = Modifier
 ) {
     val pokemonId = getPokemonIdFromSpeciesUrl(chainLink.species.url)
     val context = LocalContext.current
 
+    // Estado para el nombre localizado del Pokémon
+    var localizedPokemonName by remember(chainLink.species.name) {
+        mutableStateOf(formatApiName(chainLink.species.name)) // Nombre formateado inicial
+    }
+
+    // Carga el nombre localizado del Pokémon
+    LaunchedEffect(chainLink.species.url, chainLink.species.name) {
+        if (chainLink.species.url.isNotBlank()) {
+            localizedPokemonName = viewModel.fetchLocalizedName(
+                resourceUrl = chainLink.species.url,
+                fallbackApiName = chainLink.species.name,
+                resourceTypeHint = "pokemon-species" // o "pokemon" según tu API
+            )
+        } else {
+            localizedPokemonName = formatApiName(chainLink.species.name)
+        }
+    }
+
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top,
         modifier = modifier.padding(horizontal = 4.dp)
     ) {
         ElevatedCard(
-            onClick = { pokemonId?.let { onClick(chainLink.species.name) } },
+            onClick = { onClick(chainLink.species.name) }, // Se sigue usando el nombre API para la navegación/ID
             modifier = Modifier
-                .wrapContentSize()
-                .background(Color.Transparent),
+                .wrapContentSize(),
+            //.background(Color.Transparent), // El fondo del Card es manejado por sus colors
             shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = color) // Fondo de la tarjeta
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .background(color)
+                    //.background(color) // El color de fondo ya está en ElevatedCard
                     .padding(8.dp)
             ) {
                 if (pokemonId != null) {
@@ -126,17 +123,15 @@ fun EvolutionStageView(
                             .data(getPokemonSpriteUrl(pokemonId))
                             .crossfade(true)
                             .build(),
-                        contentDescription = chainLink.species.name,
-                        modifier = Modifier
-                            .size(72.dp),
-//                            .clip(CircleShape),
+                        contentDescription = localizedPokemonName, // Usar nombre localizado
+                        modifier = Modifier.size(72.dp),
                         contentScale = ContentScale.Fit
                     )
                 } else {
                     Spacer(modifier = Modifier.size(72.dp)) // Placeholder
                 }
                 Text(
-                    text = chainLink.species.name.replaceFirstChar { it.titlecase() },
+                    text = localizedPokemonName, // Usar nombre localizado
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     color = colorTexto,
@@ -146,66 +141,294 @@ fun EvolutionStageView(
             }
         }
         Spacer(modifier = Modifier.height(2.dp))
-        // Mostrar detalles de la evolución (cómo evoluciona a esta etapa)
-        evolutionDetail?.let { detail ->
-            val trigger = detail.trigger.name.replace("-", " ").replaceFirstChar { it.titlecase() }
-            var condition = trigger // Inicializa 'condition' con el trigger
 
-            detail.minLevel?.let { level ->
-                condition += " (Nivel $level)" // Reasigna: condition = condition + " (Nivel $level)"
-            }
-            detail.item?.name?.let { itemName ->
-                condition += "\nUsando ${itemName.replace("-", " ").replaceFirstChar { it.titlecase() }}"
-            }
-            detail.heldItem?.name?.let { heldItemName ->
-                condition += "\nCon ${heldItemName.replace("-", " ").replaceFirstChar { it.titlecase() }}"
-            }
-            detail.minHappiness?.let { happiness ->
-                condition += "\nMin. Felicidad: $happiness"
-            }
-            detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let { time ->
-                condition += "\nDurante ${time.replaceFirstChar { it.titlecase() }}"
-            }
-            detail.knownMoveType?.name?.let { moveType ->
-                condition += "\nConociendo un mov. tipo ${moveType.replaceFirstChar { it.titlecase() }}"
-            }
-            detail.minAffection?.let { affection ->
-                condition += "\nMin. Afecto: $affection"
-            }
-            detail.minBeauty?.let { beauty ->
-                condition += "\nMin. Belleza: $beauty"
-            }
-            // Añade más condiciones de EvolutionDetail aquí, siempre reasignando a 'condition'
-            // Ejemplo:
-            // detail.location?.name?.let { locationName ->
-            //     condition += "\nEn ${locationName.replace("-", " ").replaceFirstChar { it.titlecase() }}"
-            // }
-            // detail.gender?.let { genderId ->
-            //     val genderName = if (genderId == 1) "Hembra" else if (genderId == 2) "Macho" else ""
-            //     if (genderName.isNotEmpty()) condition += "\nSiendo $genderName"
-            // }
-            // detail.relativePhysicalStats?.let { relativeStats ->
-            //     val comparison = when (relativeStats) {
-            //         1 -> "Ataque > Defensa"
-            //         -1 -> "Ataque < Defensa"
-            //         0 -> "Ataque = Defensa"
-            //         else -> ""
-            //     }
-            //     if (comparison.isNotEmpty()) condition += "\nCon $comparison"
-            // }
-            // // ... y así sucesivamente para todos los campos relevantes de EvolutionDetail
-
+        // Mostrar detalles de la evolución (condición ya construida)
+        builtEvolutionCondition?.let { condition ->
             Text(
-                text = condition,
+                text = condition, // Mostrar la condición pre-construida
                 fontSize = 10.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 4.dp),
-                color = colorTexto // Asegúrate de que CardBorder esté definido en tu tema o localmente
+                modifier = Modifier.padding(bottom = 4.dp, top = 2.dp),
+                color = colorTexto
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PokemonEvolutionChainView(
+    evolutionChainResponse: EvolutionChainDetailResponse?,
+    onPokemonClick: (pokemonName: String) -> Unit,
+    viewModel: PokemonViewModel = viewModel(), // <-- Obtiene la instancia del ViewModel
+    color1: Color = MaterialTheme.colorScheme.surfaceVariant,
+    color2: Color = MaterialTheme.colorScheme.surface,
+    colorTexto: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier
+) {
+    if (evolutionChainResponse == null) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp), contentAlignment = Alignment.Center
+        ) {
+            Text("Loading evolution chain...", color = colorTexto) // Usa colorTexto
+        }
+        return
+    }
+
+    // Estas funciones de ayuda (getEvolutionSteps, etc.) deberían idealmente
+    // estar fuera del Composable o ser parte del ViewModel para evitar recalcular
+    // innecesariamente si no dependen de `remember`. Aquí las dejamos como están
+    // según tu código original, pero usando `remember` para eficiencia.
+    val branchedEvolutionData = remember(evolutionChainResponse.chain) {
+        getEvolutionSteps(evolutionChainResponse.chain)
+    }
+
+    val isLinear = remember(branchedEvolutionData) {
+        isChainPredominantlyLinear(branchedEvolutionData)
+    }
+
+    val linearEvolutionPath = remember(evolutionChainResponse.chain, isLinear) {
+        if (isLinear) {
+            flattenEvolutionChainForLinearDisplay(evolutionChainResponse.chain)
+        } else {
+            emptyList()
+        }
+    }
+
+    if (branchedEvolutionData.isEmpty() && linearEvolutionPath.isEmpty() && evolutionChainResponse.chain.evolvesTo.isEmpty()) {
+        // Modificado para también considerar el caso de un solo Pokémon sin evoluciones directas
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp), contentAlignment = Alignment.Center
+        ) {
+            // Mostrar el Pokémon base si no hay evoluciones
+            val basePokemonNameState by produceState(initialValue = formatApiName(evolutionChainResponse.chain.species.name)) {
+                if (evolutionChainResponse.chain.species.url.isNotBlank()) {
+                    value = viewModel.fetchLocalizedName(
+                        resourceUrl = evolutionChainResponse.chain.species.url,
+                        fallbackApiName = evolutionChainResponse.chain.species.name,
+                        resourceTypeHint = "pokemon-species"
+                    )
+                }
+            }
+            Text("$basePokemonNameState no tiene evoluciones.", color = colorTexto)
+        }
+        return
+    } else if (branchedEvolutionData.isEmpty() && linearEvolutionPath.isEmpty()) {
+        // Caso general de no datos (aunque el anterior debería cubrir al Pokémon base)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp), contentAlignment = Alignment.Center
+        ) {
+            Text("No evolution data available for this Pokémon.", color = colorTexto)
+        }
+        return
+    }
+
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        //.background(Color.Transparent) // El fondo se define en colors
+        colors = CardDefaults.cardColors(containerColor = color1) // Fondo de la tarjeta principal
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+            //.background(color1) // El fondo ya está en Card
+        ) {
+            Row( // Encabezado "Línea Evolutiva"
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp, horizontal = 10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Línea Evolutiva",
+                    textAlign = TextAlign.Center,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colorTexto
+                )
+            }
+
+            if (isLinear) {
+                // ... (código para la vista lineal como lo tenías) ...
+                if (linearEvolutionPath.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        itemsIndexed(linearEvolutionPath) { index, pair ->
+                            val chainLink = pair.first
+                            val evolutionDetail = pair.second // Puede ser null
+
+                            // Produce el estado de la condición de evolución
+                            val evolutionCondition by produceState<String?>(initialValue = null, evolutionDetail) {
+                                value = evolutionDetail?.let { detail ->
+                                    viewModel.buildEvolutionConditionString(detail)
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                EvolutionStageView(
+                                    chainLink = chainLink,
+                                    builtEvolutionCondition = evolutionCondition,
+                                    onClick = onPokemonClick,
+                                    viewModel = viewModel,
+                                    color = color2,
+                                    colorTexto = colorTexto
+                                )
+                                if (index < linearEvolutionPath.size - 1) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = "Evolves to",
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp)
+                                            .size(20.dp)
+                                            .align(Alignment.CenterVertically),
+                                        tint = colorTexto
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else if (branchedEvolutionData.firstOrNull() != null && branchedEvolutionData.first().toEvolutions.isEmpty()) {
+                    // Si es lineal pero el path está vacío (solo un Pokémon base), muestra ese Pokémon.
+                    val baseStep = branchedEvolutionData.first()
+                    val evolutionCondition by produceState<String?>(initialValue = null, baseStep.fromPokemonEvolutionDetail) {
+                        value = baseStep.fromPokemonEvolutionDetail?.let { detail ->
+                            viewModel.buildEvolutionConditionString(detail)
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                        EvolutionStageView(
+                            chainLink = baseStep.fromPokemon,
+                            builtEvolutionCondition = evolutionCondition,
+                            onClick = onPokemonClick,
+                            viewModel = viewModel,
+                            color = color2,
+                            colorTexto = colorTexto
+                        )
+                    }
+                }
+            } else { // Ramificada
+                // Usar LazyColumn si la lista de branchedEvolutionData puede ser larga
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 4.dp), // Ajuste de padding
+                    verticalArrangement = Arrangement.spacedBy(16.dp), // Espacio entre cada EvolutionStepDisplay
+                    horizontalAlignment = Alignment.CenterHorizontally // Centra los EvolutionStepDisplay
+                ) {
+                    items(branchedEvolutionData.size) { index ->
+                        val step = branchedEvolutionData[index]
+                        EvolutionStepDisplay( // Pasa el viewModel también a EvolutionStepDisplay
+                            step = step,
+                            onPokemonClick = onPokemonClick,
+                            viewModel = viewModel,
+                            cardColor = color2, // Este es el color para las tarjetas internas
+                            textColor = colorTexto, // Color del texto general
+                            arrowColor = colorTexto // Color para la flecha hacia abajo
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class) // Necesario para FlowRow
+@Composable
+fun EvolutionStepDisplay(
+    step: EvolutionStep,
+    onPokemonClick: (String) -> Unit,
+    viewModel: PokemonViewModel = viewModel(), // <-- Obtiene instancia del ViewModel
+    cardColor: Color,
+    textColor: Color,
+    arrowColor: Color, // Para el icono de flecha
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxWidth() // Usa el modifier pasado
+    ) {
+        // Pokémon "desde" el que se evoluciona
+        val fromPokemonEvolutionCondition by produceState<String?>(
+            initialValue = null,
+            step.fromPokemonEvolutionDetail // Key para recomponer si cambia
+        ) {
+            value = step.fromPokemonEvolutionDetail?.let { detail ->
+                viewModel.buildEvolutionConditionString(detail)
+            }
+        }
+        EvolutionStageView(
+            chainLink = step.fromPokemon,
+            builtEvolutionCondition = fromPokemonEvolutionCondition,
+            onClick = onPokemonClick,
+            viewModel = viewModel,
+            color = cardColor,
+            colorTexto = textColor,
+            modifier = Modifier.padding(bottom = if (step.toEvolutions.isNotEmpty()) 8.dp else 0.dp)
+        )
+
+        // Si hay evoluciones "hacia", mostrarlas
+        if (step.toEvolutions.isNotEmpty()) {
+            Icon(
+                imageVector = Icons.Filled.ArrowDropDown,
+                contentDescription = "Evolves to",
+                modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .size(24.dp),
+                tint = arrowColor // Usar el color para la flecha
+            )
+
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = if (step.toEvolutions.size >= 3) 3 else step.toEvolutions.size.coerceAtLeast(1)
+            ) {
+                step.toEvolutions.forEach { (evolutionLink, evolutionDetailToReachIt) ->
+                    val toEvolutionCondition by produceState<String?>(
+                        initialValue = null,
+                        evolutionDetailToReachIt // Key para recomponer
+                    ) {
+                        value = evolutionDetailToReachIt?.let { detail ->
+                            viewModel.buildEvolutionConditionString(detail)
+                        }
+                    }
+                    EvolutionStageView(
+                        chainLink = evolutionLink,
+                        builtEvolutionCondition = toEvolutionCondition,
+                        onClick = onPokemonClick,
+                        viewModel = viewModel,
+                        color = cardColor,
+                        colorTexto = textColor,
+                        modifier = Modifier.wrapContentWidth(Alignment.CenterHorizontally)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+/*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonEvolutionChainView(
@@ -291,11 +514,8 @@ fun PokemonEvolutionChainView(
                 if (linearEvolutionPath.isNotEmpty()) {
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(
-                            8.dp,
-                            Alignment.CenterHorizontally
-                        ), // Centra si hay pocos ítems
+                        contentPadding = PaddingValues(start = 4.dp, end = 4.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp,Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.Top
                     ) {
                         itemsIndexed(linearEvolutionPath) { index, (chainLink, evolutionDetail) ->
@@ -313,7 +533,7 @@ fun PokemonEvolutionChainView(
                                         contentDescription = "Evolves to",
                                         modifier = Modifier
 //                                            .padding(horizontal = 3.dp)
-                                            .size(20.dp)
+                                            .size(18.dp)
                                             .align(Alignment.CenterVertically),
                                         tint = colorTexto
                                     )
@@ -360,7 +580,8 @@ fun PokemonEvolutionChainView(
         }
     }
 }
-
+*/
+/*
 @OptIn(ExperimentalLayoutApi::class) // Necesario para FlowRow
 @Composable
 fun EvolutionStepDisplay(
@@ -422,7 +643,7 @@ fun EvolutionStepDisplay(
         // Esto se maneja mejor con Arrangement.spacedBy en la LazyColumn principal.
     }
 }
-
+*/
 data class EvolutionStep(
     val fromPokemon: ChainLink,
     val fromPokemonEvolutionDetail: EvolutionDetail?, // Cómo se llegó a fromPokemon (null si es el inicio)

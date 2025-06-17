@@ -1,4 +1,4 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.AbilitySlot
 import com.david.pokedex_api.api.service.PokeApiService // Asumo que este es el nombre
 import com.david.pokedex_api.ui.theme.CardBorder // Asumo que tienes este color
+import com.david.pokedex_api.ui.theme.color_progress_bar
 
 @Composable
 fun PokemonAbilitiesList(
@@ -187,6 +188,7 @@ fun AbilityRow(
                     .size(16.dp)
                     .align(Alignment.CenterHorizontally)
                     .padding(top = 4.dp),
+                color = color_progress_bar,
                 strokeWidth = 2.dp
             )
         } else {

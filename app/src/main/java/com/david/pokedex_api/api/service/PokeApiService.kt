@@ -4,6 +4,8 @@ import com.david.pokedex_api.api.model.AbilityDetailResponse
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.GenerationDetailResponse
 import com.david.pokedex_api.api.model.GenerationListResponse
+import com.david.pokedex_api.api.model.GenericNamedResourceDetail
+import com.david.pokedex_api.api.model.ItemDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonListResponse
@@ -79,5 +81,10 @@ interface PokeApiService {
 
     @GET
     suspend fun getPokemonSpeciesByUrl(@Url url: String): Response<PokemonSpeciesResponse> // Necesitarás crear PokemonSpeciesResponse y sus modelos internos
+
+    @GET // La URL completa se pasará dinámicamente
+    suspend fun getItemDetails(@Url url: String): Response<ItemDetailResponse> // Necesitarás crear ItemDetailResponse
+    @GET
+    suspend fun getGenericResourceDetails(@Url url: String): Response<GenericNamedResourceDetail> // <--- AÑADE ESTO
 
 }

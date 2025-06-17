@@ -1,4 +1,4 @@
-package com.david.pokedex_api.ui.screen
+package com.david.pokedex_api.ui.screen.lista
 
 import android.util.Log
 import android.widget.Toast
@@ -46,17 +46,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.airbnb.lottie.model.content.CircleShape
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.getGenerationIdFromUrl
-import com.david.pokedex_api.ui.composables.ALL_POKEMON_TYPES
-import com.david.pokedex_api.ui.composables.Lottie
-import com.david.pokedex_api.ui.composables.NO_TYPE_SELECTED
-import com.david.pokedex_api.ui.composables.PokemonListItemCard
-import com.david.pokedex_api.ui.composables.PokemonSearchMenu
+import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
+import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
+import com.david.pokedex_api.util.Lottie
+import com.david.pokedex_api.ui.screen.lista.composable.PokemonListItemCard
+import com.david.pokedex_api.ui.screen.lista.composable.PokemonSearchMenu
 import com.david.pokedex_api.ui.theme.*
 import com.david.pokedex_api.util.GifAnimado
+import kotlin.collections.get
 
 @OptIn(
     ExperimentalFoundationApi::class,
@@ -255,7 +255,10 @@ fun GenerationPagerScreen(
                                 PokemonListItemCard(
                                     pokemonSummary = pokemonSummaryItem,
                                     onItemClick = {
-                                        Log.d("Navigation", "Navigating to details for ID: ${pokemonSummaryItem.id}")
+                                        Log.d(
+                                            "Navigation",
+                                            "Navigating to details for ID: ${pokemonSummaryItem.id}"
+                                        )
                                         onNavigateToDetails(pokemonSummaryItem.id.toString())
                                     }
                                 )
@@ -334,7 +337,10 @@ fun GenerationPagerScreen(
                                         PokemonListItemCard(
                                             pokemonSummary = pokemonSummaryItem,
                                             onItemClick = {
-                                                Log.d("Navigation", "Navigating to Pager details for ID: ${pokemonSummaryItem.id}")
+                                                Log.d(
+                                                    "Navigation",
+                                                    "Navigating to Pager details for ID: ${pokemonSummaryItem.id}"
+                                                )
                                                 onNavigateToDetails(pokemonSummaryItem.id.toString())
                                             }
                                         )

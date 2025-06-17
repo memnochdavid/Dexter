@@ -1,8 +1,11 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.lista.composable
 
-import androidx.compose.animation.core.copy
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,16 +16,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,7 +34,9 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -38,7 +44,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.david.pokedex_api.api.model.PokemonSummary
-import com.david.pokedex_api.util.getPokemonSpeciesColor
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 
 @Composable
 fun PokemonListItemCard(
@@ -46,73 +55,86 @@ fun PokemonListItemCard(
     onItemClick: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
-    // Determinar el pincel de fondo (Brush) o color sólido
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // Modifica la animación aquí
+    val scaleFactor by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(durationMillis = 50), // Duración muy corta para un efecto más rápido
+        label = "scaleAnimation"
+    )
+
+    // ... (el resto de tu lógica para backgroundBrush y cardActualContainerColor)
     val backgroundBrush: Brush
-    val cardActualContainerColor: Color // Color para la Card si no es gradiente
-    val colorPokemon = getPokemonSpeciesColor(pokemonSummary.colorName)
+    val cardActualContainerColor: Color
 
     if (pokemonSummary.types.size == 2) {
         val color1 = getPokemonTypeColorClear(pokemonSummary.types[0])
         val color2 = getPokemonTypeColorClear(pokemonSummary.types[1])
         backgroundBrush = Brush.linearGradient(
             colors = listOf(color1, color2)
-            // Puedes ajustar start y end para la dirección del gradiente
-            // start = Offset.Zero, end = Offset.Infinite
         )
-        cardActualContainerColor =
-            Color.Transparent // La Card será transparente para mostrar el Box con gradiente
+        cardActualContainerColor = Color.Transparent
     } else if (pokemonSummary.types.isNotEmpty()) {
-        val solidColor = getPokemonTypeColorClear(pokemonSummary.types[0])
-        backgroundBrush = SolidColor(solidColor) // O simplemente no usar un Box con brush
-        cardActualContainerColor = solidColor
+        val typeName = pokemonSummary.types[0]
+        val (gradientStartColor, gradientEndColor) = getPokemonTypeGradientColors(typeName)
+        backgroundBrush = Brush.linearGradient(
+            colors = listOf(gradientStartColor, gradientEndColor)
+        )
+        cardActualContainerColor = Color.Transparent
     } else {
         val defaultColor = MaterialTheme.colorScheme.surface
         backgroundBrush = SolidColor(defaultColor)
         cardActualContainerColor = defaultColor
     }
 
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .scale(scaleX = scaleFactor, scaleY = scaleFactor)
             .padding(4.dp)
-            .clickable { onItemClick(pokemonSummary.name) },
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onItemClick(pokemonSummary.name)
+                }
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = cardActualContainerColor // Si no es gradiente, este color se usa.
-            // Si es gradiente, este es transparente.
+            containerColor = cardActualContainerColor
         ),
-        // elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        // border = BorderStroke(...) // Si necesitas borde
     ) {
-        // Usamos un Box para aplicar el gradiente si es necesario.
-        // Si no es gradiente, cardActualContainerColor ya pintó la Card.
-        // Si es gradiente, este Box pinta el fondo.
+        // ... (el resto de tu Composable)
         Box(
             modifier = Modifier
                 .then(
-                    if (pokemonSummary.types.size == 2) { // Aplicar gradiente solo si hay dos tipos
+                    if (pokemonSummary.types.isNotEmpty()) {
                         Modifier.background(brush = backgroundBrush)
                     } else {
-                        Modifier // No se necesita fondo adicional si es color sólido
+                        Modifier
                     }
                 )
-                .fillMaxSize() // Asegura que el Box llene la Card
+                .fillMaxSize()
         ) {
             Row(
                 modifier = Modifier
-                    .padding(end = 12.dp) // Añadido padding vertical
+                    .padding(end = 12.dp)
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(80.dp) // Tamaño del contenedor de la imagen
+                        .size(80.dp)
                         .background(
                             Color.White.copy(alpha = 0.5f), shape = DShape()
-                        ) // Color de fondo de la D y la forma
-                        .clip(DShape()) // Asegúrate de recortar el contenido a la forma
+                        )
+                        .clip(DShape())
                 ) {
-
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(pokemonSummary.spriteUrl)
@@ -129,35 +151,43 @@ fun PokemonListItemCard(
                     modifier = Modifier
                         .weight(1f),
                     verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally // Centrar contenido de la columna
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = pokemonSummary.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                        color = if (pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(
+                                pokemonSummary.types[0]
+                            )
+                        ) Color.White else MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        // Asegúrate de que CardBorder esté definido o usa un color de MaterialTheme
                         text = "#${pokemonSummary.id.toString().padStart(3, '0')}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant // Ejemplo, usa tu color CardBorder
+                        color = if (pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(
+                                pokemonSummary.types[0]
+                            )
+                        ) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
                     if (pokemonSummary.types.isNotEmpty()) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp,Alignment.CenterHorizontally), // Centrar los chips si el espacio lo permite
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                16.dp,
+                                Alignment.CenterHorizontally
+                            ),
                         ) {
                             pokemonSummary.types.forEach { typeName ->
                                 PokemonTypeChip(
                                     typeName = typeName,
-                                    // El weight en los chips puede ser complicado si quieres que se centren
-                                    // y no siempre llenen todo el espacio.
-                                    // Considera no usar weight o ajustar su lógica.
-                                    modifier = Modifier.weight(0.8f) // Cada chip toma igual espacio disponible
+                                    modifier = Modifier.weight(0.8f)
                                 )
                             }
                         }
@@ -200,3 +230,4 @@ class DShape : Shape {
         return Outline.Generic(path)
     }
 }
+

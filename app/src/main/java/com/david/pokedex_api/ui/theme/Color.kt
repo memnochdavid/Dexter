@@ -2,10 +2,12 @@ package com.david.pokedex_api.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val background_app = Color(0xFFD2D2D2)
+//sistem
+val background_app = Color(0xFFECECEC)
 val color_boton_busqueda = Color(0xFF2D82DC)
-val color_menu_busqueda1 = Color(0xFF8269DA)
+val color_menu_busqueda1 = Color(0xC88269DA)
 val color_menu_busqueda2 = Color(0xC46650A4)
+val color_progress_bar = Color(0xFF247FEB)
 
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
@@ -80,7 +82,7 @@ val color_lucha_card = Color(0xFFFB7F00)
 val color_veneno_card = Color(0xFFA040A0)
 val color_acero_card = Color(0xFF5EA0B7)
 val color_bicho_card = Color(0xFFA8B820)
-val color_dragon_card = Color(0xFF3F50B4)
+val color_dragon_card = Color(0xFF5463BD)
 val color_electrico_card = Color(0xFFF8D030)
 val color_hada_card = Color(0xFFEE99AC)
 val color_hielo_card = Color(0xFF3DD5FB)
@@ -100,7 +102,7 @@ val color_lucha_card_foto = Color(0xFFF59738)
 val color_veneno_card_foto = Color(0xFF9D719D)
 val color_acero_card_foto = Color(0xFF77A7B7)
 val color_bicho_card_foto = Color(0xFFB0B962)
-val color_dragon_card_foto = Color(0xFF5462B4)
+val color_dragon_card_foto = Color(0xFF717ECC)
 val color_electrico_card_foto = Color(0xFFF6DE76)
 val color_hada_card_foto = Color(0xFFFDBCCB)
 val color_hielo_card_foto = Color(0xFF64DCFA)

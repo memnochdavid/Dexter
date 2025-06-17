@@ -1,4 +1,4 @@
-package com.david.pokedex_api.ui.composables
+package com.david.pokedex_api.ui.screen.lista.composable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
+import com.david.pokedex_api.ui.screen.comun.getTextColorForTypeBackground
+import com.david.pokedex_api.ui.screen.comun.pokemonTypeNameTranslator
 import com.david.pokedex_api.ui.theme.*
 
 
@@ -239,7 +243,8 @@ fun TypeSelector(
             modifier = Modifier.background(MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
         ) {
             // Opción para "Sin tipo"
-            val noTypeItemColor = getPokemonTypeColor(NO_TYPE_SELECTED) // Usa tu color por defecto para "Sin tipo"
+            val noTypeItemColor =
+                getPokemonTypeColor(NO_TYPE_SELECTED) // Usa tu color por defecto para "Sin tipo"
             val noTypeItemTextColor = getTextColorForTypeBackground(noTypeItemColor)
             DropdownMenuItem(
                 text = {
@@ -263,7 +268,8 @@ fun TypeSelector(
             availableTypes.filter { it != NO_TYPE_SELECTED }.forEach { typeName ->
                 // Este es el único bucle necesario para los tipos
                 val itemBackgroundColor = getPokemonTypeColor(typeName) // Color de fondo del tipo
-                val itemTextColor = getTextColorForTypeBackground(itemBackgroundColor) // Color de texto para contraste
+                val itemTextColor =
+                    getTextColorForTypeBackground(itemBackgroundColor) // Color de texto para contraste
                 val isCurrentlySelected = typeName == selectedType
 
                 DropdownMenuItem(

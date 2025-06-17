@@ -1,27 +1,33 @@
 package com.david.pokedex_api.api.viewModel
 
 import android.util.Log
-import androidx.compose.foundation.layout.size
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.david.pokedex_api.api.client.RetrofitClient
-import com.david.pokedex_api.api.model.*
+import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
+import com.david.pokedex_api.api.model.EvolutionDetail
+import com.david.pokedex_api.api.model.GenericNamedResourceDetail
+import com.david.pokedex_api.api.model.ItemDetailResponse
+import com.david.pokedex_api.api.model.MoveDetailResponse
+import com.david.pokedex_api.api.model.NameEntry
+import com.david.pokedex_api.api.model.NamedApiResource
+import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.model.PokemonSpeciesResponse
+import com.david.pokedex_api.api.model.PokemonSummary
+import com.david.pokedex_api.api.model.TypeDetailResponse
 import com.david.pokedex_api.api.service.PokeApiService
-import com.david.pokedex_api.ui.composables.ALL_POKEMON_TYPES
-import com.david.pokedex_api.ui.composables.NO_TYPE_SELECTED
-import com.david.pokedex_api.util.TypeInteraction
-import com.david.pokedex_api.util.getCombinedDefensiveInteractions
+import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
+import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
+import com.david.pokedex_api.util.formatApiName
+import com.david.pokedex_api.util.translateEvolutionTrigger
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import okhttp3.Response
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Response
 
 class PokemonViewModel : ViewModel() {
 
@@ -37,15 +43,15 @@ class PokemonViewModel : ViewModel() {
 
     private val _isLoadingDetails = MutableLiveData<Boolean>(false)
     val isLoadingDetails: LiveData<Boolean> = _isLoadingDetails
-
+/*
     // --- Para la lista de Pokémon ---
     private val _pokemonList =
         MutableLiveData<List<PokemonSummary>>(emptyList()) // Inicializa con lista vacía
-    val pokemonList: LiveData<List<PokemonSummary>> = _pokemonList
+//    val pokemonList: LiveData<List<PokemonSummary>> = _pokemonList
 
     private val _isLoadingList = MutableLiveData<Boolean>(false)
-    val isLoadingList: LiveData<Boolean> = _isLoadingList
-
+//    val isLoadingList: LiveData<Boolean> = _isLoadingList
+*/
     // --- Para las Generaciones y la Lista de Pokémon por Generación ---
     private val _generations = MutableLiveData<List<NamedApiResource>>(emptyList())
     val generations: LiveData<List<NamedApiResource>> = _generations
@@ -66,30 +72,30 @@ class PokemonViewModel : ViewModel() {
     private val _evolutionChainDetails = MutableLiveData<EvolutionChainDetailResponse?>()
     val evolutionChainDetails: LiveData<EvolutionChainDetailResponse?> = _evolutionChainDetails
 
-    private val _specialForms = MutableStateFlow<List<Pair<String, PokemonSpeciesVariety>>>(emptyList())
-    val specialForms: StateFlow<List<Pair<String, PokemonSpeciesVariety>>> = _specialForms.asStateFlow()
+//    private val _specialForms = MutableStateFlow<List<Pair<String, PokemonSpeciesVariety>>>(emptyList())
+//    val specialForms: StateFlow<List<Pair<String, PokemonSpeciesVariety>>> = _specialForms.asStateFlow()
 // o si prefieres LiveData:
 // private val _specialForms = MutableLiveData<List<Pair<String, PokemonSpeciesVariety>>>(emptyList())
 // val specialForms: LiveData<List<Pair<String, PokemonSpeciesVariety>>> = _specialForms
 
-    private val _isLoadingSpecialForms = MutableStateFlow(false)
-    val isLoadingSpecialForms: StateFlow<Boolean> = _isLoadingSpecialForms.asStateFlow()
-
+//    private val _isLoadingSpecialForms = MutableStateFlow(false)
+//    val isLoadingSpecialForms: StateFlow<Boolean> = _isLoadingSpecialForms.asStateFlow()
+/*
     private var currentOffset = 0
     private val POKEMON_LIST_LIMIT = 20 // Cuántos cargar a la vez
     private var canLoadMore = true // Flag para saber si hay más páginas
-
+*/
     // --- Común ---
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
     private var errorShownThisFetch =
         false // Para evitar múltiples toasts por una sola acción del usuario
 
-    private val _typeInteractions = MutableLiveData<List<TypeInteraction>>(emptyList())
-    val typeInteractions: LiveData<List<TypeInteraction>> = _typeInteractions
+//    private val _typeInteractions = MutableLiveData<List<TypeInteraction>>(emptyList())
+//    val typeInteractions: LiveData<List<TypeInteraction>> = _typeInteractions
 
-    private val _isLoadingTypeInteractions = MutableLiveData(false)
-    val isLoadingTypeInteractions: LiveData<Boolean> = _isLoadingTypeInteractions
+//    private val _isLoadingTypeInteractions = MutableLiveData(false)
+//    val isLoadingTypeInteractions: LiveData<Boolean> = _isLoadingTypeInteractions
 
 
     init {
@@ -97,9 +103,9 @@ class PokemonViewModel : ViewModel() {
         // O puedes llamarlo desde la UI cuando la lista sea visible por primera vez
         // fetchInitialPokemonList()
     }
-
+/*
     // --- Lógica para la Lista de Pokémon ---
-
+/*
     fun fetchInitialPokemonList() {
         if (_pokemonList.value?.isNotEmpty() == true) return // Ya cargado, o si quieres refresh, llama a clearAndFetch
         currentOffset = 0
@@ -107,7 +113,7 @@ class PokemonViewModel : ViewModel() {
         _pokemonList.value = emptyList() // Limpia para la carga inicial
         fetchMorePokemonItems()
     }
-
+*/
     fun fetchMorePokemonItems() {
         if (_isLoadingList.value == true || !canLoadMore) return // Evitar cargas múltiples o si no hay más
 
@@ -199,7 +205,7 @@ class PokemonViewModel : ViewModel() {
             }
         }
     }
-
+*/
 
     // --- Lógica para la Vista de Detalles de un Pokémon ---
     fun fetchPokemonDetailsByName(name: String, lang: String) {
@@ -496,7 +502,7 @@ class PokemonViewModel : ViewModel() {
         _error.value = null
         // No reseteamos errorShownThisFetch aquí, porque se resetea al inicio de una nueva operación de fetch.
     }
-
+/*
     fun clearPokemonDetails() {
         _pokemonDetails.value = null
         _pokemonDescription.value = null
@@ -511,7 +517,7 @@ class PokemonViewModel : ViewModel() {
             fetchMorePokemonItems()
         }
     }
-
+*/
     fun fetchGenerations() {
         if (_isLoadingGenerations.value == true || _generations.value?.isNotEmpty() == true) return
         _isLoadingGenerations.value = true
@@ -787,7 +793,7 @@ class PokemonViewModel : ViewModel() {
             }
         }
     }
-
+/*
     fun fetchTypeInteractionsForPokemon(pokemonDetail: PokemonDetailResponse) {
         if (pokemonDetail.types.isEmpty()) {
             _typeInteractions.value = emptyList()
@@ -848,45 +854,226 @@ class PokemonViewModel : ViewModel() {
             }
         }
     }
-
+*/
 
     private val _pokemonTypes = MutableLiveData<List<String>>(listOf(NO_TYPE_SELECTED) + ALL_POKEMON_TYPES) // Valor inicial/fallback
     val pokemonTypes: LiveData<List<String>> = _pokemonTypes
 
-//    private val _isLoadingTypes = MutableLiveData<Boolean>(false)
-//    val isLoadingTypes: LiveData<Boolean> = _isLoadingTypes
-//
-//    fun fetchAllPokemonTypes() {
-//        if (_isLoadingTypes.value == true || (_pokemonTypes.value != null && _pokemonTypes.value!!.size > ALL_POKEMON_TYPES.size + 1)) {
-//            // Ya está cargando o ya tiene más tipos que la lista por defecto (asume que se cargaron de la API)
-//            return
-//        }
-//        _isLoadingTypes.value = true
-//        viewModelScope.launch {
-//            try {
-//                val response = pokemonApiService.getAllPokemonTypes()
-//                if (response.isSuccessful && response.body() != null) {
-//                    val typeNames = response.body()!!.results.map { it.name }
-//                    _pokemonTypes.postValue(listOf(NO_TYPE_SELECTED) + typeNames.sorted()) // Añade "Sin tipo" y ordena
-//                } else {
-//                    _error.postValue("Failed to load Pokémon types: ${response.message()}")
-//                    // Mantener el valor de fallback si falla
-//                    if (_pokemonTypes.value == null || _pokemonTypes.value!!.size <=1) { // si solo tenia "sin tipo" o estaba vacio
-//                        _pokemonTypes.postValue(listOf(NO_TYPE_SELECTED) + ALL_POKEMON_TYPES)
-//                    }
-//                }
-//            } catch (e: Exception) {
-//                _error.postValue("Error fetching Pokémon types: ${e.localizedMessage}")
-//                if (_pokemonTypes.value == null || _pokemonTypes.value!!.size <=1) {
-//                    _pokemonTypes.postValue(listOf(NO_TYPE_SELECTED) + ALL_POKEMON_TYPES)
-//                }
-//            } finally {
-//                _isLoadingTypes.value = false
-//            }
-//        }
-//    }
+    internal suspend fun fetchLocalizedName(
+        resourceUrl: String,
+        fallbackApiName: String, // Este es el nombre en inglés de la API (ej: "thunder-stone")
+        resourceTypeHint: String, // "item", "move", "type", "pokemon-species", etc.
+        languageCode: String = "es" // Idioma deseado
+    ): String {
+        if (resourceUrl.isBlank()) {
+            Log.w("ViewModelEvolution", "fetchLocalizedName: URL vacía para '$fallbackApiName'. Usando fallback formateado.")
+            return formatApiName(fallbackApiName)
+        }
 
+        // --- MANEJO ESPECIAL PARA "trigger" ---
+        if (resourceTypeHint.lowercase() == "trigger") {
+            Log.d("ViewModelEvolution", "Resource type 'trigger' for '$fallbackApiName'. No API call for localization, using formatted fallback.")
+            return formatApiName(fallbackApiName) // Simplemente devuelve el fallback formateado
+        }
+        // --- FIN MANEJO ESPECIAL ---
 
+        try {
+            Log.d("ViewModelEvolution", "Fetching localized name for: $resourceUrl (API name: '$fallbackApiName', Lang: $languageCode, Type: $resourceTypeHint)")
+
+            // Ahora withContext siempre espera un Response<out Any> válido de Retrofit
+            val response: Response<out Any> = withContext(Dispatchers.IO) {
+                when (resourceTypeHint.lowercase()) { // "trigger" ya no está aquí
+                    "item" -> RetrofitClient.instance.getItemDetails(resourceUrl)
+                    "move" -> RetrofitClient.instance.getMoveDetails(resourceUrl)
+                    "pokemon-species" -> RetrofitClient.instance.getPokemonSpeciesByUrl(resourceUrl)
+                    "type" -> RetrofitClient.instance.getTypeDetails(resourceUrl)
+                    "location" -> RetrofitClient.instance.getGenericResourceDetails(resourceUrl)
+                    "region" -> RetrofitClient.instance.getGenericResourceDetails(resourceUrl)
+                    "generation" -> RetrofitClient.instance.getGenericResourceDetails(resourceUrl)
+                    else -> RetrofitClient.instance.getGenericResourceDetails(resourceUrl) // Fallback para otros tipos desconocidos
+                }
+            }
+
+            // El resto de la lógica de procesamiento de 'response' permanece igual
+            if (response.isSuccessful) {
+                val body = response.body()
+                val namesList: List<NameEntry>? = when (body) {
+                    is ItemDetailResponse -> body.names
+                    is MoveDetailResponse -> body.names.map { NameEntry(it.language, it.name) }
+                    is PokemonSpeciesResponse -> body.localizedNames
+                    is TypeDetailResponse -> body.names // Asegúrate que TypeDetailResponse tiene .names
+                    is GenericNamedResourceDetail -> body.names // Asegúrate que esto se resuelve a tu clase
+                    else -> {
+                        Log.w("ViewModelEvolution", "Unknown response body type for '$fallbackApiName': ${body?.javaClass?.simpleName}. URL: $resourceUrl")
+                        null
+                    }
+                }
+
+                val localizedName = namesList?.find { it.language.name == languageCode }?.name
+
+                if (localizedName != null) {
+                    Log.i("ViewModelEvolution", "Localized name for '$fallbackApiName' ($languageCode): '$localizedName'")
+                    return localizedName
+                } else {
+                    val englishNameFromApi = namesList?.find { it.language.name == "en" }?.name
+                    if (englishNameFromApi != null) {
+                        Log.i("ViewModelEvolution", "Localized name for '$fallbackApiName' ($languageCode) not found. Using English from API: '$englishNameFromApi'")
+                        return englishNameFromApi
+                    }
+                    Log.w("ViewModelEvolution", "Localized name for '$fallbackApiName' ($languageCode or 'en') not found in API. Using formatted fallbackApiName.")
+                    return formatApiName(fallbackApiName)
+                }
+            } else {
+                Log.e("ViewModelEvolution", "API Error (${response.code()}) for '$fallbackApiName' ($resourceUrl). Using formatted fallbackApiName.")
+                return formatApiName(fallbackApiName)
+            }
+        } catch (e: Exception) {
+            Log.e("ViewModelEvolution", "Exception fetching localized name for '$fallbackApiName' ($resourceUrl)", e)
+            return formatApiName(fallbackApiName)
+        }
+    }
+    suspend fun buildEvolutionConditionString(detail: EvolutionDetail): String {
+        // La lógica que ya tienes para construir la cadena de condición,
+        // pero ahora usando fetchLocalizedName para ítems, movimientos, tipos, localizaciones, etc.
+        // Ejemplo para el trigger:
+        val triggerName = fetchLocalizedName(
+            resourceUrl = detail.trigger.url, // Asumiendo que NamedApiResource tiene url
+            fallbackApiName = detail.trigger.name,
+            resourceTypeHint = "trigger" // "trigger" se manejará para usar fallbackApiName formateado
+        )
+        var condition: String = detail.trigger.name
+
+        detail.minLevel?.let { level ->
+            // Primero traduce el nombre del trigger que está en 'condition'
+            val translatedTrigger = translateEvolutionTrigger(condition)
+            // Ahora 'condition' se reconstruye con el trigger traducido y el nivel
+            condition = "$translatedTrigger $level"
+        } ?: run {
+            // Si no hay minLevel, simplemente traduce el trigger que está en 'condition'
+            condition = translateEvolutionTrigger(condition)
+        }
+
+        detail.item?.let { itemResource ->
+            val itemName = fetchLocalizedName(
+                resourceUrl = itemResource.url,
+                fallbackApiName = itemResource.name,
+                resourceTypeHint = "item"
+            )
+            condition = "\nUsando $itemName"
+        }
+
+        detail.heldItem?.let { heldItemResource ->
+            val heldItemName = fetchLocalizedName(
+                resourceUrl = heldItemResource.url,
+                fallbackApiName = heldItemResource.name,
+                resourceTypeHint = "item" // Asumiendo que held_item es un item
+            )
+            condition += "\nCon $heldItemName equipado"
+        }
+
+        detail.minHappiness?.let { happiness ->
+            condition += "\nFelicidad mín.: $happiness"
+        }
+
+        detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let { time ->
+            val timeInSpanish = when (time.lowercase()) { // Asegúrate de tener importado java.util.Locale si es necesario
+                "day" -> "día"
+                "night" -> "noche"
+                else -> formatApiName(time) // formatApiName para capitalizar si no es día/noche
+            }
+            condition += "\nDurante el $timeInSpanish"
+        }
+
+        detail.knownMove?.let { moveResource ->
+            val moveName = fetchLocalizedName(
+                resourceUrl = moveResource.url,
+                fallbackApiName = moveResource.name,
+                resourceTypeHint = "move"
+            )
+            condition += "\nConociendo $moveName"
+        }
+
+        detail.knownMoveType?.let { typeResource ->
+            val typeName = fetchLocalizedName(
+                resourceUrl = typeResource.url,
+                fallbackApiName = typeResource.name,
+                resourceTypeHint = "type"
+            )
+            condition += "\nConociendo mov. tipo $typeName"
+        }
+
+        detail.minAffection?.let { affection ->
+            condition += "\nAfecto mín.: $affection"
+        }
+
+        detail.minBeauty?.let { beauty ->
+            condition += "\nBelleza mín.: $beauty"
+        }
+
+        detail.location?.let { locationResource ->
+            val locationName = fetchLocalizedName(
+                resourceUrl = locationResource.url,
+                fallbackApiName = locationResource.name,
+                resourceTypeHint = "location"
+            )
+            condition += "\nEn $locationName"
+        }
+
+        detail.gender?.let { genderId ->
+            val genderName = when (genderId) {
+                1 -> "Hembra"
+                2 -> "Macho"
+                else -> ""
+            }
+            if (genderName.isNotEmpty()) condition += "\nSiendo $genderName"
+        }
+
+        detail.partySpecies?.let { speciesResource ->
+            val partyPokemonName = fetchLocalizedName(
+                resourceUrl = speciesResource.url,
+                fallbackApiName = speciesResource.name,
+                resourceTypeHint = "pokemon-species"
+            )
+            condition += "\nCon $partyPokemonName en el equipo"
+        }
+
+        detail.partyType?.let { typeResource ->
+            val partyTypeName = fetchLocalizedName(
+                resourceUrl = typeResource.url,
+                fallbackApiName = typeResource.name,
+                resourceTypeHint = "type"
+            )
+            condition += "\nCon un Pokémon tipo $partyTypeName en el equipo"
+        }
+
+        detail.tradeSpecies?.let { speciesResource ->
+            val tradePokemonName = fetchLocalizedName(
+                resourceUrl = speciesResource.url,
+                fallbackApiName = speciesResource.name,
+                resourceTypeHint = "pokemon-species"
+            )
+            condition += "\nPor $tradePokemonName"
+        }
+
+        if (detail.needsOverworldRain) {
+            condition += "\nCon lluvia en el mundo exterior"
+        }
+
+        if (detail.turnUpsideDown) {
+            condition += "\nGirando la consola"
+        }
+
+        detail.relativePhysicalStats?.let { relativeStats ->
+            val comparison = when (relativeStats) {
+                1 -> "Ataque > Defensa"
+                -1 -> "Ataque < Defensa"
+                0 -> "Ataque = Defensa"
+                else -> ""
+            }
+            if (comparison.isNotEmpty()) condition += "\nCon $comparison"
+        }
+        return condition
+    }
 
 }
 
