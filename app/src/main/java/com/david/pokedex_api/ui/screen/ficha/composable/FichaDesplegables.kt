@@ -221,7 +221,8 @@ fun DetallesDesplegables(
 
             // Contenedor para cada página, si necesitas padding o alineación específica
             Box(
-                modifier = Modifier.fillMaxSize() // Cada página llena el espacio del Pager
+                modifier = Modifier.fillMaxSize(), // Cada página llena el espacio del Pager
+                contentAlignment = Alignment.TopCenter // Puedes ajustar la alineación si es necesario
                 // Puedes añadir padding aquí si es común a todas las páginas
                 // .padding(horizontal = 16.dp)
             ) {
@@ -383,7 +384,7 @@ fun DetallesDesplegables(
                     ContentPage.MOVES -> {
                         PokemonMovesList(
                             moves = pokemon.moves,
-                            backgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                            cardBackgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
                             pokemonApiService = pokemonApiService,
                             textColor = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
