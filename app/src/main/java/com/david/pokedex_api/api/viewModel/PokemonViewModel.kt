@@ -261,7 +261,7 @@ class PokemonViewModel : ViewModel() {
     private fun NamedApiResource.getGenerationIdFromUrl(): Int? {
         return url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
     }
-/*
+
     fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
         if (generationId == null) {
             _error.value = "Invalid generation ID."
@@ -389,10 +389,7 @@ class PokemonViewModel : ViewModel() {
                                                 name = localizedName,
                                                 spriteUrl = pokemonSpriteUrl,
                                                 types = pokemonTypesList,
-                                                colorName = pokemonColor,
-                                                formName = null,
-                                                isDefaultForm = false,
-                                                speciesName = originalPokemonName
+                                                colorName = pokemonColor
                                             )
                                         } else {
                                             Log.e("PokemonViewModel", "finalPokemonId is null after successful details fetch for identifier '$resourceIdentifierForDetails' (Original Name: $originalPokemonName, Species ID: $idFromSpeciesUrl, Gen: $generationId). Cannot create summary.")
@@ -428,197 +425,6 @@ class PokemonViewModel : ViewModel() {
             }
         }
     }
-*/
-
-    fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
-        if (generationId == null) {
-            _error.value = "Invalid generation ID."
-            _isLoadingPokemonForCurrentGeneration.value = false
-            return
-        }
-
-        // Mantén la lógica de caché existente para la generación
-        if (!forceRefresh && _pokemonByGenerationCache.value?.containsKey(generationId) == true) {
-            // ... (tu lógica de caché actual)
-            return
-        }
-
-        if (_isLoadingPokemonForCurrentGeneration.value == true && !forceRefresh) {
-            return
-        }
-
-        _isLoadingPokemonForCurrentGeneration.value = true
-        errorShownThisFetch = false
-
-        viewModelScope.launch {
-            try {
-                val generationDetailResponse = withContext(Dispatchers.IO) {
-                    RetrofitClient.instance.getGenerationDetails(generationId)
-                }
-
-                if (generationDetailResponse.isSuccessful) {
-                    val generationData = generationDetailResponse.body()
-                    val pokemonSpeciesListFromGen = generationData?.pokemonSpecies ?: emptyList()
-
-                    if (pokemonSpeciesListFromGen.isNotEmpty()) {
-                        val allPokemonSummariesForGeneration = mutableListOf<PokemonSummary>()
-
-                        // Procesar cada especie para obtener sus variedades
-                        pokemonSpeciesListFromGen.forEach { speciesResource ->
-                            val speciesIdFromUrl = speciesResource.url.split("/")
-                                .dropLastWhile { it.isEmpty() }
-                                .lastOrNull()
-                                ?.toIntOrNull()
-
-                            if (speciesIdFromUrl == null) {
-                                Log.e("PokemonViewModel", "Could not parse ID from species URL: ${speciesResource.url} for ${speciesResource.name} (Gen: $generationId). Skipping species.")
-                                return@forEach // Continuar con la siguiente especie
-                            }
-
-                            try {
-                                // 1. Fetch Species Details para obtener la lista de variedades y el nombre localizado de la especie
-                                val speciesDetailsResponse = withContext(Dispatchers.IO) {
-                                    RetrofitClient.instance.getPokemonSpeciesDetails(speciesIdFromUrl.toString())
-                                }
-
-                                if (speciesDetailsResponse.isSuccessful) {
-                                    val speciesDetails = speciesDetailsResponse.body()
-                                    if (speciesDetails != null) {
-                                        val baseSpeciesLocalizedName = speciesDetails.localizedNames
-                                            .firstOrNull { it.language.name == "es" }?.name
-                                            ?: speciesDetails.name.replaceFirstChar(Char::titlecase)
-
-
-                                        // 2. Iterar sobre CADA VARIEDAD de la especie
-                                        val varietySummariesDeferred = speciesDetails.varieties.map { variety ->
-                                            async(Dispatchers.IO) { // Async para cada variedad
-                                                val varietyPokemonUrl = variety.pokemon.url
-                                                val varietyPokemonIdOrName = varietyPokemonUrl.split("/")
-                                                    .dropLastWhile { it.isEmpty() }.last()
-
-                                                var localizedFormName = variety.pokemon.name // Fallback inicial
-                                                var pokemonSpriteUrl: String? = null
-                                                var pokemonTypesList: List<String> = emptyList()
-                                                var finalPokemonIdForVariety: Int? = null
-                                                var formSpecificNameForDisplay = baseSpeciesLocalizedName // Por defecto, el nombre de la especie
-
-                                                try {
-                                                    // 3. Fetch Pokemon Details para la VARIEDAD específica
-                                                    // Esto nos da el ID único de la forma, tipos, sprites.
-                                                    val pokemonVarietyDetailsResponse = RetrofitClient.instance.getPokemonDetails(varietyPokemonIdOrName)
-
-                                                    if (pokemonVarietyDetailsResponse.isSuccessful) {
-                                                        pokemonVarietyDetailsResponse.body()?.let { varietyDetail ->
-                                                            finalPokemonIdForVariety = varietyDetail.id
-                                                            pokemonSpriteUrl = varietyDetail.sprites.other?.officialArtwork?.frontDefault
-                                                                ?: varietyDetail.sprites.frontDefault
-                                                            pokemonTypesList = varietyDetail.types.map { it.type.name.replaceFirstChar(Char::titlecase) }
-
-                                                            // Lógica para el nombre de la forma:
-                                                            // El nombre que viene de `variety.pokemon.name` (ej. "charizard-mega-x")
-                                                            // a veces no es el más amigable. El `varietyDetail.name` es el mismo.
-                                                            // Idealmente, la API de especies debería dar nombres localizados para las formas.
-                                                            // Como no lo hace directamente, intentaremos construirlo o usar el nombre de la especie si es la forma default.
-
-                                                            if (!variety.isDefault) {
-                                                                // Para formas no default, intentamos construir un nombre más legible.
-                                                                // Ejemplo: "charizard-mega-x" -> "Mega Charizard X" (esto requiere más lógica de formateo)
-                                                                // O usar el `baseSpeciesLocalizedName` y añadir algo como "(Forma Alola)"
-                                                                // Aquí un ejemplo simple:
-                                                                val formIdentifier = variety.pokemon.name.removePrefix(speciesDetails.name + "-").takeIf { it != variety.pokemon.name }
-                                                                if (formIdentifier != null) {
-                                                                    formSpecificNameForDisplay = "$baseSpeciesLocalizedName (${formIdentifier.split('-').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }})"
-                                                                    localizedFormName = formIdentifier // ej. "mega-x", "alola"
-                                                                } else {
-                                                                    // Si no podemos extraer un identificador claro, usamos el nombre base y el nombre técnico de la forma.
-                                                                    formSpecificNameForDisplay = "$baseSpeciesLocalizedName (${variety.pokemon.name.replaceFirstChar(Char::titlecase)})"
-                                                                    localizedFormName = variety.pokemon.name
-                                                                }
-                                                            } else {
-                                                            localizedFormName = "" // Para la forma default, no necesitamos un formName específico
-                                                            formSpecificNameForDisplay = baseSpeciesLocalizedName
-                                                        }
-
-                                                            PokemonSummary(
-                                                                id = finalPokemonIdForVariety!!, // Asegurarse de que no sea null
-                                                                name = formSpecificNameForDisplay,
-                                                                spriteUrl = pokemonSpriteUrl,
-                                                                types = pokemonTypesList,
-                                                                colorName = speciesDetails.color?.name, // El color viene de la especie
-                                                                formName = localizedFormName,
-                                                                isDefaultForm = variety.isDefault,
-                                                                speciesName = baseSpeciesLocalizedName
-                                                            )
-                                                        }
-                                                    } else {
-                                                        Log.e("PokemonViewModel", "Error fetching Pokemon variety details for '${varietyPokemonIdOrName}' (Species: ${speciesDetails.name}, Gen: $generationId, Code: ${pokemonVarietyDetailsResponse.code()}) - ${pokemonVarietyDetailsResponse.message()}")
-                                                        null // No se pudo obtener detalles de la variedad
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e("PokemonViewModel", "Exception processing variety '${variety.pokemon.name}' for species '${speciesDetails.name}' (Gen: $generationId)", e)
-                                                    null
-                                                }
-                                            } // Fin del async para cada variedad
-                                        } // Fin del map de variedades
-
-                                        // Esperar a que todas las variedades de la especie actual se procesen
-                                        val summariesForThisSpecies = varietySummariesDeferred.awaitAll().filterNotNull()
-                                        allPokemonSummariesForGeneration.addAll(summariesForThisSpecies)
-
-                                    } else {
-                                        Log.w("PokemonViewModel", "Species details were null for ID $speciesIdFromUrl (Gen: $generationId).")
-                                    }
-                                } else {
-                                    Log.e("PokemonViewModel", "Failed to get species details for ${speciesResource.name} (ID: $speciesIdFromUrl, Gen: $generationId, Code: ${speciesDetailsResponse.code()}). Skipping species.")
-                                }
-                            } catch (e: Exception) {
-                                Log.e("PokemonViewModel", "Exception processing species '${speciesResource.name}' (Gen: $generationId)", e)
-                            }
-                        } // Fin del forEach para pokemonSpeciesListFromGen
-
-                        // Ordenar la lista final de summaries por ID antes de guardarla en el caché
-                        val sortedSummaries = allPokemonSummariesForGeneration.sortedBy { it.id }
-
-                        val currentCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
-                        currentCache[generationId] = sortedSummaries
-                        _pokemonByGenerationCache.postValue(currentCache) // Usar postValue si estás en un hilo de fondo
-
-                    } else { // Si pokemonSpeciesListFromGen está vacía
-                        val currentCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
-                        currentCache[generationId] = emptyList() // Guardar lista vacía para esta generación
-                        _pokemonByGenerationCache.postValue(currentCache)
-                    }
-                    if (!errorShownThisFetch) _error.postValue(null)
-
-                } else {
-                    handleError("Error fetching generation $generationId details: ${generationDetailResponse.code()}")
-                    // Opcionalmente, podrías querer poner una lista vacía en el caché para esta generación
-                    // para indicar que se intentó cargar pero falló, evitando reintentos constantes.
-                    val currentCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
-                    currentCache[generationId] = emptyList() // Marcar como intentado con error
-                    _pokemonByGenerationCache.postValue(currentCache)
-                }
-            } catch (e: Exception) {
-                handleError("Exception (fetching gen $generationId Pokémon): ${e.message ?: "Unknown exception"}")
-                // Similar al bloque anterior, considera marcar la generación en el caché
-                val currentCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
-                currentCache[generationId] = emptyList()
-                _pokemonByGenerationCache.postValue(currentCache)
-            } finally {
-                _isLoadingPokemonForCurrentGeneration.postValue(false)
-            }
-        }
-    }
-
-
-
-
-
-
-
-
-
-
 
     private fun fetchEvolutionChainDetails(evolutionChainUrl: String) {
         if (evolutionChainUrl.isBlank()) {

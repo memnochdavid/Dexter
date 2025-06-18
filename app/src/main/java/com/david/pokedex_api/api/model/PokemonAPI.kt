@@ -155,10 +155,7 @@ data class PokemonSummary(
     val name: String,
     val spriteUrl: String?,
     val types: List<String>, // Lista de nombres de tipos
-    val colorName: String?,
-    val formName: String?, // Nombre de la forma (ej. "mega-x", "alola") - puede ser null para la forma default
-    val isDefaultForm: Boolean,
-    val speciesName: String // Nombre de la especie base (ej. "charizard")
+    val colorName: String?
 )
 
 data class GenerationListResponse(
