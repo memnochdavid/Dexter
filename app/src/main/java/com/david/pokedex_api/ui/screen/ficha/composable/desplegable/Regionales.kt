@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,19 +38,19 @@ import kotlinx.coroutines.launch
 fun PokemonRegionalFormsView(
     pokemonSpeciesUrl: String?, // URL de la especie del Pokémon actual
     basePokemonName: String, // Nombre del Pokémon base para referencia en el título y displayNames
-    pokemonApiService: PokeApiService,
+    pokemonApiService: PokeApiService, // Asegúrate que es tu interfaz de servicio actualizada
     cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
     onFormClick: (pokemonName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var regionalForms by remember { mutableStateOf<List<SpecialForm>>(emptyList()) } // Usamos SpecialForm por ahora
+    var regionalForms by remember { mutableStateOf<List<SpecialForm>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    val knownRegions = listOf("alola", "galar", "hisui", "paldea") // Añade más regiones según sea necesario
+    val knownRegions = listOf("alola", "galar", "hisui", "paldea")
 
     LaunchedEffect(pokemonSpeciesUrl, basePokemonName) {
         if (pokemonSpeciesUrl == null) {
@@ -60,22 +61,24 @@ fun PokemonRegionalFormsView(
 
         isLoading = true
         error = null
-        regionalForms = emptyList() // Limpiar formas anteriores
+        regionalForms = emptyList()
 
         coroutineScope.launch {
             try {
-                val speciesResponse = pokemonApiService.getSpeciesDetailsByUrl(pokemonSpeciesUrl)
+                // CAMBIO 1: Usa el nuevo nombre de la función del servicio
+                val speciesResponse = pokemonApiService.getPokemonSpeciesDetailsByUrl(pokemonSpeciesUrl)
+                //                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
                     val formsFound = mutableListOf<SpecialForm>()
 
                     speciesDetail.varieties.forEach { variety ->
                         if (!variety.isDefault) {
-                            val formApiName = variety.pokemon.name // ej: "rattata-alola", "tauros-paldea-aqua-breed"
+                            val formApiName = variety.pokemon.name
                             var displayName = ""
                             var identifiedRegion: String? = null
 
-                            // Intentar identificar la región
                             for (region in knownRegions) {
                                 if (formApiName.contains("-$region")) {
                                     identifiedRegion = region
@@ -84,41 +87,33 @@ fun PokemonRegionalFormsView(
                             }
 
                             if (identifiedRegion != null) {
-                                // Construir el nombre a mostrar
-                                // Queremos algo como "Alolan Rattata" o "Paldean Tauros (Aqua)"
-                                val pokemonNamePart = basePokemonName.replaceFirstChar { it.titlecase() }
-                                val regionTitleCase = identifiedRegion.replaceFirstChar { it.titlecase() }
+                                val pokemonNamePart = basePokemonName.replaceFirstChar { it.titlecase(
+                                    java.util.Locale.getDefault()) }
+                                val regionTitleCase = identifiedRegion.replaceFirstChar { it.titlecase(
+                                    java.util.Locale.getDefault()) }
                                 displayName = "$regionTitleCase $pokemonNamePart"
 
-                                // Manejar sub-formas o "breeds" como las de Paldea
                                 if (identifiedRegion == "paldea" && formApiName.contains("-breed")) {
-                                    val breed = formApiName.substringAfterLast("-").takeIf { it != "breed" }?.replaceFirstChar { it.titlecase() }
+                                    val breed = formApiName.substringAfterLast("-").takeIf { it != "breed" }?.replaceFirstChar { it.titlecase(
+                                        java.util.Locale.getDefault()) }
                                     if (breed != null) {
                                         displayName += " ($breed Breed)"
                                     }
                                 } else if (formApiName.endsWith("-$identifiedRegion")) {
-                                    // Forma regional simple, displayName ya está bien
+                                    // Simple regional form
                                 } else {
-                                    // Casos más complejos donde el nombre base no está al principio
-                                    // ej. "meowth-galar", el pokemonNamePart es "Meowth", el identifiedRegion es "Galar" -> "Galar Meowth"
-                                    // Esta lógica es un poco simplista y podría necesitar ajustes para todos los casos.
-                                    // El objetivo es tener un nombre legible.
-                                    // Si el formApiName es "raticate-alola-totem", queremos "Alolan Raticate (Totem)"
-                                    // Podrías necesitar refinar esto según los patrones exactos de la API.
-                                    // Si la forma es algo como "tauros-paldea-combat-breed", pokemonNamePart es "Tauros"
-                                    // identifiedRegion es "paldea", displayName = "Paldean Tauros"
-                                    // luego el "-combat-breed" necesita ser parseado
                                     val suffix = formApiName.substringAfter("-$identifiedRegion").replace("-", " ")
-                                    if (suffix.isNotBlank() && suffix != " breed") { // Evitar añadir " Breed" dos veces
+                                    if (suffix.isNotBlank() && suffix != " breed") {
                                         displayName += suffix.split(" ")
                                             .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
-                                            .let { " ($it)"} // Ej: (Combat Breed), (Totem)
+                                            .let { " ($it)"}
                                     }
                                 }
 
+                                // CAMBIO 2: Usa la función estándar para obtener detalles del Pokémon por nombre
+                                val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
+                                //                                             ^^^^^^^^^^^^^^^^^
 
-                                // Obtener el sprite para esta forma
-                                val formDetailsResponse = pokemonApiService.getPokemonDetailsByNameForSprite(formApiName)
                                 val sprite = if (formDetailsResponse.isSuccessful) {
                                     formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
                                         ?: formDetailsResponse.body()?.sprites?.frontDefault
@@ -135,7 +130,7 @@ fun PokemonRegionalFormsView(
                 }
             } catch (e: Exception) {
                 error = "Error fetching regional forms: ${e.localizedMessage}"
-                e.printStackTrace() // Imprimir stack trace para depuración
+                e.printStackTrace()
             } finally {
                 isLoading = false
             }
@@ -143,14 +138,18 @@ fun PokemonRegionalFormsView(
     }
 
     if (isLoading) {
-        Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = color_progress_bar)
         }
         return
     }
 
     if (error != null) {
-        Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp), contentAlignment = Alignment.Center) {
             Text("Error: $error", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         }
         return

@@ -1,6 +1,7 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -24,6 +25,8 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,10 +51,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.PokemonMoveSlot
 import com.david.pokedex_api.api.model.VersionGroupDetail // Asegúrate que esta ruta sea correcta
 import com.david.pokedex_api.api.service.PokeApiService
@@ -75,165 +78,6 @@ fun formatMoveLearnMethod(method: String): String {
         else -> method.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
     }
 }
-/*
-// Función auxiliar para obtener el detalle de aprendizaje más relevante (puedes adaptarla)
-fun getRelevantVersionGroupDetail(details: List<VersionGroupDetail>): VersionGroupDetail? {
-    // Intenta encontrar el detalle para un grupo de versión más reciente o común
-    // Esta es una heurística simple, podrías querer algo más sofisticado
-    return details.find { it.versionGroup.name.contains("ultra-sun-ultra-moon") } // Ejemplo
-        ?: details.find { it.versionGroup.name.contains("sun-moon") }
-        ?: details.find { it.versionGroup.name.contains("omega-ruby-alpha-sapphire") }
-        ?: details.find { it.versionGroup.name.contains("x-y") }
-        ?: details.firstOrNull() // Como último recurso, toma el primero
-}
-*/
-/*
-@Composable
-fun PokemonMovesList(
-    moves: List<PokemonMoveSlot>,
-    backgroundColor: Color,
-    textColor: Color = CardBorder, // Asumo que CardBorder es un Color definido
-    pokemonApiService: PokeApiService,
-    modifier: Modifier = Modifier
-) {
-    if (moves.isEmpty()) {
-        Text(
-            text = "No hay movimientos disponibles.",
-            textAlign = TextAlign.Center,
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            color = textColor // Asegúrate de usar el color de texto apropiado
-        )
-        return
-    }
-
-    // 1. Pre-calcular el indicador de aprendizaje para cada movimiento
-    // Esta función auxiliar determinará el texto indicador basado en la lógica que ya tienes.
-    // Necesitas pasarle los 'versionGroupDetails' de cada 'moveSlot'.
-    val movesWithLearnIndicator = remember(moves) { // Se recalcula si 'moves' cambia
-        moves.map { moveSlot ->
-            val indicator = determineLearnIndicatorText(moveSlot.versionGroupDetails)
-            moveSlot to indicator // Creamos un Par de (MoveSlot, IndicatorText)
-        }
-    }
-
-    // 2. Agrupar los movimientos por el indicador de aprendizaje
-    val groupedMoves = remember(movesWithLearnIndicator) {
-        movesWithLearnIndicator
-            .filter { (_, indicator) -> indicator != null } // Opcional: filtrar los que no tienen indicador
-            .groupBy(
-                keySelector = { (_, indicator) -> indicator!! }, // Usamos el indicador como clave
-                valueTransform = { (moveSlot, _) -> moveSlot }     // Tomamos solo el moveSlot para la lista de valores
-            )
-            .toList() // Convertimos a lista de pares para mantener un orden (opcional)
-            .sortedBy { (indicator, _) -> // Opcional: Ordenar los grupos (ej. Nivel, MT/MO, Tutor, Huevo)
-                when (indicator) {
-                    "Nivel" -> 0 // Asumiendo que formatMoveLearnMethod devuelve "Nivel" o usas "Nv. X" directamente
-                    "MT/MO" -> 1
-                    "Tutor" -> 2
-                    "Huevo" -> 3
-                    else -> 4
-                }
-            }
-    }
-
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
-    ){
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-
-                // .clip(RoundedCornerShape(16.dp)) // El clip general podría no ser necesario si cada sección se clipea
-                // .background(backgroundColor) // El fondo general podría no ser necesario si cada sección tiene su fondo
-                .padding(vertical = 3.dp)
-        ) {
-            Text( // Título general "Movimientos"
-                text = "Movimientos",
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = textColor,
-                modifier = Modifier
-                    .fillMaxWidth()
-//                .padding(vertical = 5.dp, bottom = 10.dp) // Añadido más padding inferior
-            )
-
-            // 3. Itera sobre los grupos y crea una sección para cada uno
-            if (groupedMoves.isEmpty() && moves.isNotEmpty()) {
-                Text(
-                    text = "No se pudo determinar el método de aprendizaje para los movimientos.",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    color = textColor
-                )
-            } else {
-                // Usamos LazyColumn para toda la lista de grupos y sus movimientos
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f) // Si PokemonMovesList está dentro de otro Column con peso
-                        .padding(horizontal = 10.dp), // Padding para la lista de grupos
-                    contentPadding = PaddingValues(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp) // Espacio entre grupos de movimientos
-                ) {
-                    groupedMoves.forEach { (learnIndicatorText, movesInGroup) ->
-                        // item para el título del grupo
-                        item(key = "header_$learnIndicatorText") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp)
-                                    .background(backgroundColor),
-                            ){
-                                Text(
-                                    text = learnIndicatorText, // Este es tu learnIndicatorText
-                                    style = MaterialTheme.typography.titleMedium, // Un poco más grande para el título del grupo
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = textColor,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 4.dp) // Padding para el título del grupo
-                                )
-                            }
-
-
-                        }
-                        // items para los movimientos dentro de este grupo
-                        items(movesInGroup, key = { moveSlot -> "move_${learnIndicatorText}_${moveSlot.move.name}" }) { moveSlot ->
-                            MoveRow(
-                                moveSlot = moveSlot,
-                                pokemonApiService = pokemonApiService
-                                // Asegúrate que MoveRow use el color de fondo y texto correctos
-                                // Quizás quieras pasarle `backgroundColor` y `textColor` o que los determine internamente
-                            )
-                            Spacer(modifier = Modifier.height(4.dp)) // Pequeño espacio después de cada MoveRow
-                        }
-/*
-                        // Opcional: Añadir un separador visual entre grupos si no es el último
-                        if (groupedMoves.lastOrNull()?.first != learnIndicatorText) {
-                            item(key = "divider_$learnIndicatorText") {
-                                // Divider( // Puedes usar un Divider de Material
-                                // color = textColor.copy(alpha = 0.3f),
-                                // thickness = 1.dp,
-                                // modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
-                                // )
-                                // O simplemente un Spacer más grande si el 'spacedBy' del LazyColumn es suficiente
-                            }
-                        }
-                        */
-                    }
-                }
-            }
-        }
-    }
-}
-
-*/
 
 @Composable
 fun PokemonMovesList(
@@ -282,7 +126,9 @@ fun PokemonMovesList(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth().wrapContentHeight(),
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
         colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -318,29 +164,29 @@ fun PokemonMovesList(
             // --- Contenido Plegable General de la Tarjeta ---
             AnimatedVisibility(
                 visible = isCardExpanded,
-                enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+                enter = expandVertically(expandFrom = Alignment.Top),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
                 // Columna para el contenido que se mostrará/ocultará
                 Column(modifier = Modifier.padding(bottom = 8.dp)) {
                     if (moves.isEmpty()) { // Comprobación dentro de AnimatedVisibility si solo se muestra cuando está expandido
-                        Text(
-                            text = "No hay movimientos disponibles.",
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            color = textColor
-                        )
+//                        Text(
+//                            text = "No hay movimientos disponibles.",
+//                            textAlign = TextAlign.Center,
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(16.dp),
+//                            color = textColor
+//                        )
                     } else if (groupedMoves.isEmpty()) { // Si hay movimientos pero no se pudieron agrupar (ej. todos los indicadores fueron null)
-                        Text(
-                            text = "No se pudo determinar el método de aprendizaje para los movimientos.",
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            color = textColor
-                        )
+//                        Text(
+//                            text = "No se pudo determinar el método de aprendizaje para los movimientos.",
+//                            textAlign = TextAlign.Center,
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(16.dp),
+//                            color = textColor
+//                        )
                     } else {
                         // Usamos LazyColumn para la lista de secciones plegables (grupos)
                         LazyColumn(
@@ -383,6 +229,7 @@ fun PokemonMovesList(
         }
     }
 }
+
 
 @Composable
 fun CollapsibleSection( // Eliminado el <T> de aquí
@@ -444,7 +291,7 @@ fun CollapsibleSection( // Eliminado el <T> de aquí
         }
     }
 }
-
+/*
 @Composable
 fun MoveRow(
     moveSlot: PokemonMoveSlot,
@@ -641,6 +488,232 @@ fun MoveRow(
         }
     }
 }
+*/
+@Composable
+fun MoveRow(
+    moveSlot: PokemonMoveSlot,
+    pokemonApiService: PokeApiService
+) {
+    var displayedMoveName by remember(moveSlot.translatedName, moveSlot.move.name) {
+        mutableStateOf(
+            moveSlot.translatedName ?: moveSlot.move.name.replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString()
+            }.replace("-", " ")
+        )
+    }
+    var moveTypeName by remember { mutableStateOf<String?>(null) }
+    var movePower by remember { mutableStateOf<Int?>(null) }
+    var movePp by remember { mutableStateOf<Int?>(null) }
+    var moveAccuracy by remember { mutableStateOf<Int?>(null) }
+    var moveDamageClassName by remember { mutableStateOf<String?>(null) }
+    var isLoadingDetails by remember { mutableStateOf(false) }
+    var learnIndicatorText by remember { mutableStateOf<String?>(null) }
+
+    val actualColorTexto = moveTypeName?.let { type ->
+        if (esTipoColorOscuro(type)) { // Asegúrate que esTipoColorOscuro está definida
+            Color.White
+        } else {
+            Color.Black // O tu Color CardBorder si lo prefieres para texto oscuro
+        }
+    } ?: MaterialTheme.colorScheme.onSurface // Un color por defecto si el tipo es nulo
+
+    LaunchedEffect(key1 = moveSlot.move.url) {
+        // Carga detalles solo si no los tenemos ya (ej. el nombre traducido Y el tipo)
+        // O si algún dato crucial como el tipo de movimiento falta.
+        if (moveSlot.translatedName == null || moveTypeName == null) {
+            isLoadingDetails = true
+            try {
+                // CAMBIO AQUÍ: Usar el nombre correcto del método del servicio
+                val response = pokemonApiService.getMoveDetailsByUrl(moveSlot.move.url)
+                //                                 ^^^^^^^^^^^^^^^^^^^
+                if (response.isSuccessful) {
+                    val moveDetails = response.body()
+                    moveDetails?.names?.find { it.language.name == "es" }?.name?.let { spanishNameEntry ->
+                        displayedMoveName = spanishNameEntry
+                    }
+                    // Si no hay nombre en español, nos quedamos con el nombre por defecto ya seteado
+                    moveTypeName = moveDetails?.moveType?.name
+                    movePower = moveDetails?.power
+                    movePp = moveDetails?.pp
+                    moveAccuracy = moveDetails?.accuracy
+                    moveDamageClassName = moveDetails?.damageClass?.name
+                } else {
+                    println("Error fetching move details: ${response.code()} for ${moveSlot.move.url}")
+                    // No limpiamos todos los datos si la llamada falla,
+                    // podríamos tener el nombre base o traducido de antes.
+                    // Si la API falla, es mejor mostrar "-" para los datos no cargados.
+                }
+            } catch (e: Exception) {
+                println("Exception fetching move details: ${e.message} for ${moveSlot.move.url}")
+            }
+            isLoadingDetails = false
+        } else {
+            // Si ya tenemos el nombre traducido y el tipo, los otros datos también deberían estar.
+            // Esto es por si `moveSlot` ya viene con todos los datos precargados.
+            // Pero como la condición del if es `translatedName == null || moveTypeName == null`
+            // este `else` implica que ya tenemos esos datos, así que no es necesario resetearlos.
+            // El `displayedMoveName` ya se inicializó correctamente arriba.
+            // Para `moveTypeName`, `movePower`, etc., si `moveSlot` pudiera traerlos
+            // directamente, los inicializarías arriba también. Como no es el caso (según el código actual),
+            // el `LaunchedEffect` se encarga de llenarlos.
+        }
+    }
+
+    LaunchedEffect(moveSlot.versionGroupDetails) {
+        val levelUpDetail = moveSlot.versionGroupDetails.find {
+            it.moveLearnMethod.name == "level-up" && it.levelLearnedAt > 0
+        }
+
+        learnIndicatorText = if (levelUpDetail != null) {
+            "Nv. ${levelUpDetail.levelLearnedAt}"
+        } else {
+            val machineDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "machine" }
+            if (machineDetail != null) {
+                "MT/MO"
+            } else {
+                val tutorDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "tutor" }
+                if (tutorDetail != null) {
+                    "Tutor"
+                } else {
+                    val eggDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "egg" }
+                    if (eggDetail != null) "Huevo" else null
+                }
+            }
+        }
+    }
+
+    val backgroundColor = moveTypeName?.let { type ->
+        getPokemonTypeColorClear(type) // Asegúrate que getPokemonTypeColorClear está definida
+    } ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .padding(vertical = 6.dp, horizontal = 8.dp) // Ajuste de padding
+    ) {
+        // Muestra el indicador de carga solo si isLoadingDetails es true
+        // Y algunos datos clave (como moveTypeName) aún no se han cargado.
+        if (isLoadingDetails && moveTypeName == null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp), // Darle algo de espacio
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color(0xFFD32F2F) // color_progress_bar - Reemplaza con tu color
+                )
+            }
+        } else {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = displayedMoveName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = actualColorTexto,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(0.55f) // Ajustado
+                    )
+                    val iconResId: Int? = when (moveDamageClassName?.lowercase(java.util.Locale.getDefault())) {
+                        "physical" -> R.drawable.fisico // Asegúrate que tus drawables existen
+                        "special" -> R.drawable.especial
+                        "status" -> R.drawable.estado
+                        else -> null
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(0.15f) // Peso para el icono de clase
+                            .padding(horizontal = 4.dp), // Espacio alrededor del icono
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        if (iconResId != null) {
+                            Image(
+                                painter = painterResource(id = iconResId),
+                                contentDescription = moveDamageClassName ?: "Clase de daño",
+                                modifier = Modifier.size(20.dp), // Tamaño del icono de clase
+                            )
+                        } else {
+                            // Ocupa espacio si no hay icono para mantener la alineación
+                            // O puedes omitir el Box si prefieres que el texto del nivel se mueva
+                            Spacer(Modifier.size(20.dp))
+                        }
+                    }
+
+                    // Indicador de aprendizaje (Nivel, MT/MO, Tutor, Huevo)
+                    if (learnIndicatorText != null) {
+                        Text(
+                            text = learnIndicatorText!!, // No será null aquí debido al if
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Normal, // O Bold si prefieres
+                            color = actualColorTexto.copy(alpha = 0.85f), // Ligeramente más tenue
+                            modifier = Modifier.weight(0.30f), // Ajusta el peso según veas necesario
+                            textAlign = TextAlign.End // Alinear a la derecha de su espacio
+                        )
+                    } else {
+                        // Si no hay texto de aprendizaje, ocupa el espacio para mantener la estructura
+                        Spacer(Modifier.weight(0.30f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(5.dp)) // Espacio entre la primera fila y los detalles
+
+                // Fila para los detalles (Potencia, PP, Precisión, Tipo)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween // Distribuye el espacio entre los items
+                ) {
+                    MoveDetailItem(label = "Pot.", value = movePower?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+                    MoveDetailItem(label = "PP", value = movePp?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+                    MoveDetailItem(label = "Prec.", value = moveAccuracy?.let { "$it%" } ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+
+                    // Tipo del movimiento (con chip)
+                    Box(
+                        modifier = Modifier.weight(1.5f), // Darle un poco más de peso si es necesario
+                        contentAlignment = Alignment.Center // Centrar el chip en su espacio
+                    ) {
+                        if (moveTypeName != null) {
+                            PokemonTypeChip( // Asegúrate de que este Composable está definido y disponible
+                                typeName = moveTypeName!!,
+                                modifier = Modifier.height(28.dp), // Altura del chip
+                                // Puedes pasarle el color del texto si tu PokemonTypeChip lo soporta
+                                // textStyle = MaterialTheme.typography.labelSmall.copy(color = ...)
+                            )
+                        } else {
+                            // Muestra un guion si el tipo no está cargado
+                            Text(
+                                "-",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = actualColorTexto,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
 @Composable
 fun MoveDetailItem(label: String, value: String, modifier: Modifier = Modifier, colorTexto: Color = MaterialTheme.colorScheme.onSurface) {
     Column(
@@ -700,106 +773,3 @@ private fun determineLearnIndicatorText(versionGroupDetails: List<VersionGroupDe
     return null // Si devuelves null, estos movimientos se filtrarán antes de agrupar
 }
 
-@Composable
-fun MoveGroupHeader(
-    title: String,
-    isExpanded: Boolean,
-    onToggle: () -> Unit,
-    textColor: Color,
-    modifier: Modifier = Modifier
-) {
-    val rotationAngle by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f, label = "groupArrowRotation")
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .padding(vertical = 8.dp, horizontal = 4.dp), // Ajusta padding si es necesario
-        verticalAlignment = Alignment.CenterVertically,
-        // horizontalArrangement = Arrangement.SpaceBetween // Descomenta si quieres la flecha al final
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = textColor,
-            modifier = Modifier.weight(1f) // Para que el texto ocupe el espacio disponible
-        )
-//        Icon(
-//            imageVector = Icons.Filled.ArrowDropDown, // O KeyboardArrowDown / KeyboardArrowUp si prefieres diferentes para expandido/colapsado
-//            contentDescription = if (isExpanded) "Colapsar sección $title" else "Expandir sección $title",
-//            tint = textColor,
-//            modifier = Modifier.graphicsLayer(rotationZ = rotationAngle)
-//        )
-    }
-}
-
-
-
-/*
-@Composable
-fun MovesTableHeaders(
-    textColor: Color = CardBorder, // Color por defecto si no se especifica
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            // El padding horizontal debería coincidir con el del contenido de MoveRow
-            // y el padding horizontal del LazyColumn en PokemonMovesList.
-            // Aquí no usamos el mismo padding vertical que en MoveRow, ya que este es solo un encabezado.
-            .padding(horizontal = 14.dp + 12.dp, vertical = 8.dp), // Suma del padding de LazyColumn y el padding interno de MoveRow
-        verticalAlignment = Alignment.CenterVertically,
-        // Usamos SpaceBetween si los pesos distribuyen bien, o puedes usar pesos fijos
-        // y Arrangement.Start si algunos encabezados necesitan más espacio que otros.
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Encabezado para Nombre (este texto no es parte de la fila de datos,
-        // así que lo ponemos aquí o lo integramos de otra manera en la UI general de PokemonMovesList)
-        // Por simplicidad, no lo incluiré aquí directamente, ya que MoveRow ahora tiene el nombre
-        // del movimiento grande arriba y los detalles abajo.
-        // Si quisieras un encabezado de "Movimiento" encima de los detalles,
-        // este sería el lugar para el texto "Movimiento" que se alinea con la columna de nombres.
-
-        // Encabezados para Pot, PP, Prec., Tipo
-        // Los pesos deben ser consistentes con los pesos de MoveDetailItem y el Box del PokemonTypeChip en MoveRow
-        Text(
-            text = "Pot.",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.weight(1f), // Coincide con el peso de MoveDetailItem
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "PP",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.weight(1f), // Coincide con el peso de MoveDetailItem
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "Prec.",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.weight(1f), // Coincide con el peso de MoveDetailItem
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "Tipo",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.weight(1.5f), // Coincide con el peso del Box para PokemonTypeChip
-            textAlign = TextAlign.Center
-        )
-    }
-}
-*/
-// --- Saver para SnapshotStateMap<String, Boolean> (como lo definimos antes) ---
-val MapSaver = Saver<SnapshotStateMap<String, Boolean>, Map<String, Boolean>>(
-    save = { snapshotStateMap -> snapshotStateMap.toMap() },
-    restore = { map -> mutableStateMapOf<String, Boolean>().apply { putAll(map) } }
-)

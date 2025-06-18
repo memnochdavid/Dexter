@@ -284,7 +284,7 @@ fun DetallesDesplegables(
                                 item {
                                     PokemonSpecialFormsView(
                                         pokemonSpeciesUrl = pokemon.species.url,
-                                        pokemonName = pokemon.name, // Nombre base para evitar auto-clics
+//                                        pokemonName = pokemon.name, // Nombre base para evitar auto-clics
                                         pokemonApiService = pokemonApiService,
                                         onFormClick = { formName ->
                                             onEvolutionPokemonClick(formName) // Navegar al hacer clic en una forma

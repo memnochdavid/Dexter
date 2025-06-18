@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,20 +56,17 @@ import kotlinx.coroutines.launch
 @Composable
 fun PokemonSpecialFormsView(
     pokemonSpeciesUrl: String?, // URL de la especie del Pokémon actual
-    pokemonName: String, // Nombre del Pokémon base para el título (usado si specialForms está vacío)
-    pokemonApiService: PokeApiService,
-    cardColor: Color = MaterialTheme.colorScheme.surfaceVariant, // Color de fondo de la tarjeta principal
-    colorTexto: Color = MaterialTheme.colorScheme.onSurface, // Color del texto
-    itemCardColor: Color = MaterialTheme.colorScheme.surface, // Color de fondo para cada item de forma
-    onFormClick: (pokemonName: String) -> Unit, // Callback si quieres hacer algo al clickear una forma
+    pokemonApiService: PokeApiService, // Asegúrate que es tu interfaz de servicio actualizada
+    cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    colorTexto: Color = MaterialTheme.colorScheme.onSurface,
+    itemCardColor: Color = MaterialTheme.colorScheme.surface,
+    onFormClick: (pokemonName: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var specialForms by remember { mutableStateOf<List<SpecialForm>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-
-    // Estado para controlar la expansión del contenido
     var isExpanded by remember { mutableStateOf(true) }
 
     LaunchedEffect(pokemonSpeciesUrl) {
@@ -80,13 +78,19 @@ fun PokemonSpecialFormsView(
 
         isLoading = true
         error = null
+        specialForms = emptyList() // Limpiar formas anteriores al recargar
+
         coroutineScope.launch {
             try {
-                val speciesResponse = pokemonApiService.getSpeciesDetailsByUrl(pokemonSpeciesUrl)
+                // CAMBIO 1: Usa el nuevo nombre de la función del servicio
+                val speciesResponse = pokemonApiService.getPokemonSpeciesDetailsByUrl(pokemonSpeciesUrl)
+                //                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
                     val forms = mutableListOf<SpecialForm>()
 
+                    // Asegúrate de que tu modelo PokemonSpeciesResponse tenga 'varieties'
                     speciesDetail.varieties.forEach { variety ->
                         if (!variety.isDefault) {
                             val formApiName = variety.pokemon.name
@@ -95,18 +99,21 @@ fun PokemonSpecialFormsView(
 
                             if (formApiName.contains("-mega")) {
                                 displayName = "Mega " + formApiName.substringBefore("-mega")
-                                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
                                 if (formApiName.contains("-mega-x")) displayName += " X"
                                 if (formApiName.contains("-mega-y")) displayName += " Y"
                                 isSpecialForm = true
                             } else if (formApiName.contains("-gmax")) {
                                 displayName = "Giga " + formApiName.substringBefore("-gmax")
-                                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
                                 isSpecialForm = true
                             }
 
                             if (isSpecialForm) {
-                                val formDetailsResponse = pokemonApiService.getPokemonDetailsByNameForSprite(formApiName)
+                                // CAMBIO 2: Usa la función estándar para obtener detalles del Pokémon por nombre
+                                val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
+                                //                                             ^^^^^^^^^^^^^^^^^
+
                                 val sprite = if (formDetailsResponse.isSuccessful) {
                                     formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
                                         ?: formDetailsResponse.body()?.sprites?.frontDefault
@@ -123,6 +130,7 @@ fun PokemonSpecialFormsView(
                 }
             } catch (e: Exception) {
                 error = "Error fetching special forms: ${e.localizedMessage}"
+                e.printStackTrace() // Es bueno tener esto para depuración
             } finally {
                 isLoading = false
             }
@@ -163,7 +171,7 @@ fun PokemonSpecialFormsView(
         modifier = modifier
             .fillMaxWidth(), // La altura será manejada por el contenido o AnimatedVisibility
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+//        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor) // Color de fondo principal de la tarjeta
     ) {
         Column(

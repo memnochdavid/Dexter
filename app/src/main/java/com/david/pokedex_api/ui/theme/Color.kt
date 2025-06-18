@@ -3,7 +3,7 @@ package com.david.pokedex_api.ui.theme
 import androidx.compose.ui.graphics.Color
 
 //sistema
-val background_app = Color(0xFFECECEC)
+val background_app = Color(0xFFD3C8B6)
 val color_boton_busqueda = Color(0xFF2D82DC)
 val color_menu_busqueda1 = Color(0xC88269DA)
 val color_menu_busqueda2 = Color(0xC46650A4)

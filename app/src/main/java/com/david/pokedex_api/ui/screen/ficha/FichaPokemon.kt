@@ -45,6 +45,7 @@ import coil.compose.AsyncImage
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
@@ -75,6 +76,8 @@ fun PokemonDetailScreen(
     val error by pokemonViewModel.error.observeAsState()
     val evolutionChain by pokemonViewModel.evolutionChainDetails.observeAsState()
     val isLoadingEvolutionChain by pokemonViewModel.isLoadingEvolutionChain.observeAsState(false)
+    val pokemonSpecies by pokemonViewModel.pokemonSpeciesDetails.observeAsState() // <--- OBSERVAR ESTE
+
 
 
     // Cargar los detalles del Pokémon cuando esta pantalla se compone o pokemonName cambia
@@ -114,7 +117,9 @@ fun PokemonDetailScreen(
         ) {
             if (isLoadingDetails && pokemonDetail == null) {
                 Box(
-                    modifier = Modifier.fillMaxSize().background(background_app),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(background_app),
                     contentAlignment = Alignment.Center // El Box centrará su contenido
                 ) {
                     Column( // Usamos una Column para apilar el Lottie y el Texto verticalmente
@@ -130,6 +135,7 @@ fun PokemonDetailScreen(
             } else if (pokemonDetail != null) {
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
+                    pokemonSpecies = pokemonSpecies,
                     description = pokemonDescription, // Asumo que lo obtienes del ViewModel
                     evolutionChainDetailResponse = evolutionChain, // Asumo que lo obtienes del ViewModel
                     isLoadingEvolutionChain = isLoadingEvolutionChain, // Asumo que lo obtienes del ViewModel
@@ -168,13 +174,16 @@ fun PokemonDetailScreen(
 @Composable
 fun PokemonDetailsView(
     pokemon: PokemonDetailResponse,
+    pokemonSpecies: PokemonSpeciesResponse?,
     description: String?,
     evolutionChainDetailResponse: EvolutionChainDetailResponse?,
     isLoadingEvolutionChain: Boolean,
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
     pokemonViewModel: PokemonViewModel
 ) {
-
+    val spanishGenus = remember(pokemonSpecies) { // Recalcular solo si pokemonSpecies cambia
+        pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
+    }
     ConstraintLayout(
         modifier = Modifier
             .fillMaxSize()
@@ -198,7 +207,7 @@ fun PokemonDetailsView(
         Row(
             modifier = Modifier
                 .fillMaxWidth(1f)
-                .fillMaxHeight(0.11f)
+                .fillMaxHeight(0.15f)
                 .constrainAs(nombre_num_altura_peso_tipos) {
                     top.linkTo(imagen.bottom)
                     start.linkTo(parent.start)
@@ -216,10 +225,12 @@ fun PokemonDetailsView(
                     colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                         Color.White
                     } else {
-                        CardBorder
+                        Color.Black // Reemplaza CardBorder si no está definido globalmente
+                        // o define CardBorder en tu tema.
                     },
                     nombre = pokemon.name,
                     numero = pokemon.id,
+                    genus = spanishGenus, // <--- PASAR EL GENUS EXTRAÍDO
                     altura = pokemon.height.toDouble(),
                     peso = pokemon.weight.toDouble(),
                     modifier = Modifier
@@ -234,7 +245,9 @@ fun PokemonDetailsView(
                 pokemon.types.forEach { typeInfo ->
                     PokemonTypeChip(
                         typeName = typeInfo.type.name,
-                        modifier = Modifier.weight(1f).padding(end = 16.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 16.dp)
                     )
                 }
             }

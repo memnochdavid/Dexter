@@ -136,13 +136,15 @@ data class TypeInteraction(
 
 suspend fun getCombinedDefensiveInteractions(
     pokemonTypes: List<TypeResponseSlot>, // Los tipos del Pokémon actual
-    apiService: PokeApiService
+    apiService: PokeApiService // Asegúrate que es tu interfaz de servicio actualizada
 ): List<TypeInteraction> {
     if (pokemonTypes.isEmpty()) return emptyList()
 
     val typeDetailsResponses = pokemonTypes.mapNotNull { typeSlot ->
         try {
-            val response = apiService.getTypeDetails(typeSlot.type.name)
+            // CAMBIO AQUÍ: Usa el nuevo nombre de la función del servicio
+            val response = apiService.getTypeDetailsByName(typeSlot.type.name)
+            //                            ^^^^^^^^^^^^^^^^^^^
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             println("Error fetching type details for ${typeSlot.type.name}: ${e.message}")
@@ -150,43 +152,33 @@ suspend fun getCombinedDefensiveInteractions(
         }
     }
 
-    if (typeDetailsResponses.isEmpty()) return emptyList() // No se pudieron obtener detalles
+    if (typeDetailsResponses.isEmpty()) return emptyList()
 
     val combinedInteractions = mutableMapOf<String, Double>()
 
-    // Inicializar todos los tipos atacantes con multiplicador x1
     ALL_POKEMON_TYPES.forEach { attackingType ->
         combinedInteractions[attackingType] = 1.0
     }
 
     typeDetailsResponses.forEach { typeDetail ->
-        // Aplicar las relaciones de este tipo del Pokémon
+        // Asumiendo que typeDetail es de tipo TypeDetailResponse y tiene 'damageRelations'
+        // y que ALL_POKEMON_TYPES es tu lista de constantes de todos los tipos
         typeDetail.damageRelations.noDamageFrom.forEach { attackingTypeInfo ->
-            combinedInteractions[attackingTypeInfo.name] = combinedInteractions[attackingTypeInfo.name]?.times(0.0) ?: 0.0
+            combinedInteractions[attackingTypeInfo.name] = (combinedInteractions[attackingTypeInfo.name] ?: 1.0) * 0.0
         }
         typeDetail.damageRelations.halfDamageFrom.forEach { attackingTypeInfo ->
-            combinedInteractions[attackingTypeInfo.name] = combinedInteractions[attackingTypeInfo.name]?.times(0.5) ?: 0.5
+            combinedInteractions[attackingTypeInfo.name] = (combinedInteractions[attackingTypeInfo.name] ?: 1.0) * 0.5
         }
         typeDetail.damageRelations.doubleDamageFrom.forEach { attackingTypeInfo ->
-            combinedInteractions[attackingTypeInfo.name] = combinedInteractions[attackingTypeInfo.name]?.times(2.0) ?: 2.0
+            combinedInteractions[attackingTypeInfo.name] = (combinedInteractions[attackingTypeInfo.name] ?: 1.0) * 2.0
         }
     }
 
-    // Normalizar multiplicadores (ej: 0.0 * algo sigue siendo 0.0)
-    // El bucle anterior ya maneja la multiplicación, pero es bueno ser explícito.
-    // Si un tipo es inmune (x0), el resultado final es x0.
-    combinedInteractions.forEach { (type, multiplier) ->
-        if (multiplier != 0.0 && combinedInteractions[type]!! < 0.001 && combinedInteractions[type]!! > -0.001) { // Pequeña tolerancia por errores de coma flotante
-            // Esto es para el caso donde un tipo daría 0 y el otro, por ejemplo, 2. El resultado debe ser 0.
-            // La lógica de multiplicación directa ya debería manejar esto, pero es una doble comprobación.
-            // Si una de las multiplicaciones originales resultó en 0.0 para un attackingType,
-            // cualquier multiplicación posterior con ese 0.0 mantendrá el resultado en 0.0.
-        }
-    }
-
+    // La normalización/doble comprobación que tenías antes para el 0.0 ya está implícita
+    // en la multiplicación directa. Si alguna vez se multiplica por 0.0, el resultado será 0.0.
 
     return combinedInteractions.map { TypeInteraction(it.key, it.value) }
-        .sortedBy { ALL_POKEMON_TYPES.indexOf(it.attackingType) } // Ordenar como ALL_POKEMON_TYPES
+        .sortedBy { ALL_POKEMON_TYPES.indexOf(it.attackingType) }
 }
 
 fun formatPokemonName(apiName: String): String {

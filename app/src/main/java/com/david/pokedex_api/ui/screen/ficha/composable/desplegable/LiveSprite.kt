@@ -70,6 +70,8 @@ fun LiveSprites(
     val adaptedPokemonName = when {
         pokemonName.contains("-mega-x") -> pokemonName.replace("-mega-x", "-megax")
         pokemonName.contains("-mega-y") -> pokemonName.replace("-mega-y", "-megay")
+        pokemonName.contains("-m") -> pokemonName.replace("-m", "_m")
+        pokemonName.contains("-f") -> pokemonName.replace("-f", "_f")
         else -> pokemonName
     }
     println("LiveSprites: NOMBRE ORIGINAL: - $pokemonName, NOMBRE ADAPTADO: - $adaptedPokemonName") // Para depuración

@@ -91,45 +91,36 @@ fun PokemonAbilitiesList(
 fun AbilityRow(
     abilitySlot: AbilitySlot,
     textColor: Color,
-    pokemonApiService: PokeApiService,
-    // Puedes pasar un color de fondo para la fila si quieres que sea dinámico,
-    // o definirlo directamente aquí.
+    pokemonApiService: PokeApiService, // Asegúrate que este es el tipo de tu interfaz de servicio actualizada
     rowBackgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
 ) {
     var displayedAbilityName by remember {
         mutableStateOf(
-            // Capitaliza y reemplaza guiones para el nombre por defecto
             abilitySlot.ability.name.replace("-", " ").replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase() else it.toString()
             }
         )
     }
-    // Estado para el efecto/descripción corta de la habilidad (opcional)
     var abilityShortEffect by remember { mutableStateOf<String?>(null) }
     var isLoadingDetails by remember { mutableStateOf(false) }
 
-    // --- Opcional: Cargar detalles de la habilidad (nombre traducido, efecto) ---
-    // Descomenta y adapta este LaunchedEffect si quieres hacer una llamada API
-    // para obtener más detalles de cada habilidad.
     LaunchedEffect(key1 = abilitySlot.ability.url) {
-        // Para evitar llamadas repetidas si ya tienes la info o no la quieres, puedes añadir condiciones
-        // if (displayedAbilityName == abilitySlot.ability.name.replace("-", " ").replaceFirstChar{...} && abilityShortEffect == null) {
         isLoadingDetails = true
         try {
-            val response = pokemonApiService.getAbilityDetails(abilitySlot.ability.url)
+            // CAMBIO AQUÍ: Usa el nuevo nombre de la función del servicio
+            val response = pokemonApiService.getAbilityDetailsByUrl(abilitySlot.ability.url)
+            //                                  ^^^^^^^^^^^^^^^^^^^^^^
+
             if (response.isSuccessful) {
                 val details = response.body()
 
-                // Actualizar el nombre mostrado si se encuentra una traducción
                 details?.localizedNames?.find { it.language.name == "es" }?.name?.let {
                     displayedAbilityName = it
                 }
 
-                // Obtener el efecto corto en español
                 details?.effectEntries?.find { it.language.name == "es" }?.shortEffect?.let {
-                    abilityShortEffect = it.replace("\n", " ") // Reemplaza saltos de línea
+                    abilityShortEffect = it.replace("\n", " ")
                 }
-                // Si no hay efecto corto, podrías buscar un flavor text
                 if (abilityShortEffect == null) {
                     details?.flavorTextEntries?.find { it.language.name == "es" }?.flavorText?.let {
                         abilityShortEffect = it.replace("\n", " ")
@@ -137,19 +128,15 @@ fun AbilityRow(
                 }
 
             } else {
-                // Manejar error de la API (ej: log, mostrar mensaje por defecto)
                 println("Error fetching ability details: ${response.code()} for ${abilitySlot.ability.url}")
             }
         } catch (e: Exception) {
-            // Manejar excepción de red u otras
             println("Exception fetching ability details: ${e.message} for ${abilitySlot.ability.url}")
         }
         isLoadingDetails = false
-        // }
     }
-    // --- Fin de la carga opcional de detalles ---
 
-    Column( // Usamos Column para poder poner el nombre y debajo su efecto/descripción
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
@@ -166,29 +153,28 @@ fun AbilityRow(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = textColor,
-                modifier = Modifier.weight(1f), // Para que el nombre tome el espacio disponible
+                modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (abilitySlot.isHidden) {
                 Text(
                     text = "Oculta",
-                    style = MaterialTheme.typography.labelSmall, // Un estilo más pequeño para "Oculta"
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.tertiary, // Un color distintivo para "Oculta"
+                    color = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
         }
 
-        // Mostrar el efecto corto si está disponible y no se está cargando
         if (isLoadingDetails) {
             CircularProgressIndicator(
                 modifier = Modifier
                     .size(16.dp)
                     .align(Alignment.CenterHorizontally)
                     .padding(top = 4.dp),
-                color = color_progress_bar,
+                // color = color_progress_bar, // Asegúrate que esta variable de color está definida
                 strokeWidth = 2.dp
             )
         } else {
@@ -198,9 +184,9 @@ fun AbilityRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = textColor.copy(alpha = 0.8f),
                     modifier = Modifier
-                        .padding(top = 4.dp) // Espacio entre el nombre y la descripción
+                        .padding(top = 4.dp)
                         .fillMaxWidth(),
-                    maxLines = 3, // Permite más líneas para la descripción
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
             }

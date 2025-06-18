@@ -40,10 +40,17 @@ data class PokemonSpeciesResponse(
     @SerializedName("evolution_chain") // <--- AÑADE ESTO
     val evolutionChain: EvolutionChainUrl?, // <--- AÑADE ESTO (puede ser null si la API alguna vez no lo envía)
     val color: NamedApiResource?,
+    @SerializedName("genera") // <--- AÑADE ESTA LÍNEA
+    val genera: List<GenusEntry>?,
+    val varieties: List<PokemonVariety>
     // ... otros campos que ya tenías o quieras añadir
     // como habitat, shape, gender_rate, etc.
 )
-
+data class PokemonVariety(
+    @SerializedName("is_default") // Para Gson, si usas snake_case en JSON y camelCase en Kotlin
+    val isDefault: Boolean,
+    val pokemon: NamedApiResource // NamedApiResource típicamente tiene 'name' y 'url'
+)
 data class NamedApiResource(
     val name: String,
     val url: String
@@ -148,7 +155,10 @@ data class PokemonSummary(
     val name: String,
     val spriteUrl: String?,
     val types: List<String>, // Lista de nombres de tipos
-    val colorName: String?
+    val colorName: String?,
+    val formName: String?, // Nombre de la forma (ej. "mega-x", "alola") - puede ser null para la forma default
+    val isDefaultForm: Boolean,
+    val speciesName: String // Nombre de la especie base (ej. "charizard")
 )
 
 data class GenerationListResponse(
@@ -378,4 +388,8 @@ data class GenericNamedResourceDetail(
     val name: String, // Nombre API original
     val names: List<NameEntry> // Lista de nombres localizados
     // Puedes añadir otros campos comunes si existen y son útiles
+)
+data class GenusEntry(
+    val genus: String,
+    val language: NamedApiResource
 )
