@@ -39,13 +39,14 @@ import com.david.pokedex_api.ui.theme.*
 @Composable
 fun getStatColor(statName: String): Color {
     return when (statName.lowercase()) {
-        "hp" -> color_fuego_light
-        "attack" -> color_electrico_light
-        "defense" -> verde40
-        "special-attack" -> color_agua_light
-        "special-defense" -> color_bicho_card
-        "speed" -> color_psiquico_light
-        else -> MaterialTheme.colorScheme.primary // Color por defecto
+        "hp" -> color_stat_hp
+        "attack" -> color_stat_attack
+        "defense" -> color_stat_defense
+        "special-attack" -> color_stat_sp_attack
+        "special-defense" -> color_stat_sp_defense
+        "speed" -> color_stat_speed
+        "total" -> color_stat_total
+        else -> Color.Black // Color por defecto
     }
 }
 

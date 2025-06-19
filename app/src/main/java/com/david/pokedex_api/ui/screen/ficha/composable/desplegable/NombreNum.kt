@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChipForColumn
 import com.david.pokedex_api.util.formatPokemonName
 
 @Composable
@@ -102,6 +105,7 @@ fun NombreNumAlturaPeso(
     genus: String?, // <--- AÑADIR NUEVO PARÁMETRO GENUS
     altura: Double,
     peso: Double,
+    tipo: String,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -110,27 +114,48 @@ fun NombreNumAlturaPeso(
             containerColor = colorFondo
         )
     ) {
-        // Combinar NombreNum y AlturaPeso en una sola Row si el espacio es limitado,
-        // o mantenerlos separados si prefieres más espacio.
-        // Aquí los pongo en una Column dentro de la Card para mejor organización.
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp), // Añadir padding vertical dentro de la Card
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp) // Espacio entre elementos
-        ) {
-            NombreNum(
-                nombre = nombre,
-                numero = numero,
-                genus = genus, // <--- PASAR GENUS
-                colorTexto = colorTexto
-            )
-            AlturaPeso(
-                altura = altura,
-                peso = peso,
-                colorTexto = colorTexto
-            )
+                .fillMaxWidth(),
+//                .padding(vertical = 8.dp), // Añadir padding vertical dentro de la Card
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ){
+            // Combinar NombreNum y AlturaPeso en una sola Row si el espacio es limitado,
+            // o mantenerlos separados si prefieres más espacio.
+            // Aquí los pongo en una Column dentro de la Card para mejor organización.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp), // Añadir padding vertical dentro de la Card
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp) // Espacio entre elementos
+            ) {
+                NombreNum(
+                    nombre = nombre,
+                    numero = numero,
+                    genus = genus, // <--- PASAR GENUS
+                    colorTexto = colorTexto
+                )
+                AlturaPeso(
+                    altura = altura,
+                    peso = peso,
+                    colorTexto = colorTexto
+                )
+            }
+//            Column(
+//                modifier = Modifier
+//                    .fillMaxWidth(0.4f)
+//                    .padding(vertical = 8.dp), // Añadir padding vertical dentro de la Card
+//                horizontalAlignment = Alignment.CenterHorizontally,
+////                verticalArrangement = Arrangement.spacedBy(4.dp) // Espacio entre elementos
+//            ){
+//                PokemonTypeChipForColumn(
+//                    typeName = tipo,
+//                    modifier = Modifier.wrapContentWidth()
+//                )
+//            }
         }
+
     }
 }

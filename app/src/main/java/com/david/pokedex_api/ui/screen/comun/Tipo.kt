@@ -96,6 +96,61 @@ fun PokemonTypeChipSmall( // Versión más pequeña de tu PokemonTypeChip
     }
 }
 
+@Composable
+fun PokemonTypeChipForColumn(typeName: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface( // Usamos Surface para poder darle forma y color de fondo
+            shape = RoundedCornerShape(6.dp),
+            color = getPokemonTypeColorTypeChip(typeName),//.copy(alpha = 0.2f), // Color de fondo semi-transparente
+            contentColor = blanco5, // Color del texto
+//            border = BorderStroke( // <-- AÑADIR BORDE AQUÍ
+//                width = 1.dp, // Grosor del borde
+//                color = getPokemonTypeColor(typeName) // Color del borde (puedes usar el mismo color base o uno diferente)
+//            )
+        ) {
+            val iconResId = getPokemonTypeToIcon(typeName)
+            Image(
+                painter = painterResource(id = iconResId),
+                contentDescription = typeName, // Buena práctica para accesibilidad
+                modifier = Modifier // Aquí van los modificadores que tenías en tu código original
+                    // Por ejemplo:
+                    .size(20.dp)
+                // .align(Alignment.CenterStart) // o lo que necesites
+            )
+            Spacer(modifier = Modifier.width(4.dp)) // Espacio entre el icono y el texto
+            Text(
+                text = pokemonTypeNameTranslator(typeName.replaceFirstChar { it.titlecase() }),
+                fontSize = 10.sp,
+                color = blanco80,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .fillMaxWidth(1f),
+                fontWeight = FontWeight.Bold
+            )
+
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Función auxiliar para determinar si un color es oscuro (para contraste de texto)
 // Esta es una implementación muy básica. Hay algoritmos más precisos.
 fun isDarkColor(color: Color): Boolean {
