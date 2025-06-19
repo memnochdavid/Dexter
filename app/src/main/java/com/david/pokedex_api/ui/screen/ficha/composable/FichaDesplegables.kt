@@ -171,13 +171,13 @@ fun DetallesDesplegables(
                     ) {
                         TextoMenu(
                             when (page) {
-                                ContentPage.DESC -> "Desc"
-                                ContentPage.EVOS -> "Evos"
+                                ContentPage.DESC -> "Desc."
+                                ContentPage.EVOS -> "Evo."
                                 ContentPage.STATS -> "Stats"
-                                ContentPage.MOVES -> "Movs"
-                                ContentPage.ABILITY -> "Habs"
+                                ContentPage.MOVES -> "Mov."
+                                ContentPage.ABILITY -> "Hab."
                                 ContentPage.INTER -> "Tipos"
-                                ContentPage.REGI -> "Regis"
+                                ContentPage.FORM -> "Form."
                             },
                             colorFondo = if (selectedContent == page) getPokemonTypeColor(pokemon.types[0].type.name) else Color.Transparent,
                             colorTexto = if ((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page) {
@@ -423,7 +423,7 @@ fun DetallesDesplegables(
                         )
                     }
 
-                    ContentPage.REGI -> {
+                    ContentPage.FORM -> {
                         PokemonRegionalFormsView(
                             pokemonSpeciesUrl = pokemon.species.url,
                             basePokemonName = pokemon.name,
@@ -478,5 +478,5 @@ fun TextoMenu(title: String, colorFondo: Color, colorTexto: Color) {
 }
 
 enum class ContentPage {
-    DESC, EVOS, STATS, MOVES, ABILITY, INTER, REGI
+    DESC, EVOS, STATS, MOVES, ABILITY, INTER, FORM
 }

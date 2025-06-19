@@ -16,7 +16,7 @@ val color_stat_defense = Color(0xFF009129)
 val color_stat_sp_attack = Color(0xFF247FEB)
 val color_stat_sp_defense = Color(0xFF4CCE4C)
 val color_stat_speed = Color(0xFFEB3F78)
-val color_stat_total = Color(0xFFA040A0)
+val color_stat_total = Color(0xFF903FC8)
 
 
 //paleta

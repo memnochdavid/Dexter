@@ -73,7 +73,7 @@ fun getPokemonSpriteUrl(pokemonId: Int): String {
     return "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokemonId.png"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+//@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EvolutionStageView(
     chainLink: ChainLink,
@@ -163,7 +163,7 @@ fun EvolutionStageView(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+//@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonEvolutionChainView(
     evolutionChainResponse: EvolutionChainDetailResponse?,
@@ -257,12 +257,6 @@ fun PokemonEvolutionChainView(
                     style = MaterialTheme.typography.titleMedium,
                     color = colorTexto
                 )
-//                Icon(
-//                    imageVector = if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-//                    contentDescription = if (isExpanded) "Plegar" else "Expandir",
-//                    tint = colorTexto,
-//                    modifier = Modifier.padding(start = 8.dp)
-//                )
             }
 
             // Contenido plegable animado
@@ -276,8 +270,8 @@ fun PokemonEvolutionChainView(
                         if (linearEvolutionPath.isNotEmpty()) {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+//                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 4.dp),
+//                                horizontalArrangement = Arrangement.SpaceEvenly, //.spacedBy(8.dp, Alignment.CenterHorizontally),
                                 verticalAlignment = Alignment.Top
                             ) {
                                 itemsIndexed(linearEvolutionPath) { index, pair ->
@@ -305,7 +299,7 @@ fun PokemonEvolutionChainView(
                                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                                 contentDescription = "Evolves to",
                                                 modifier = Modifier
-                                                    .padding(horizontal = 4.dp) // Espacio alrededor de la flecha
+//                                                    .padding(horizontal = 4.dp) // Espacio alrededor de la flecha
                                                     .size(20.dp) // Tamaño de la flecha
                                                     .align(Alignment.CenterVertically), // Asegura que esté centrado con EvolutionStageView
                                                 tint = colorTexto // Usa el color de texto general para la flecha
@@ -411,7 +405,7 @@ fun EvolutionStepDisplay(
                 imageVector = Icons.Filled.ArrowDropDown,
                 contentDescription = "Evolves to",
                 modifier = Modifier
-                    .padding(vertical = 8.dp)
+//                    .padding(vertical = 8.dp)
                     .size(24.dp),
                 tint = arrowColor // Usar el color para la flecha
             )
