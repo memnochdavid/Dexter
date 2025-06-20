@@ -27,6 +27,7 @@ import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import retrofit2.Response
+import java.util.Locale
 import kotlin.text.any
 import kotlin.text.equals
 import kotlin.text.filter
@@ -621,13 +622,13 @@ fun PokemonFormsView(
                                         }
                                     }
 
-                                    val spriteUrl = formDetail.sprites.frontDefault
-                                        ?: pokemonDetail.sprites.other?.officialArtwork?.frontDefault
+                                    val spriteUrl = pokemonDetail.sprites.other?.officialArtwork?.frontDefault
+                                        ?: formDetail.sprites.frontDefault
                                         ?: pokemonDetail.sprites.frontDefault
 
                                     SpecialForm(
                                         formName = formDetail.name, // API name of the form itself e.g. "arceus-fire"
-                                        displayName = displayName.trim(),
+                                        displayName = displayName.trim().capitalize(Locale.ROOT),
                                         spriteUrl = spriteUrl
                                     )
                                 } else {

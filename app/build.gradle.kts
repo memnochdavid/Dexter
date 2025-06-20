@@ -71,8 +71,10 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     //appwrite
-    implementation("io.appwrite:sdk-for-kotlin:5.0.1")
+//    implementation("io.appwrite:sdk-for-kotlin:5.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+//    implementation("androidx.compose.foundation:foundation:1.8.3") // O la versión que estés utilizando
+
 
     //gifs
     implementation("com.google.accompanist:accompanist-drawablepainter:0.35.0-alpha")
