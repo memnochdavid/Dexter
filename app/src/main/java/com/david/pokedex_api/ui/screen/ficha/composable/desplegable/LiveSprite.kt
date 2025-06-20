@@ -5,12 +5,26 @@ import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.util.Log
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,15 +36,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.david.pokedex_api.R
 import coil.ImageLoader
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import coil.util.DebugLogger
+import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,20 +84,23 @@ suspend fun loadDrawableFromUrl(context: Context, url: String, imageLoader: Imag
 
 @Composable
 fun LiveSprites(
-    pokemonName: String,
-    pokemonNum: Int,
+    pokemon: PokemonDetailResponse,
     colorTexto : Color,
     modifier: Modifier = Modifier
 ){
     // Adaptar el nombre del Pokémon para las mega evoluciones X/Y
     val adaptedPokemonName = when {
-        pokemonName.contains("-mega-x") -> pokemonName.replace("-mega-x", "-megax")
-        pokemonName.contains("-mega-y") -> pokemonName.replace("-mega-y", "-megay")
-        pokemonName.contains("-m") -> pokemonName.replace("-m", "_m")
-        pokemonName.contains("-f") -> pokemonName.replace("-f", "_f")
-        else -> pokemonName
+        pokemon.name.contains("-mega-x") -> pokemon.name.replace("-mega-x", "-megax")
+        pokemon.name.contains("-mega-y") -> pokemon.name.replace("-mega-y", "-megay")
+        pokemon.name.contains("-m") -> pokemon.name.replace("-m", "_m")
+        pokemon.name.contains("-f") -> pokemon.name.replace("-f", "_f")
+        else -> pokemon.name
     }
-    println("LiveSprites: NOMBRE ORIGINAL: - $pokemonName, NOMBRE ADAPTADO: - $adaptedPokemonName") // Para depuración
+//    println("LiveSprites: NOMBRE ORIGINAL: - $pokemonName, NOMBRE ADAPTADO: - $adaptedPokemonName") // Para depuración
+
+    var showAnimatedSpriteDialog by remember { mutableStateOf(false) }
+    var isShinySpriteForDialog by remember { mutableStateOf(false) } // Para saber si es el shiny el que se clickeó
+
 
     Column(
         modifier = Modifier
@@ -83,12 +108,12 @@ fun LiveSprites(
             .padding(bottom = 5.dp, start = 5.dp, end = 5.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
+    ) {
         Row(
             modifier = modifier.weight(0.2f),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.Top
-        ){
+        ) {
             Text(
                 text = "Sprites animados",
                 textAlign = TextAlign.Center,
@@ -104,33 +129,43 @@ fun LiveSprites(
             modifier = modifier.weight(0.6f),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
-        ){
+        ) {
             Row(
-                modifier = modifier.weight(0.45f), // Considera si este peso sigue siendo adecuado
+                modifier = modifier.weight(0.45f),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
-            ){
+            ) {
                 Column(
-                    modifier = Modifier.weight(0.45f),
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .clickable { // <-- Añadir clickable aquí
+                            isShinySpriteForDialog = false
+                            showAnimatedSpriteDialog = true
+                        },
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
-                ){
+                ) {
                     PokemonAnimatedSpriteWithAccompanist(
-                        pokemonName = adaptedPokemonName, // Usar el nombre adaptado
-                        pokemonId = pokemonNum,
+                        pokemonName = adaptedPokemonName,
+                        pokemonId = pokemon.id,
                         esShiny = false,
                         modifier = Modifier.fillMaxSize(1f)
                     )
                 }
-                if(!pokemonName.lowercase().contains("-gmax")){
+                if (!pokemon.name.lowercase().contains("-gmax")) {
                     Column(
-                        modifier = Modifier.weight(0.45f),
+                        modifier = Modifier
+                            .weight(0.45f)
+                            .clickable { // <-- Añadir clickable aquí
+                                isShinySpriteForDialog = true
+                                showAnimatedSpriteDialog = true
+                            },
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
-                    ){
+                    ) {
                         PokemonAnimatedSpriteWithAccompanist(
-                            pokemonName = adaptedPokemonName, // Usar el nombre adaptado
-                            pokemonId = pokemonNum,
+                            pokemonName = adaptedPokemonName,
+                            pokemonId = pokemon.id,
                             esShiny = true,
                             modifier = Modifier.fillMaxSize(1f)
                         )
@@ -138,6 +173,17 @@ fun LiveSprites(
                 }
             }
         }
+    }
+
+    // Mostrar el Composable de diálogo si showAnimatedSpriteDialog es true
+    if (showAnimatedSpriteDialog) {
+        AnimatedSpriteDialogView(
+            pokemon = pokemon, // Pasamos el objeto Pokemon
+            pokemonName = adaptedPokemonName, // El nombre adaptado para la URL del GIF
+            pokemonId = pokemon.id,
+            isShiny = isShinySpriteForDialog,
+            onDismiss = { showAnimatedSpriteDialog = false }
+        )
     }
 }
 
@@ -205,7 +251,164 @@ fun PokemonAnimatedSpriteWithAccompanist(
     }
 }
 
-data class DinamaxLiveSprite(
+@Composable
+fun AnimatedSpriteDialogView(
+    pokemon: PokemonDetailResponse, // Para los colores de fondo y potencialmente otra información
+    pokemonName: String, // Nombre adaptado para la URL del GIF
+    pokemonId: Int,      // ID para la URL del GIF
+    isShiny: Boolean,    // Para saber si mostrar el GIF shiny o normal
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false) // Para controlar el ancho manualmente
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f) // Ocupa el 95% del ancho de la pantalla
+                .wrapContentHeight()   // La altura se ajusta al contenido
+                .padding(vertical = 16.dp), // Padding vertical para la Card
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Box( // Box principal para poder alinear el botón de cierre
+                modifier = Modifier
+                    // No es necesario fillMaxSize aquí si la Card se ajusta al contenido.
+                    .padding(0.dp) // Sin padding adicional aquí, el contenido lo maneja
+            ) {
+                Column { // Columna para apilar los fondos y el GIF
+                    // Lógica de fondos de tipo (similar a ExpandedImageView)
+                    if (pokemon.types.isNotEmpty()) {
+                        val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
+                        val color2 = if (pokemon.types.size > 1) {
+                            getPokemonTypeColor(pokemon.types[1].type.name)
+                        } else {
+                            color1 // Si solo hay un tipo, ambos fondos son del mismo color
+                        }
+
+                        // Contenedor para los fondos y el GIF
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Altura para la sección de fondos y GIF.
+                                // Podrías hacerla dinámica o fijarla como en ExpandedImageView.
+                                .height(350.dp) // Ajusta esta altura según necesites
+                        ) {
+                            // Fondos de tipo
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .background(color1),
+                                    contentAlignment = Alignment.BottomEnd
+                                ) {
+                                    // Icono del primer tipo (si hay dos tipos)
+                                    if (pokemon.types.size == 2) {
+                                        val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
+                                        if (iconResId != 0) { // Asumiendo que 0 es un ID inválido
+                                            Image(
+                                                painter = painterResource(id = iconResId),
+                                                contentDescription = pokemon.types[0].type.name,
+                                                modifier = Modifier
+                                                    .padding(12.dp)
+                                                    .size(50.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .background(color2),
+                                    contentAlignment = Alignment.BottomStart // Alinea al inicio para el ícono de pokeball
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp), // Padding para los íconos
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Bottom
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.pokeball_icon), // Reemplaza con tu drawable
+                                            contentDescription = "Pokeball icon",
+                                            modifier = Modifier.size(90.dp) // Tamaño ajustado del ícono
+                                        )
+                                        // Icono del segundo tipo (o del primero si solo hay uno)
+                                        val typeToShowIndex = if (pokemon.types.size == 1) 0 else 1
+                                        if (pokemon.types.isNotEmpty()) { // Siempre debería haber al menos un tipo
+                                            val iconResId = getPokemonTypeToIcon(pokemon.types[typeToShowIndex].type.name)
+                                            if (iconResId != 0) {
+                                                Image(
+                                                    painter = painterResource(id = iconResId),
+                                                    contentDescription = pokemon.types[typeToShowIndex].type.name,
+                                                    modifier = Modifier
+                                                        .padding(start = 8.dp)
+                                                        .size(50.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // GIF Animado del Pokémon (superpuesto a los fondos)
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize() // Se ajusta al tamaño del Box de fondos
+                                    .padding(16.dp),   // Padding para que el GIF no toque los bordes del fondo
+                                contentAlignment = Alignment.Center
+                            ) {
+                                PokemonAnimatedSpriteWithAccompanist( // Reutilizamos el Composable que ya tienes
+                                    pokemonName = pokemonName,       // Nombre adaptado
+                                    pokemonId = pokemonId,           // ID del Pokémon
+                                    esShiny = isShiny,               // Si es shiny o no
+                                    modifier = Modifier.fillMaxSize()// El GIF llena este Box interno
+                                )
+                            }
+                        } // Fin del Box de fondos y GIF
+
+                    } else {
+                        // Fallback si el Pokémon no tiene tipos (raro, pero para ser exhaustivos)
+                        // Solo mostrar el GIF centrado
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(350.dp) // Altura consistente
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            PokemonAnimatedSpriteWithAccompanist(
+                                pokemonName = pokemonName,
+                                pokemonId = pokemonId,
+                                esShiny = isShiny,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd) // Se alinea respecto al Box que contiene la Column
+                        .padding(8.dp) // Un poco de padding para que no esté pegado al borde
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Cerrar vista expandida",
+                        tint = Color.Black // O el color que prefieras para el icono
+                    )
+                }
+            } // Fin del Box principal de la Card del Dialog
+        } // Fin de la Card del Dialog
+    } // Fin del Dialog
+}
+
+
+                data class DinamaxLiveSprite(
     val pokeId: Int,
     val spriteUrl: String,
 )

@@ -374,8 +374,7 @@ fun DetallesDesplegables(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 LiveSprites(
-                                    pokemonName = pokemon.name,
-                                    pokemonNum = pokemon.id,
+                                    pokemon = pokemon,
                                     colorTexto = CardBorder,
                                     modifier = Modifier.fillMaxSize()
                                 )
