@@ -63,6 +63,7 @@ suspend fun loadDrawableFromUrl(context: Context, url: String, imageLoader: Imag
 @Composable
 fun LiveSprites(
     pokemonName: String,
+    pokemonNum: Int,
     colorTexto : Color,
     modifier: Modifier = Modifier
 ){
@@ -116,20 +117,24 @@ fun LiveSprites(
                 ){
                     PokemonAnimatedSpriteWithAccompanist(
                         pokemonName = adaptedPokemonName, // Usar el nombre adaptado
+                        pokemonId = pokemonNum,
                         esShiny = false,
                         modifier = Modifier.fillMaxSize(1f)
                     )
                 }
-                Column(
-                    modifier = Modifier.weight(0.45f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ){
-                    PokemonAnimatedSpriteWithAccompanist(
-                        pokemonName = adaptedPokemonName, // Usar el nombre adaptado
-                        esShiny = true,
-                        modifier = Modifier.fillMaxSize(1f)
-                    )
+                if(!pokemonName.lowercase().contains("-gmax")){
+                    Column(
+                        modifier = Modifier.weight(0.45f),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ){
+                        PokemonAnimatedSpriteWithAccompanist(
+                            pokemonName = adaptedPokemonName, // Usar el nombre adaptado
+                            pokemonId = pokemonNum,
+                            esShiny = true,
+                            modifier = Modifier.fillMaxSize(1f)
+                        )
+                    }
                 }
             }
         }
@@ -139,6 +144,7 @@ fun LiveSprites(
 @Composable
 fun PokemonAnimatedSpriteWithAccompanist(
     pokemonName: String,
+    pokemonId: Int,
     esShiny : Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -156,13 +162,24 @@ fun PokemonAnimatedSpriteWithAccompanist(
 
     val formattedPokemonName = pokemonName.lowercase() // Puede que necesites un formateo más complejo
     // dependiendo de los nombres de archivo del servidor.
-    val imageUrl = if(!esShiny) "$BASE_GIF_URL$formattedPokemonName.gif" else "$SHINY_GIF_URL$formattedPokemonName.gif"
+//    val imageUrl = if(!esShiny) "$BASE_GIF_URL$formattedPokemonName.gif" else "$SHINY_GIF_URL$formattedPokemonName.gif"
+
+    val imageUrl = if(pokemonName.lowercase().contains("-gmax")){
+        dinamaxLiveSprites.find { it.pokeId == pokemonId }!!.spriteUrl
+    }
+    else if(pokemonName.lowercase().contains("mega") && !pokemonName.lowercase().contains("yanmega") && !pokemonName.lowercase().contains("meganium")){
+        val megaName = pokemonName.replace("_", "-")
+        if(!esShiny) "$BASE_GIF_URL$megaName.gif" else "$SHINY_GIF_URL$megaName.gif"
+    }
+    else {
+        if(!esShiny) "$BASE_GIF_URL$formattedPokemonName.gif" else "$SHINY_GIF_URL$formattedPokemonName.gif"
+    }
 
     LaunchedEffect(imageUrl) { // Recargar si la URL cambia
         isLoading = true
         Log.d("PokemonGif", "Cargando Pokémon desde: $imageUrl")
         drawable = withContext(Dispatchers.IO) {
-            loadDrawableFromUrl(context, imageUrl, imageLoader)
+            loadDrawableFromUrl(context, imageUrl.toString(), imageLoader)
         }
         Log.d("PokemonGif", "Drawable para $pokemonName: ${drawable?.javaClass?.name}")
         if (drawable is Animatable) {
@@ -188,3 +205,44 @@ fun PokemonAnimatedSpriteWithAccompanist(
     }
 }
 
+data class DinamaxLiveSprite(
+    val pokeId: Int,
+    val spriteUrl: String,
+)
+val dinamaxLiveSprites = listOf<DinamaxLiveSprite>(
+    DinamaxLiveSprite(10196, "https://images.wikidexcdn.net/mwuploads/wikidex/9/98/latest/20191206054551/Charizard_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10198, "https://images.wikidexcdn.net/mwuploads/wikidex/f/f2/latest/20191208035316/Butterfree_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10199, "https://images.wikidexcdn.net/mwuploads/wikidex/7/74/latest/20191207032343/Pikachu_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10200, "https://images.wikidexcdn.net/mwuploads/wikidex/5/5c/latest/20191204065122/Meowth_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10201, "https://images.wikidexcdn.net/mwuploads/wikidex/9/9e/latest/20191206055329/Machamp_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10202, "https://images.wikidexcdn.net/mwuploads/wikidex/b/ba/latest/20191205025526/Gengar_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10203, "https://images.wikidexcdn.net/mwuploads/wikidex/6/6b/latest/20191204064551/Kingler_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10204, "https://images.wikidexcdn.net/mwuploads/wikidex/3/30/latest/20191206055216/Lapras_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10205, "https://images.wikidexcdn.net/mwuploads/wikidex/8/81/latest/20191208180045/Eevee_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10206, "https://images.wikidexcdn.net/mwuploads/wikidex/7/7d/latest/20191205030221/Snorlax_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10207, "https://images.wikidexcdn.net/mwuploads/wikidex/3/3a/latest/20191206055024/Garbodor_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10208, "https://images.wikidexcdn.net/mwuploads/wikidex/5/50/latest/20191208030656/Melmetal_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10212, "https://images.wikidexcdn.net/mwuploads/wikidex/8/86/latest/20191207034018/Corviknight_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10213, "https://images.wikidexcdn.net/mwuploads/wikidex/4/4a/latest/20191208043316/Orbeetle_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10214, "https://images.wikidexcdn.net/mwuploads/wikidex/a/a7/latest/20191202213011/Drednaw_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10215, "https://images.wikidexcdn.net/mwuploads/wikidex/c/c9/latest/20191205024332/Coalossal_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10216, "https://images.wikidexcdn.net/mwuploads/wikidex/b/b0/latest/20191205025109/Flapple_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10218, "https://images.wikidexcdn.net/mwuploads/wikidex/5/5f/latest/20191208043317/Sandaconda_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10219, "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10228, "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10220, "https://images.wikidexcdn.net/mwuploads/wikidex/b/be/latest/20191205024034/Centiskorch_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10221, "https://images.wikidexcdn.net/mwuploads/wikidex/5/51/latest/20191205030031/Hatterene_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10222, "https://images.wikidexcdn.net/mwuploads/wikidex/b/bf/latest/20191205025806/Grimmsnarl_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10223, "https://images.wikidexcdn.net/mwuploads/wikidex/0/09/latest/20191205023619/Alcremie_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10224, "https://images.wikidexcdn.net/mwuploads/wikidex/e/ea/latest/20191205024732/Copperajah_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10225, "https://images.wikidexcdn.net/mwuploads/wikidex/2/28/latest/20191206054822/Duraludon_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10195, "https://images.wikidexcdn.net/mwuploads/wikidex/5/56/latest/20200621041242/Venusaur_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10197, "https://images.wikidexcdn.net/mwuploads/wikidex/1/10/latest/20200621041607/Blastoise_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10209, "https://images.wikidexcdn.net/mwuploads/wikidex/4/46/latest/20200621042120/Rillaboom_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10210, "https://images.wikidexcdn.net/mwuploads/wikidex/c/c2/latest/20200621042347/Cinderace_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10211, "https://images.wikidexcdn.net/mwuploads/wikidex/8/89/latest/20200928210111/Inteleon_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10226, "https://images.wikidexcdn.net/mwuploads/wikidex/3/31/latest/20200715053735/Urshifu_brusco_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10227, "https://images.wikidexcdn.net/mwuploads/wikidex/8/85/latest/20200715054208/Urshifu_fluido_Gigamax_EpEc.gif"),
+
+
+    )

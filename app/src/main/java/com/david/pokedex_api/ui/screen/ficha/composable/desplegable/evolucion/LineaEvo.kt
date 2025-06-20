@@ -238,7 +238,8 @@ fun PokemonEvolutionChainView(
         colors = CardDefaults.cardColors(containerColor = color1)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
             // No es necesario .animateContentSize() aquí si AnimatedVisibility maneja el contenido
         ) {
             Row( // Encabezado "Línea Evolutiva"
@@ -272,7 +273,8 @@ fun PokemonEvolutionChainView(
                                 modifier = Modifier.fillMaxWidth(),
 //                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp, top = 4.dp),
 //                                horizontalArrangement = Arrangement.SpaceEvenly, //.spacedBy(8.dp, Alignment.CenterHorizontally),
-                                verticalAlignment = Alignment.Top
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.Center
                             ) {
                                 itemsIndexed(linearEvolutionPath) { index, pair ->
                                     val chainLink = pair.first

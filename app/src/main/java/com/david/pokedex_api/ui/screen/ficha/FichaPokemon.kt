@@ -198,7 +198,7 @@ fun PokemonDetailsView(
     ConstraintLayout(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = background_app)// getPokemonTypeColorClear(pokemon.types[0].type.name).copy(alpha = 0.5f))
+            .background(color = getPokemonTypeColorClear(pokemon.types[0].type.name).copy(alpha = 0.5f))
     ) {
         val (imagen, nombre_num_altura_peso_tipos, desplegables) = createRefs()
         Row(

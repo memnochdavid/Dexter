@@ -187,7 +187,8 @@ data class PokemonDetailResponse(
     val abilities: List<AbilitySlot>,
     val stats: List<StatSlot>,
     val species: NamedApiResource, // Referencia a la especie del Pokémon
-    val moves: List<PokemonMoveSlot>
+    val moves: List<PokemonMoveSlot>,
+    val forms: List<NamedApiResource>
     // Añade otros campos que necesites como 'species' (NamedApiResource), 'moves', etc.
 )
 
@@ -389,4 +390,45 @@ data class GenericNamedResourceDetail(
 data class GenusEntry(
     val genus: String,
     val language: NamedApiResource
+)
+data class DisplayablePokemonVariety(
+    val id: Int, // ID del Pokémon de la variedad
+    val name: String, // Nombre (potencialmente localizado)
+    val spriteUrl: String?,
+    val isDefault: Boolean // Aunque filtremos, puede ser útil mantenerla
+)
+data class PokemonFormDetailResponse(
+    val id: Int,
+    val name: String, // e.g., "arceus-bug"
+    @SerializedName("form_name")
+    val formName: String, // Often empty, but can be "alola", "mega-x", etc. for specific forms
+    @SerializedName("form_names")
+    val localizedFormNames: List<LocalizedName>, // Localized names for the form variation
+    @SerializedName("names")
+    val localizedPokemonNames: List<LocalizedName>, // Localized names for the Pokémon itself in this form
+    val sprites: PokemonFormSprites,
+    val pokemon: NamedApiResource, // Reference to the base Pokemon this form belongs to
+    @SerializedName("is_default")
+    val isDefault: Boolean,
+    @SerializedName("is_battle_only")
+    val isBattleOnly: Boolean,
+    @SerializedName("is_mega")
+    val isMega: Boolean
+    // Add other fields like 'types', 'version_group' if needed
+)
+data class PokemonFormSprites(
+    @SerializedName("front_default")
+    val frontDefault: String?,
+    @SerializedName("front_shiny")
+    val frontShiny: String?,
+    @SerializedName("back_default")
+    val backDefault: String?,
+    @SerializedName("back_shiny")
+    val backShiny: String?
+    // No 'other' or 'official-artwork' directly in form sprites,
+    // you might need to fall back to the main Pokemon's sprites if these are null.
+)
+data class LocalizedName(
+    val language: NamedApiResource,
+    val name: String
 )

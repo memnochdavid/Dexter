@@ -62,7 +62,8 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonTypeI
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
-import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegas
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonFormsView
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegasGigas
 import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlinx.coroutines.launch
 
@@ -350,7 +351,7 @@ fun DetallesDesplegables(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     val descFormaEspecial =
-                                        descripcionesMegas.find { it.pokeId == pokemon.id }
+                                        descripcionesMegasGigas.find { it.pokeId == pokemon.id }
                                     MuestraDesc(
                                         numPokemon = pokemon.id.toString(),
                                         desc = descFormaEspecial?.desc
@@ -374,6 +375,7 @@ fun DetallesDesplegables(
                             ) {
                                 LiveSprites(
                                     pokemonName = pokemon.name,
+                                    pokemonNum = pokemon.id,
                                     colorTexto = CardBorder,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -424,21 +426,60 @@ fun DetallesDesplegables(
                     }
 
                     ContentPage.FORM -> {
-                        PokemonRegionalFormsView(
-                            pokemonSpeciesUrl = pokemon.species.url,
-                            basePokemonName = pokemon.name,
-                            pokemonApiService = pokemonApiService,
-                            onFormClick = { formName ->
-                                onEvolutionPokemonClick(formName)
-                            },
-                            cardColor = getPokemonTypeColor(pokemon.types[0].type.name),
-                            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
-                                Color.White
-                            } else {
-                                CardBorder
-                            },
-                            itemCardColor = getPokemonTypeColorClear(pokemon.types[0].type.name),
-                        )
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize() // Fill the space provided by the HorizontalPager's page
+                                .padding(bottom = 8.dp), // Optional padding for scollable content
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp) // Space between items
+                        ) {
+                            // Item for Regional Forms
+                            item {
+                                PokemonRegionalFormsView(
+                                    pokemonSpeciesUrl = pokemon.species.url,
+                                    basePokemonName = pokemon.name,
+                                    pokemonApiService = pokemonApiService,
+                                    onFormClick = { pokemonNameClicked -> // The lambda gives the full pokemon name for navigation
+                                        onEvolutionPokemonClick(pokemonNameClicked)
+                                    },
+                                    cardColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
+                                        Color.White
+                                    } else {
+                                        CardBorder // Make sure CardBorder is defined, e.g., MaterialTheme.colorScheme.outline
+                                    },
+                                    itemCardColor = getPokemonTypeColorClear(pokemon.types[0].type.name),
+                                    // Modifier to ensure it takes appropriate width within LazyColumn
+                                    modifier = Modifier.fillMaxWidth(0.95f) // Example: 95% of the width
+                                )
+                            }
+
+                            // Item for Other Forms (from /pokemon endpoint)
+                            item {
+                                PokemonFormsView(
+                                    pokemonIdOrNameToFetch = pokemon.id.toString(), // Or pokemon.name
+                                    basePokemonNameForDisplay = pokemon.name,
+                                    pokemonApiService = pokemonApiService,
+                                    onFormClick = { basePokemonName, formApiName ->
+                                        // You might want to navigate to the specific form.
+                                        // If formApiName is a full Pokémon name (e.g., "charizard-mega-x"),
+                                        // you can use it directly.
+                                        // Otherwise, you might need a way to resolve formApiName to a navigable entity.
+                                        // For now, let's assume onEvolutionPokemonClick can handle the formApiName
+                                        // or you have a different navigation handler for these forms.
+                                        onEvolutionPokemonClick(formApiName) // Or adjust as per your navigation logic
+                                    },
+                                    cardColor = getPokemonTypeColor(pokemon.types[0].type.name),
+                                    itemCardColor = getPokemonTypeColorClear(pokemon.types[0].type.name),
+                                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
+                                        Color.White
+                                    } else {
+                                        CardBorder
+                                    },
+                                    modifier = Modifier.fillMaxWidth(0.95f) // Example: 95% of the width
+                                )
+                            }
+                        }
                     }
 
                     null -> { // En caso de que targetPage sea null (no debería pasar con pageCount definido)

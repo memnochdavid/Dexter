@@ -191,7 +191,7 @@ class PokemonViewModel : ViewModel() {
                     _pokemonSpeciesDetails.value = null
                     _pokemonDescription.value = null
                     if (detailResponse.isSuccessful) {
-                        handleError("Species Error: ${speciesResponse.code()} ${speciesResponse.message()}")
+//                        handleError("Species Error: ${speciesResponse.code()} ${speciesResponse.message()}")
                     }
                 }
 

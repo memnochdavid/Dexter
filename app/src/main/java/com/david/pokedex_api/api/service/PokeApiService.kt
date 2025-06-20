@@ -8,6 +8,7 @@ import com.david.pokedex_api.api.model.GenericNamedResourceDetail
 import com.david.pokedex_api.api.model.ItemDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.model.PokemonFormDetailResponse
 import com.david.pokedex_api.api.model.PokemonListResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
@@ -25,6 +26,13 @@ interface PokeApiService {
     // --- Pokémon Details & Species ---
     @GET("pokemon/{name}")
     suspend fun getPokemonDetails(@Path("name") name: String): Response<PokemonDetailResponse>
+
+    @GET("pokemon-form/{name_or_id}") // Can be name or ID from the form URL
+    suspend fun getPokemonFormDetails(@Path("name_or_id") nameOrId: String): Response<PokemonFormDetailResponse>
+
+    @GET // For fetching by full URL
+    suspend fun getPokemonFormDetailsByUrl(@Url url: String): Response<PokemonFormDetailResponse>
+
 
     @GET("pokemon/{id}")
     suspend fun getPokemonDetailsById(@Path("id") id: Int): Response<PokemonDetailResponse>
