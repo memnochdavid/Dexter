@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.david.pokedex_api.api.client.RetrofitClient
+import com.david.pokedex_api.api.model.DisplayablePokemonVariety
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.EvolutionDetail
 import com.david.pokedex_api.api.model.GenericNamedResourceDetail
@@ -15,6 +16,7 @@ import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.NameEntry
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.model.PokemonFormDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.model.PokemonSummary
 import com.david.pokedex_api.api.model.TypeDetailResponse
@@ -702,6 +704,142 @@ class PokemonViewModel : ViewModel() {
         }
     }
     */
+
+    private val _pokemonFormsAndVarieties = MutableLiveData<List<DisplayablePokemonVariety>>()
+    val pokemonFormsAndVarieties: LiveData<List<DisplayablePokemonVariety>> = _pokemonFormsAndVarieties
+
+    private val _isLoadingForms = MutableLiveData<Boolean>(false)
+    val isLoadingForms: LiveData<Boolean> = _isLoadingForms
+
+    fun fetchPokemonFormsAndVarieties(pokemonId: Int, speciesName: String) {
+        _isLoadingForms.value = true
+        _pokemonFormsAndVarieties.value = emptyList()
+        errorShownThisFetch = false
+
+        viewModelScope.launch {
+            try {
+                // Primero, obtén los detalles de la especie para las variedades
+                val speciesResponse = RetrofitClient.instance.getPokemonSpeciesDetailsById(pokemonId) // O por nombre si lo prefieres
+                // También puedes obtener los detalles del Pokémon base para la lista de 'forms'
+                // val detailResponse = RetrofitClient.instance.getPokemonDetailsById(pokemonId)
+
+
+                if (speciesResponse.isSuccessful) {
+                    val speciesData = speciesResponse.body()
+                    val varietiesFromSpecies = speciesData?.varieties ?: emptyList()
+
+                    val displayableVarieties = mutableListOf<DisplayablePokemonVariety>()
+
+                    // Mapea las variedades de la especie
+                    // Las variedades 'isDefault = true' suelen ser el Pokémon base.
+                    // Las que no son 'default' son formas distintas (Mega, Alola, etc.)
+                    val formFetchJobs = varietiesFromSpecies.map { variety ->
+                        async(Dispatchers.IO) {
+                            try {
+                                val formPokemonUrl = variety.pokemon.url
+                                val formPokemonIdOrName = formPokemonUrl.split("/").dropLast(1).last()
+
+                                // Llama a getPokemonDetails o getPokemonFormDetails para obtener el sprite de esta forma
+                                val formDetailResponse = RetrofitClient.instance.getPokemonDetails(formPokemonIdOrName)
+                                // O si prefieres usar el endpoint /pokemon-form/
+                                // val formDetailResponse = RetrofitClient.instance.getPokemonFormDetails(formPokemonIdOrName)
+
+
+                                if (formDetailResponse.isSuccessful) {
+                                    val formDetail = formDetailResponse.body()
+                                    formDetail?.let {
+                                        // Intenta obtener el nombre localizado de la forma desde speciesData si es posible,
+                                        // o usa el nombre de la forma del detalle.
+                                        // Aquí la lógica de localización puede ser compleja.
+                                        // Por ahora, usaremos el nombre del 'pokemon' de la variedad
+                                        // y el sprite de 'formDetail'.
+
+                                        var displayName = variety.pokemon.name // Fallback
+                                        var localizedFormName: String? = null
+
+                                        // Intento 1: Usar PokemonFormDetailResponse si ese es el endpoint que llamaste
+                                        if (formDetail is PokemonFormDetailResponse) { // Necesitas un cast seguro o type check
+                                            localizedFormName = formDetail.localizedFormNames.firstOrNull { it.language.name == "es" }?.name
+                                            if (localizedFormName.isNullOrBlank()) {
+                                                localizedFormName = formDetail.localizedPokemonNames.firstOrNull { it.language.name == "es" }?.name
+                                            }
+                                        }
+
+                                        // Intento 2 (Fallback o si usaste PokemonDetailResponse para la forma):
+                                        // Para localizar nombres de formas específicas (ej: "Mega Charizard X"),
+                                        // a veces el nombre está en PokemonSpeciesResponse -> varieties -> pokemon.name ("charizard-mega-x")
+                                        // y necesitas obtener PokemonFormDetailResponse para `localizedFormNames` o `localizedPokemonNames`.
+                                        // O, si la forma tiene su propia entrada en PokemonSpecies, puedes obtener `localizedNames` desde ahí.
+
+                                        if (localizedFormName.isNullOrBlank()) {
+                                            // Intenta obtener el nombre del Pokémon base y añadirle algo como "Forma Alola"
+                                            // Esto es un placeholder, la localización real es más compleja.
+                                            val speciesBaseName = speciesData?.localizedNames?.firstOrNull {it.language.name == "es"}?.name ?: (speciesData?.name
+                                                ?: "error")
+                                            displayName = if (!variety.isDefault && variety.pokemon.name.contains("-")) {
+                                                // Intenta formatear el nombre de la variedad
+                                                // ej: "charizard-mega-x" -> "Mega Charizard X"
+                                                // Necesitarás una función de formateo para esto
+                                                formatPokemonFormName(variety.pokemon.name, speciesBaseName)
+                                            } else {
+                                                speciesBaseName // Para la forma default
+                                            }
+                                        } else {
+                                            displayName = localizedFormName
+                                        }
+
+
+                                        DisplayablePokemonVariety(
+                                            id = formDetail.id, // ID del Pokémon de esta forma específica
+                                            name = displayName,
+                                            spriteUrl = formDetail.sprites.other?.officialArtwork?.frontDefault
+                                                ?: formDetail.sprites.frontDefault,
+                                            isDefault = variety.isDefault
+                                        )
+                                    }
+                                } else {
+                                    Log.e("PokemonViewModel", "Failed to get details for form ${variety.pokemon.name}")
+                                    null
+                                }
+                            } catch (e: Exception) {
+                                Log.e("PokemonViewModel", "Exception fetching form ${variety.pokemon.name}", e)
+                                null
+                            }
+                        }
+                    }
+
+                    _pokemonFormsAndVarieties.value = formFetchJobs.awaitAll().filterNotNull()
+                        // Puedes querer filtrar isDefault=true si solo quieres mostrar formas alternativas
+                        // O ordenarlas para que la default aparezca primero.
+                        .sortedWith(compareByDescending<DisplayablePokemonVariety> { it.isDefault }.thenBy { it.id })
+
+
+                } else {
+                    handleError("Failed to fetch species details for forms: ${speciesResponse.code()}")
+                }
+            } catch (e: Exception) {
+                handleError("Exception fetching forms: ${e.message}")
+            } finally {
+                _isLoadingForms.value = false
+            }
+        }
+    }
+
+    // Función de ayuda para formatear nombres de formas (ejemplo simple)
+    fun formatPokemonFormName(formApiName: String, basePokemonName: String): String {
+        // "charizard-mega-x" -> "Mega Charizard X"
+        // "raticate-alola" -> "Raticate Alola"
+        // "deoxys-attack" -> "Deoxys Forma Ataque"
+        val parts = formApiName.split('-')
+        if (parts.firstOrNull()?.equals(basePokemonName.lowercase(), ignoreCase = true) == true) {
+            // Empieza con el nombre del Pokémon base
+            val formSuffix = parts.drop(1).joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+            return "$basePokemonName $formSuffix" // ej: "Pikachu Cosplay"
+        } else {
+            // Si no, es un nombre completamente diferente o una forma compleja
+            return formApiName.split('-').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+        }
+    }
 }
 
 

@@ -227,6 +227,8 @@ fun PokemonRegionalFormsView(
         }
     }
 }
+
+
 /*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -523,11 +525,11 @@ fun PokemonFormsView(
     }
 }
 */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonFormsView(
-    pokemonIdOrNameToFetch: String, // ID or name of the base Pokémon to fetch (e.g., "arceus" or "493")
-    basePokemonNameForDisplay: String, // Name of the base Pokémon for display titles (e.g., "Arceus")
+    pokemon : PokemonDetailResponse,
     pokemonApiService: PokeApiService,
     cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
@@ -541,11 +543,10 @@ fun PokemonFormsView(
     val coroutineScope = rememberCoroutineScope()
 
     // Store the fetched base Pokemon name to be accessible by onClick
-    var fetchedBasePokemonName by remember { mutableStateOf(pokemonIdOrNameToFetch.lowercase(
-        java.util.Locale.ROOT)) }
+    var fetchedBasePokemonName by remember { mutableStateOf(pokemon.id.toString())}
 
-    LaunchedEffect(pokemonIdOrNameToFetch) {
-        if (pokemonIdOrNameToFetch.isBlank()) {
+    LaunchedEffect(pokemon.id.toString()) {
+        if (pokemon.id.toString().isBlank()) {
             isLoading = false
             error = "Pokémon ID or name is required."
             formsList = emptyList()
@@ -560,7 +561,7 @@ fun PokemonFormsView(
             try {
                 // 1. Fetch the base Pokémon details to get the list of form URLs/names
                 val pokemonDetailsResponse: Response<PokemonDetailResponse> =
-                    pokemonApiService.getPokemonDetails(pokemonIdOrNameToFetch.lowercase(java.util.Locale.ROOT))
+                    pokemonApiService.getPokemonDetails(pokemon.id.toString().lowercase(java.util.Locale.ROOT))
 
                 if (pokemonDetailsResponse.isSuccessful && pokemonDetailsResponse.body() != null) {
                     val pokemonDetail = pokemonDetailsResponse.body()!!
@@ -593,7 +594,7 @@ fun PokemonFormsView(
                                         .firstOrNull { it.language.name == lang }?.name
                                         ?: formDetail.localizedPokemonNames
                                             .firstOrNull { it.language.name == "en" }?.name
-                                        ?: basePokemonNameForDisplay // Fallback to base display name parameter
+                                        ?: pokemon.name // Fallback to base display name parameter
 
                                     if (!localizedFormVariantName.isNullOrBlank()) {
                                         displayName = "$localizedPokemonNameInForm ($localizedFormVariantName)"
@@ -685,9 +686,9 @@ fun PokemonFormsView(
     if (formsList.size == 1) {
         val singleForm = formsList.first()
         // Check if the form's API name matches the originally fetched name/ID (could be numeric ID or name)
-        val formNameMatchesFetched = singleForm.formName.equals(pokemonIdOrNameToFetch, ignoreCase = true)
+        val formNameMatchesFetched = singleForm.formName.equals(pokemon.name, ignoreCase = true)
         // Check if the form's display name is the same as the base display name for the Pokémon
-        val displayNameMatchesBase = singleForm.displayName.equals(basePokemonNameForDisplay, ignoreCase = true)
+        val displayNameMatchesBase = singleForm.displayName.equals(pokemon.name, ignoreCase = true)
 
         if (formNameMatchesFetched && displayNameMatchesBase) {
             // This is likely the default form, identical to what's already shown.
@@ -697,7 +698,7 @@ fun PokemonFormsView(
         // which has a display name like "Arceus (Normal)" or "Arceus"
         // If formName is pokemonIdOrNameToFetch + "-normal" and it's the only one, still potentially hide
         // This logic can get complex depending on desired behavior for all edge cases
-        if (singleForm.formName.equals("$pokemonIdOrNameToFetch-normal", ignoreCase = true) && displayNameMatchesBase) {
+        if (singleForm.formName.equals("${pokemon.name}-normal", ignoreCase = true) && displayNameMatchesBase) {
             // e.g. fetched "arceus", form is "arceus-normal", display name became "Arceus"
             // This is still essentially the default, hide the "Other Forms" card.
             return

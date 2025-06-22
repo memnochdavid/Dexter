@@ -456,8 +456,7 @@ fun DetallesDesplegables(
                             // Item for Other Forms (from /pokemon endpoint)
                             item {
                                 PokemonFormsView(
-                                    pokemonIdOrNameToFetch = pokemon.id.toString(), // Or pokemon.name
-                                    basePokemonNameForDisplay = pokemon.name,
+                                    pokemon = pokemon, // Or pokemon.name
                                     pokemonApiService = pokemonApiService,
                                     onFormClick = { basePokemonName, formApiName ->
                                         // You might want to navigate to the specific form.
