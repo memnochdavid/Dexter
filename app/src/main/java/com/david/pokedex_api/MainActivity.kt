@@ -20,8 +20,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
-import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
+import com.david.pokedex_api.camera.viewModel.PokemonVisionViewModel
 import com.david.pokedex_api.ui.screen.ficha.PokemonDetailScreen
+import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
 
 
 object Routes {
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PokedexApp(
     pokemonViewModel: PokemonViewModel = viewModel(),
+//    pokemonVisionViewModel: PokemonVisionViewModel = viewModel(), //para la cámara
     navController: NavHostController = rememberNavController()
 ) {
 
@@ -52,6 +54,7 @@ fun PokedexApp(
         composable(Routes.POKEMON_LIST) {
             GenerationPagerScreen(
                 pokemonViewModel = pokemonViewModel,
+//                pokemonVisionViewModel = pokemonVisionViewModel, //PARA LA CÁMARA
                 onNavigateToDetails = { pokemonName ->
                     navController.navigate(Routes.pokemonDetails(pokemonName))
                 }

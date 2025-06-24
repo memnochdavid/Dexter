@@ -66,6 +66,8 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.theme.color_progress_bar
 import kotlin.collections.putAll
 import kotlin.collections.toMap
+import kotlin.text.find
+import kotlin.text.replace
 
 // Función auxiliar para formatear el nombre del método de aprendizaje (opcional)
 fun formatMoveLearnMethod(method: String): String {
@@ -291,16 +293,77 @@ fun CollapsibleSection( // Eliminado el <T> de aquí
         }
     }
 }
-/*
+
+@Composable
+fun MoveDetailItem(label: String, value: String, modifier: Modifier = Modifier, colorTexto: Color = MaterialTheme.colorScheme.onSurface) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.padding(horizontal = 2.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium, // Etiqueta más pequeña
+            color = colorTexto.copy(alpha = 0.7f) // Un poco más tenue
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium, // Valor
+            fontWeight = FontWeight.SemiBold,
+            color = colorTexto
+        )
+    }
+}
+
+
+private fun determineLearnIndicatorText(versionGroupDetails: List<VersionGroupDetail>): String? {
+    // Ejemplo basado en la lógica que tenías en MoveRow:
+    val levelUpDetail = versionGroupDetails.find {
+        it.moveLearnMethod.name == "level-up" && it.levelLearnedAt > 0
+    }
+    if (levelUpDetail != null) {
+        // Si quieres el texto "Nivel" en lugar de "Nv. X", puedes usar formatMoveLearnMethod
+        // return formatMoveLearnMethod("level-up")
+        return "Nivel" // O "Nv. ${levelUpDetail.levelLearnedAt}" si prefieres incluir el nivel aquí
+    }
+
+    val machineDetail = versionGroupDetails.find {
+        it.moveLearnMethod.name == "machine"
+    }
+    if (machineDetail != null) {
+        return formatMoveLearnMethod("machine") // "MT/MO"
+    }
+
+    val tutorDetail = versionGroupDetails.find {
+        it.moveLearnMethod.name == "tutor"
+    }
+    if (tutorDetail != null) {
+        return formatMoveLearnMethod("tutor") // "Tutor"
+    }
+
+    val eggDetail = versionGroupDetails.find {
+        it.moveLearnMethod.name == "egg"
+    }
+    if (eggDetail != null) {
+        return formatMoveLearnMethod("egg") // "Huevo"
+    }
+
+    // Considera un valor por defecto si quieres agrupar movimientos
+    // cuyo método no coincide con los anteriores
+    // return "Otros"
+    return null // Si devuelves null, estos movimientos se filtrarán antes de agrupar
+}
+
 @Composable
 fun MoveRow(
     moveSlot: PokemonMoveSlot,
     pokemonApiService: PokeApiService
 ) {
-    // --- Estado para los detalles del movimiento (obtenidos por API) ---
-    var displayedMoveName by remember {
+    // Estados existentes
+    var displayedMoveName by remember(moveSlot.translatedName, moveSlot.move.name) {
         mutableStateOf(
-            moveSlot.translatedName ?: moveSlot.move.name.replaceFirstChar { it.titlecase() }.replace("-", " ")
+            moveSlot.translatedName ?: moveSlot.move.name.replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString()
+            }.replace("-", " ")
         )
     }
     var moveTypeName by remember { mutableStateOf<String?>(null) }
@@ -310,72 +373,93 @@ fun MoveRow(
     var moveDamageClassName by remember { mutableStateOf<String?>(null) }
     var isLoadingDetails by remember { mutableStateOf(false) }
     var learnIndicatorText by remember { mutableStateOf<String?>(null) }
+    var moveDescription by remember { mutableStateOf<String?>(null) }
 
-    val colorTexto = moveTypeName?.let { type ->
-        if (esTipoColorOscuro(type)) {
+    // ***** NUEVO ESTADO PARA LA EXPANSIÓN DE LA FILA *****
+    var isExpanded by rememberSaveable(key = moveSlot.move.name) { mutableStateOf(false) } // `key` para persistencia individual
+
+    val actualColorTexto = moveTypeName?.let { type ->
+        if (esTipoColorOscuro(type)) { // Asegúrate que esTipoColorOscuro está definida
             Color.White
+        } else {
+            Color.Black
         }
-        else{
-            CardBorder
-        }
-    } ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    } ?: MaterialTheme.colorScheme.onSurface
 
+    // LaunchedEffect para cargar detalles (incluida la descripción)
     LaunchedEffect(key1 = moveSlot.move.url) {
-        if (moveSlot.translatedName == null || moveTypeName == null || movePower == null || moveDamageClassName == null) {
+        // No se carga la descripción si ya está cargada y la fila no está expandida
+        // Opcional: Podrías condicionar la carga de la descripción a `isExpanded`
+        // si quieres optimizar y solo cargarla cuando se expande por primera vez.
+        // Pero para simplificar, la cargaremos siempre que falten datos.
+        if (moveSlot.translatedName == null || moveTypeName == null || moveDescription == null) {
             isLoadingDetails = true
+            // ... (resto de tu lógica de carga de datos, igual que antes) ...
             try {
-                val response = pokemonApiService.getMoveDetails(moveSlot.move.url)
+                val response = pokemonApiService.getMoveDetailsByUrl(moveSlot.move.url)
                 if (response.isSuccessful) {
                     val moveDetails = response.body()
-                    moveDetails?.names?.find { it.language.name == "es" }?.let { spanishNameEntry ->
-                        displayedMoveName = spanishNameEntry.name
+                    if (moveSlot.translatedName == null) {
+                        val spanishNameEntry = moveDetails?.names?.find { it.language.name == "es" }?.name
+                        if (!spanishNameEntry.isNullOrBlank()) {
+                            displayedMoveName = spanishNameEntry
+                        }
                     }
                     moveTypeName = moveDetails?.moveType?.name
                     movePower = moveDetails?.power
                     movePp = moveDetails?.pp
                     moveAccuracy = moveDetails?.accuracy
                     moveDamageClassName = moveDetails?.damageClass?.name
+
+                    val spanishEffectEntry = moveDetails?.effectEntries?.find { it.language.name == "es" }
+                    var foundDescription = spanishEffectEntry?.effect?.takeIf { it.isNotBlank() }
+                        ?: spanishEffectEntry?.shortEffect?.takeIf { it.isNotBlank() }
+
+                    if (foundDescription != null) {
+                        val effectChanceValue = moveDetails?.accuracy
+                        if (effectChanceValue != null) {
+                            foundDescription = foundDescription.replace("\$effect_chance", effectChanceValue.toString())
+                        }
+                        moveDescription = foundDescription.replace("\n", " ").replace("\u000c", " ")
+                    } else {
+                        val spanishFlavorText = moveDetails?.flavorTextEntries
+                            ?.filter { it.language.name == "es" }
+                            ?.firstOrNull { it.flavorText.isNotBlank() }
+                            ?.flavorText
+                        if (!spanishFlavorText.isNullOrBlank()) {
+                            moveDescription = spanishFlavorText.replace("\n", " ").replace("\u000c", " ")
+                        } else {
+                            moveDescription = "Descripción en español no disponible."
+                        }
+                    }
                 } else {
-                    println("Error fetching move details: ${response.code()} for ${moveSlot.move.url}")
-                    movePower = null; movePp = null; moveAccuracy = null; moveTypeName = null; moveDamageClassName = null;
+                    if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Error)"
+                    moveDescription = "No se pudo cargar la descripción."
                 }
             } catch (e: Exception) {
-                println("Exception fetching move details: ${e.message} for ${moveSlot.move.url}")
-                movePower = null; movePp = null; moveAccuracy = null; moveTypeName = null; moveDamageClassName = null;
+                if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Excepción)"
+                moveDescription = "Error al cargar la descripción."
             }
             isLoadingDetails = false
-        } else {
-            displayedMoveName = moveSlot.translatedName ?: moveSlot.move.name.replaceFirstChar { it.titlecase() }.replace("-", " ")
         }
     }
+
+    // LaunchedEffect para learnIndicatorText (sin cambios)
     LaunchedEffect(moveSlot.versionGroupDetails) {
         val levelUpDetail = moveSlot.versionGroupDetails.find {
             it.moveLearnMethod.name == "level-up" && it.levelLearnedAt > 0
         }
-
-        if (levelUpDetail != null) {
-            learnIndicatorText = "Nv. ${levelUpDetail.levelLearnedAt}"
+        learnIndicatorText = if (levelUpDetail != null) {
+            "Nv. ${levelUpDetail.levelLearnedAt}"
         } else {
-            val machineDetail = moveSlot.versionGroupDetails.find {
-                it.moveLearnMethod.name == "machine"
-            }
-            if (machineDetail != null) {
-                learnIndicatorText = "MT/MO" // O un icono de disco
-            } else {
-                val tutorDetail = moveSlot.versionGroupDetails.find {
-                    it.moveLearnMethod.name == "tutor"
-                }
-                if (tutorDetail != null) {
-                    learnIndicatorText = "Tutor" // O un icono de libro/profesor
-                } else {
-                    val eggDetail = moveSlot.versionGroupDetails.find {
-                        it.moveLearnMethod.name == "egg"
-                    }
-                    if (eggDetail != null) {
-                        learnIndicatorText = "Huevo" // O un icono de huevo
-                    } else {
-                        learnIndicatorText = null // No se muestra nada o un "-" si lo prefieres
-                    }
+            val machineDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "machine" }
+            if (machineDetail != null) "MT/MO"
+            else {
+                val tutorDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "tutor" }
+                if (tutorDetail != null) "Tutor"
+                else {
+                    val eggDetail = moveSlot.versionGroupDetails.find { it.moveLearnMethod.name == "egg" }
+                    if (eggDetail != null) "Huevo" else null
                 }
             }
         }
@@ -385,110 +469,161 @@ fun MoveRow(
         getPokemonTypeColorClear(type)
     } ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
 
-    // --- Determinar el Nivel de Aprendizaje ---
-    val levelLearnedDetail = remember(moveSlot.versionGroupDetails) {
-        moveSlot.versionGroupDetails.find { detail ->
-            detail.moveLearnMethod.name == "level-up" && detail.levelLearnedAt > 0
-        }
-    }
-    val levelToShow = levelLearnedDetail?.levelLearnedAt
-
-    // --- UI de la Fila de la Tabla ---
-    Box(
+    // ***** ENVOLVER EL CONTENIDO EN UN COLUMN Y HACER CLICKEABLE EL BOX PRINCIPAL *****
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
-            .padding(vertical = 4.dp, horizontal = 6.dp) // Reducido un poco el padding vertical para más compacidad
+            .clickable(
+                // Opcional: añade una indicación de ripple si quieres
+                // interactionSource = remember { MutableInteractionSource() },
+                // indication = rememberRipple(bounded = true),
+                onClick = { isExpanded = !isExpanded }
+            )
+            .padding(vertical = 6.dp, horizontal = 8.dp)
     ) {
-        if (isLoadingDetails && (moveTypeName == null || movePower == null || moveDamageClassName == null)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = color_progress_bar)
+        // Contenido principal de la fila (siempre visible)
+        if (isLoadingDetails && moveTypeName == null) { // Muestra shimmer o loading solo para la parte principal si es necesario
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color(0xFFD32F2F) // Reemplaza con tu color
+                )
             }
         } else {
-            Column {
-                // Fila para el Nombre del Movimiento, Icono de Clase y Nivel
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    // horizontalArrangement = Arrangement.SpaceBetween, // Se ajustará por los pesos
-                    verticalAlignment = Alignment.CenterVertically
+            // Fila para el nombre, clase de daño e indicador de aprendizaje
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = displayedMoveName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = actualColorTexto,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(0.50f) // Ajusta pesos según necesites
+                )
+                val iconResId: Int? = when (moveDamageClassName?.lowercase(java.util.Locale.getDefault())) {
+                    "physical" -> R.drawable.fisico
+                    "special" -> R.drawable.especial
+                    "status" -> R.drawable.estado
+                    else -> null
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(0.15f)
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.CenterEnd
                 ) {
-                    Text(
-                        text = displayedMoveName,
-                        style = MaterialTheme.typography.titleSmall, // O bodyMedium si prefieres
-                        fontWeight = FontWeight.Bold,
-                        color = colorTexto,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(0.6f) // Ajusta el peso según veas
-                    )
-
-                    // Icono de Clase de Daño
-                    val iconResId: Int? = when (moveDamageClassName?.lowercase()) {
-                        "physical" -> R.drawable.fisico
-                        "special" -> R.drawable.especial
-                        "status" -> R.drawable.estado
-                        else -> null
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(0.15f) // Peso para el icono
-                            .padding(horizontal = 4.dp),
-                        contentAlignment = Alignment.CenterEnd // Alinear el icono a la derecha de su espacio
-                    ) {
-                        if (iconResId != null) {
-                            Image(
-                                // Cambiado Image por Icon para mejor control de tint y tamaño con fuentes de iconos
-                                painter = painterResource(id = iconResId),
-                                contentDescription = moveDamageClassName,
-                                modifier = Modifier.size(20.dp), // Tamaño del icono de clase
-                            )
-                        } else {
-                            Spacer(Modifier.size(16.dp)) // Ocupa espacio si no hay icono para mantener alineación
-                        }
-                    }
-
-                    if (learnIndicatorText != null) {
-                        Text(
-                            text = learnIndicatorText!!, // No será null aquí debido al if
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Normal,
-                            color = colorTexto.copy(alpha = 0.85f),
-                            modifier = Modifier.weight(0.25f), // Ajusta el peso
-                            textAlign = TextAlign.End
+                    if (iconResId != null) {
+                        Image(
+                            painter = painterResource(id = iconResId),
+                            contentDescription = moveDamageClassName ?: "Clase de daño",
+                            modifier = Modifier.size(20.dp), // Tamaño del icono de clase
                         )
                     } else {
-                        Spacer(Modifier.weight(0.25f)) // Mantiene la estructura si no hay nada que mostrar
+                        // Ocupa espacio si no hay icono para mantener la alineación
+                        Spacer(Modifier.size(20.dp))
                     }
                 }
 
-                Spacer(modifier = Modifier.height(5.dp)) // Espacio entre nombre y detalles
+                // Indicador de aprendizaje (Nivel, MT/MO, Tutor, Huevo)
+                if (learnIndicatorText != null) {
+                    Text(
+                        text = learnIndicatorText!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Normal,
+                        color = actualColorTexto.copy(alpha = 0.85f),
+                        modifier = Modifier.weight(0.35f), // Ajusta el peso
+                        textAlign = TextAlign.End
+                    )
+                } else {
+                    Spacer(Modifier.weight(0.35f))
+                }
+            }
 
-                // Fila para los detalles (Potencia, PP, Precisión, Tipo)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Spacer(modifier = Modifier.height(5.dp)) // Espacio entre la primera fila y los detalles
+
+            // Fila para los detalles (Potencia, PP, Precisión, Tipo)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MoveDetailItem(label = "Pot.", value = movePower?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+                MoveDetailItem(label = "PP", value = movePp?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+                MoveDetailItem(label = "Prec.", value = moveAccuracy?.let { "$it%" } ?: "-", modifier = Modifier.weight(1f), colorTexto = actualColorTexto)
+
+                Box(
+                    modifier = Modifier.weight(1.5f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    MoveDetailItem(label = "Pot.", value = movePower?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = colorTexto)
-                    MoveDetailItem(label = "PP", value = movePp?.toString() ?: "-", modifier = Modifier.weight(1f), colorTexto = colorTexto)
-                    MoveDetailItem(label = "Prec.", value = moveAccuracy?.let { "$it%" } ?: "-", modifier = Modifier.weight(1f), colorTexto = colorTexto)
-                    // Tipo (con chip)
-                    Box(modifier = Modifier.weight(1.5f), contentAlignment = Alignment.Center) {
-                        moveTypeName?.let { typeName ->
-                            PokemonTypeChip(
-                                typeName = typeName,
-                                modifier = Modifier.height(28.dp),
-                            )
-                        } ?: Text("-", style = MaterialTheme.typography.bodySmall, color = colorTexto, textAlign = TextAlign.Center)
+                    if (moveTypeName != null) {
+                        PokemonTypeChip(
+                            typeName = moveTypeName!!,
+                            modifier = Modifier.height(28.dp),
+                        )
+                    } else {
+                        Text(
+                            "-",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = actualColorTexto,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
         }
-    }
+
+        // ***** SECCIÓN DE DESCRIPCIÓN EXPANDIBLE *****
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+        ) {
+            // Solo muestra la descripción si no está cargando y si la descripción existe
+            if (!isLoadingDetails && !moveDescription.isNullOrBlank()) {
+                Column { // Envuelve en Column para poder añadir padding superior
+                    Spacer(modifier = Modifier.height(8.dp)) // Espacio entre detalles y descripción
+                    Text(
+                        text = moveDescription!!,
+                        style = MaterialTheme.typography.bodyMedium, // Un poco más grande para la descripción
+                        color = actualColorTexto.copy(alpha = 0.9f), // Ligeramente más opaco
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 4.dp), // Padding interno para la descripción
+                        textAlign = TextAlign.Justify // Opcional: justificar el texto
+                    )
+                }
+            } else if (isExpanded && isLoadingDetails) {
+                // Opcional: Mostrar un pequeño indicador de carga para la descripción
+                // si la fila está expandida pero la descripción aún se está cargando.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = actualColorTexto.copy(alpha = 0.7f),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        }
+    } // Fin del Column principal clickeable
 }
-*/
+
+
+
+/*
 @Composable
 fun MoveRow(
     moveSlot: PokemonMoveSlot,
@@ -508,6 +643,7 @@ fun MoveRow(
     var moveDamageClassName by remember { mutableStateOf<String?>(null) }
     var isLoadingDetails by remember { mutableStateOf(false) }
     var learnIndicatorText by remember { mutableStateOf<String?>(null) }
+    var moveDescription by remember { mutableStateOf<String?>(null) }
 
     val actualColorTexto = moveTypeName?.let { type ->
         if (esTipoColorOscuro(type)) { // Asegúrate que esTipoColorOscuro está definida
@@ -518,44 +654,75 @@ fun MoveRow(
     } ?: MaterialTheme.colorScheme.onSurface // Un color por defecto si el tipo es nulo
 
     LaunchedEffect(key1 = moveSlot.move.url) {
-        // Carga detalles solo si no los tenemos ya (ej. el nombre traducido Y el tipo)
-        // O si algún dato crucial como el tipo de movimiento falta.
-        if (moveSlot.translatedName == null || moveTypeName == null) {
+        if (moveSlot.translatedName == null || moveTypeName == null || moveDescription == null) {
             isLoadingDetails = true
             try {
-                // CAMBIO AQUÍ: Usar el nombre correcto del método del servicio
                 val response = pokemonApiService.getMoveDetailsByUrl(moveSlot.move.url)
-                //                                 ^^^^^^^^^^^^^^^^^^^
+
                 if (response.isSuccessful) {
                     val moveDetails = response.body()
-                    moveDetails?.names?.find { it.language.name == "es" }?.name?.let { spanishNameEntry ->
-                        displayedMoveName = spanishNameEntry
+
+                    // Establecer nombre (si no está traducido ya en moveSlot)
+                    if (moveSlot.translatedName == null) {
+                        val spanishNameEntry = moveDetails?.names?.find { it.language.name == "es" }?.name
+                        if (!spanishNameEntry.isNullOrBlank()) {
+                            displayedMoveName = spanishNameEntry
+                        }
+                        // Si no, se queda el nombre por defecto (generalmente en inglés de la API o formateado)
                     }
-                    // Si no hay nombre en español, nos quedamos con el nombre por defecto ya seteado
+
                     moveTypeName = moveDetails?.moveType?.name
                     movePower = moveDetails?.power
                     movePp = moveDetails?.pp
                     moveAccuracy = moveDetails?.accuracy
                     moveDamageClassName = moveDetails?.damageClass?.name
+
+                    // Extraer y establecer la descripción del movimiento EN ESPAÑOL
+                    val spanishEffectEntry = moveDetails?.effectEntries?.find { it.language.name == "es" }
+
+                    var foundDescription = spanishEffectEntry?.effect?.takeIf { it.isNotBlank() }
+                        ?: spanishEffectEntry?.shortEffect?.takeIf { it.isNotBlank() }
+
+                    if (foundDescription != null) {
+                        // Reemplazar placeholders si es necesario (ejemplo con $effect_chance)
+                        // Asegúrate de que `moveDetails.effectChance` existe en tu MoveDetailResponse si lo usas.
+                        val effectChanceValue = moveDetails?.accuracy
+                        if (effectChanceValue != null) {
+                            foundDescription = foundDescription.replace("\$effect_chance", effectChanceValue.toString())
+                        }
+
+                        // Limpiar saltos de línea y otros caracteres
+                        moveDescription = foundDescription.replace("\n", " ").replace("\u000c", " ")
+                    } else {
+                        // Si no se encontró descripción en español (ni 'effect' ni 'short_effect')
+                        // podrías intentar con flavor_text_entries en español como último recurso
+                        // o establecer un mensaje específico.
+                        val spanishFlavorText = moveDetails?.flavorTextEntries
+                            ?.filter { it.language.name == "es" }
+                            // Quizás quieras una lógica para elegir la "mejor" flavor text si hay varias
+                            // Por ejemplo, la de la versión de juego más reciente o una específica.
+                            // Por ahora, tomaremos la primera que no esté vacía.
+                            ?.firstOrNull { it.flavorText.isNotBlank() }
+                            ?.flavorText
+
+                        if (!spanishFlavorText.isNullOrBlank()) {
+                            moveDescription = spanishFlavorText.replace("\n", " ").replace("\u000c", " ")
+                        } else {
+                            moveDescription = "Descripción en español no disponible." // Mensaje específico
+                        }
+                    }
+
                 } else {
                     println("Error fetching move details: ${response.code()} for ${moveSlot.move.url}")
-                    // No limpiamos todos los datos si la llamada falla,
-                    // podríamos tener el nombre base o traducido de antes.
-                    // Si la API falla, es mejor mostrar "-" para los datos no cargados.
+                    if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Error)"
+                    moveDescription = "No se pudo cargar la descripción."
                 }
             } catch (e: Exception) {
                 println("Exception fetching move details: ${e.message} for ${moveSlot.move.url}")
+                if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Excepción)"
+                moveDescription = "Error al cargar la descripción."
             }
             isLoadingDetails = false
-        } else {
-            // Si ya tenemos el nombre traducido y el tipo, los otros datos también deberían estar.
-            // Esto es por si `moveSlot` ya viene con todos los datos precargados.
-            // Pero como la condición del if es `translatedName == null || moveTypeName == null`
-            // este `else` implica que ya tenemos esos datos, así que no es necesario resetearlos.
-            // El `displayedMoveName` ya se inicializó correctamente arriba.
-            // Para `moveTypeName`, `movePower`, etc., si `moveSlot` pudiera traerlos
-            // directamente, los inicializarías arriba también. Como no es el caso (según el código actual),
-            // el `LaunchedEffect` se encarga de llenarlos.
         }
     }
 
@@ -623,6 +790,15 @@ fun MoveRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(0.55f) // Ajustado
                     )
+                    if (moveDescription != null && !isLoadingDetails) { // Mostrar solo si hay descripción y no está cargando
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = moveDescription!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = actualColorTexto.copy(alpha = 0.85f), // Un poco más tenue que el nombre
+                            modifier = Modifier.padding(horizontal = 4.dp) // Algo de padding lateral
+                        )
+                    }
                     val iconResId: Int? = when (moveDamageClassName?.lowercase(java.util.Locale.getDefault())) {
                         "physical" -> R.drawable.fisico // Asegúrate que tus drawables existen
                         "special" -> R.drawable.especial
@@ -704,72 +880,4 @@ fun MoveRow(
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-@Composable
-fun MoveDetailItem(label: String, value: String, modifier: Modifier = Modifier, colorTexto: Color = MaterialTheme.colorScheme.onSurface) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(horizontal = 2.dp)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium, // Etiqueta más pequeña
-            color = colorTexto.copy(alpha = 0.7f) // Un poco más tenue
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium, // Valor
-            fontWeight = FontWeight.SemiBold,
-            color = colorTexto
-        )
-    }
-}
-
-
-private fun determineLearnIndicatorText(versionGroupDetails: List<VersionGroupDetail>): String? {
-    // Ejemplo basado en la lógica que tenías en MoveRow:
-    val levelUpDetail = versionGroupDetails.find {
-        it.moveLearnMethod.name == "level-up" && it.levelLearnedAt > 0
-    }
-    if (levelUpDetail != null) {
-        // Si quieres el texto "Nivel" en lugar de "Nv. X", puedes usar formatMoveLearnMethod
-        // return formatMoveLearnMethod("level-up")
-        return "Nivel" // O "Nv. ${levelUpDetail.levelLearnedAt}" si prefieres incluir el nivel aquí
-    }
-
-    val machineDetail = versionGroupDetails.find {
-        it.moveLearnMethod.name == "machine"
-    }
-    if (machineDetail != null) {
-        return formatMoveLearnMethod("machine") // "MT/MO"
-    }
-
-    val tutorDetail = versionGroupDetails.find {
-        it.moveLearnMethod.name == "tutor"
-    }
-    if (tutorDetail != null) {
-        return formatMoveLearnMethod("tutor") // "Tutor"
-    }
-
-    val eggDetail = versionGroupDetails.find {
-        it.moveLearnMethod.name == "egg"
-    }
-    if (eggDetail != null) {
-        return formatMoveLearnMethod("egg") // "Huevo"
-    }
-
-    // Considera un valor por defecto si quieres agrupar movimientos
-    // cuyo método no coincide con los anteriores
-    // return "Otros"
-    return null // Si devuelves null, estos movimientos se filtrarán antes de agrupar
-}
-
+*/

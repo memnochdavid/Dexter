@@ -246,18 +246,29 @@ data class VersionGroupDetail(
 
 data class MoveDetailResponse(
     val id: Int,
-    val name: String, // Nombre original/científico (en inglés por defecto)
-    val names: List<MoveNameEntry>, // Lista de nombres en diferentes idiomas
-    // ... otros campos del movimiento que podrías necesitar (power, pp, accuracy, type, etc.)
+    val name: String,
+    val names: List<MoveNameEntry>,
     val power: Int?,
     val pp: Int?,
     val accuracy: Int?,
     @SerializedName("type")
     val moveType: NamedApiResource?,
     @SerializedName("damage_class")
-    val damageClass: NamedApiResource?
+    val damageClass: NamedApiResource?,
+    // ***** AÑADIR ESTO SI NO LO TIENES *****
+    @SerializedName("effect_entries")
+    val effectEntries: List<VerboseEffect>, // Para la descripción principal
+    @SerializedName("flavor_text_entries")
+    val flavorTextEntries: List<MoveFlavorTextEntry> // Para descripciones de juegos específicos (opcional)
+    // ... otros campos
 )
-
+data class MoveFlavorTextEntry(
+    @SerializedName("flavor_text")
+    val flavorText: String,
+    val language: NamedApiResource,
+    @SerializedName("version_group")
+    val versionGroup: NamedApiResource
+)
 data class MoveNameEntry(
     val name: String, // El nombre traducido
     val language: NamedApiResource // Contiene el nombre del idioma (ej: "es") y su URL

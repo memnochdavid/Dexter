@@ -1,7 +1,19 @@
+import java.util.Properties
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { input ->
+        localProperties.load(input)
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
+
 }
 
 android {
@@ -38,7 +50,7 @@ android {
         compose = true
     }
 }
-
+val camerax_version = "1.3.0" // Revisa la última versión estable
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -99,6 +111,32 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.0")
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
+
+
+    //camera X
+    implementation ("androidx.camera:camera-core:${camerax_version}")
+    implementation ("androidx.camera:camera-camera2:${camerax_version}")
+    implementation ("androidx.camera:camera-lifecycle:${camerax_version}")
+    implementation ("androidx.camera:camera-view:${camerax_version}")
+    implementation ("androidx.camera:camera-extensions:${camerax_version}") // Opcional para efectos
+    // Para permisos más fácil con Compose (opcional, pero recomendado)
+    implementation ("com.google.accompanist:accompanist-permissions:0.33.2-alpha") // Revisa la última
+
+    //ML kit
+    implementation ("com.google.mlkit:image-labeling:17.0.8")
+
+    //KTOR
+    val ktor_version = "2.3.8" // Siempre es bueno revisar la última versión estable
+    implementation ("io.ktor:ktor-client-core:$ktor_version")
+    implementation ("io.ktor:ktor-client-android:$ktor_version") // Motor para Android (puedes usar CIO o OkHttp también)
+    implementation ("io.ktor:ktor-client-content-negotiation:$ktor_version")
+    implementation ("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+    implementation ("io.ktor:ktor-client-logging:$ktor_version") // Para logging, útil en desarrollo
+
+    // Kotlinx Serialization (Ktor lo usa para JSON)
+    implementation ("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Revisa la última
+
+
 
 
 }

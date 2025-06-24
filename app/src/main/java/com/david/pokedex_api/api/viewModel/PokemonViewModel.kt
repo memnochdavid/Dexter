@@ -88,6 +88,9 @@ class PokemonViewModel : ViewModel() {
     private val _totalGenerationsCount =
         MutableStateFlow(0) // Para saber cuántas generaciones esperamos
 
+    private val _currentlyFetchingGenerationId = MutableLiveData<Int?>(null)
+
+
 
     init {
         // Observar cambios en las generaciones y el caché para actualizar _areAllPokemonDetailsAttempted
@@ -839,6 +842,10 @@ class PokemonViewModel : ViewModel() {
             // Si no, es un nombre completamente diferente o una forma compleja
             return formApiName.split('-').joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
         }
+    }
+
+    fun isFetchingForGenerationId(generationId: Int?): Boolean {
+        return _isLoadingPokemonForCurrentGeneration.value == true && _currentlyFetchingGenerationId.value == generationId
     }
 }
 
