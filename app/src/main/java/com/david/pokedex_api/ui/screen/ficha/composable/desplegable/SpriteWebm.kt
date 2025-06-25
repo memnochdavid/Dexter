@@ -3,6 +3,8 @@ package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.view.TextureView
+import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -45,90 +47,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
-
-// Data class para representar cada objeto en tu JSON
-data class PokemonSpriteInfo(
-    val nombreJson: String, // El nombre original del JSON "Archivo:Pikachu.webm"
-    val resourceName: String // El nombre del archivo en res/raw sin extensión "pikachu_home"
-)
-private const val TAG = "SimpleWebmPlayer"
-private const val TAG_EXOPLAYER = "ExoPlayerComposable"
-
-private const val TAG_LOADER = "PokemonSpriteLoader"
-
-fun loadPokemonSprites(context: Context): List<PokemonSpriteInfo> {
-    val sprites = mutableListOf<PokemonSpriteInfo>()
-    try {
-        val inputStream: InputStream = context.resources.openRawResource(
-            context.resources.getIdentifier(
-                "sprites_pokemon_home", // Nombre de tu archivo JSON sin la extensión
-                "raw",
-                context.packageName
-            )
-        )
-        val size: Int = inputStream.available()
-        val buffer = ByteArray(size)
-        inputStream.read(buffer)
-        inputStream.close()
-        val jsonString = String(buffer, Charset.defaultCharset())
-        val jsonArray = JSONArray(jsonString)
-
-        for (i in 0 until jsonArray.length()) {
-            val jsonObject = jsonArray.getJSONObject(i)
-            val nombreOriginalJson = jsonObject.getString("nombre") // ej: "Archivo:Pikachu_HOME.webm"
-
-            // Extraer el nombre base para el recurso raw
-            // Asumimos que los archivos en res/raw son como "pikachu_home.webm", "bulbasaur_home.webm", etc.
-            // Y que el JSON tiene nombres como "Archivo:Pikachu_HOME.webm"
-            val resourceName = nombreOriginalJson
-                .substringAfter("Archivo:") // "Pikachu_HOME.webm"
-                .substringBeforeLast(".webm") // "Pikachu_HOME"
-                .lowercase() // "pikachu_home" (convención para nombres de recursos raw)
-
-            sprites.add(
-                PokemonSpriteInfo(
-                    nombreJson = nombreOriginalJson,
-                    resourceName = resourceName
-                )
-            )
-        }
-    } catch (e: Exception) {
-        Log.e(TAG_LOADER, "Error loading Pokemon sprites from JSON", e)
-    }
-    return sprites
-}
-
-// Función para encontrar la URL por el nombre del Pokémon (simplificada)
-// Deberás ajustar la lógica de `normalizePokemonName` según cómo estén los nombres en tu JSON
-fun findPokemonResourceName(pokemonName: String, sprites: List<PokemonSpriteInfo>): String? {
-    val normalizedQueryName = pokemonName.lowercase() // Nombre del Pokémon que buscamos, ej "pikachu"
-
-    // La idea es que resourceName en PokemonSpriteInfo ya está normalizado, ej. "pikachu_home"
-    // Buscamos un resourceName que comience con el nombre del Pokémon normalizado.
-    val match = sprites.find { spriteInfo ->
-        // Ejemplo: spriteInfo.resourceName podría ser "pikachu_home"
-        // normalizedQueryName podría ser "pikachu"
-        // Queremos asegurar que buscamos "pikachu_home" (o similar) y no variantes que puedan
-        // estar en el nombre del JSON original pero que no queremos para el sprite HOME base.
-        spriteInfo.resourceName.startsWith(normalizedQueryName) &&
-                spriteInfo.resourceName.endsWith("_home") && // Asegura que es el sprite "HOME"
-                !spriteInfo.resourceName.contains("hembra") && // Excluir variantes si es necesario
-                !spriteInfo.resourceName.contains("alola") &&
-                !spriteInfo.resourceName.contains("galar") &&
-                !spriteInfo.resourceName.contains("hisui")
-        // Puedes añadir más lógica de exclusión si tus nombres de recurso raw son más complejos.
-    }
-
-    if (match != null) {
-        Log.d(TAG_LOADER, "Found resource for $pokemonName: ${match.resourceName}")
-    } else {
-        Log.w(TAG_LOADER, "No matching resource found for $pokemonName")
-    }
-    return match?.resourceName
-}
-
 
 @Composable
 fun WebmImageDialog(
@@ -166,13 +88,13 @@ fun WebmImageDialog(
                 )
 
                 // Usar ExoPlayerComposable
-                ExoPlayerComposable(
-                    resourceName = pokemonResourceName, // Pasar el nombre del recurso
+                ExoPlayerSimple(
+                    pokemonInputName = pokemonResourceName, // Pasar el nombre del recurso
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f) // Asumiendo que los sprites son cuadrados
                         .clip(RoundedCornerShape(12.dp)) // Clip opcional
-                        .background(Color.Black) // Fondo negro detrás del video transparente
+//                        .background(Color.Black) // Fondo negro detrás del video transparente
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -381,108 +303,144 @@ fun VlcPlayer(
 }
 
 
+@OptIn(UnstableApi::class)
 @Composable
-fun ExoPlayerComposable(
-    resourceName: String, // Nombre del archivo en res/raw SIN extensión, ej: "pikachu_home"
+fun ExoPlayerSimple(
+    pokemonInputName: String, // Nombre como "blastoise-mega"
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-    // No necesitamos playerView como estado si solo se configura en factory y se usa en update
 
-    // Construir el URI para el recurso raw
-    val videoUri: Uri? = remember(resourceName, context) {
-        val resourceId = context.resources.getIdentifier(resourceName, "raw", context.packageName)
-        if (resourceId != 0) {
-            Uri.parse("android.resource://${context.packageName}/$resourceId")
-        } else {
-            Log.e(TAG_EXOPLAYER, "Resource not found for name: $resourceName in package: ${context.packageName}")
-            null
+    val resourceName = remember(pokemonInputName) {
+
+        transformPokemonNameToResourceName(pokemonInputName) // Ej: transforma "blastoise-mega" a "mega_blastoise"
+
+    }
+
+    Log.d("ExoPlayerSimple", "Input: '$pokemonInputName', Transformed resource name: '$resourceName'")
+
+    val resourceId = remember(resourceName) { // `remember` ahora depende del `resourceName` transformado
+        context.resources.getIdentifier(resourceName, "raw", context.packageName)
+    }
+
+    if (resourceId == 0) {
+        Text("Video resource '$resourceName.webm' not found for $pokemonInputName", color = Color.Red, modifier = modifier)
+        Log.e("ExoPlayerSimple", "Resource ID is 0 for raw file: $resourceName.webm (from input $pokemonInputName)")
+        return
+    }
+
+    val videoUri = remember(resourceId) {
+        Uri.parse("android.resource://${context.packageName}/$resourceId")
+    }
+
+    val exoPlayer = remember(videoUri) { // `remember` el player basado en el URI, para que se recree si cambia
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUri))
+            repeatMode = Player.REPEAT_MODE_ONE
+            playWhenReady = true
+            prepare()
+            Log.d("ExoPlayerSimple", "ExoPlayer prepared for URI: $videoUri")
         }
     }
 
-    // Inicialización y actualización de ExoPlayer
-    LaunchedEffect(videoUri, context) { // Relanzar si el URI o el contexto cambian
-        if (videoUri == null) {
-            Log.e(TAG_EXOPLAYER, "Video URI is null for resourceName '$resourceName'. Cannot initialize player.")
-            exoPlayer?.stop() // Detener si ya existía y el nuevo URI es nulo
-            exoPlayer?.clearMediaItems()
-            return@LaunchedEffect
+    DisposableEffect(exoPlayer) { // El efecto debe depender de exoPlayer para la limpieza correcta
+        onDispose {
+            Log.d("ExoPlayerSimple", "Releasing ExoPlayer instance for $resourceName")
+            exoPlayer.release()
         }
-
-        val playerInstance = exoPlayer ?: ExoPlayer.Builder(context)
-            .build()
-            .also { exoPlayer = it; Log.d(TAG_EXOPLAYER, "New ExoPlayer instance created.") }
-
-        val mediaItem = MediaItem.Builder()
-            .setUri(videoUri)
-            .setMimeType(MimeTypes.VIDEO_WEBM) // Especificar el MimeType puede ayudar
-            .build()
-
-        playerInstance.setMediaItem(mediaItem)
-        playerInstance.repeatMode = Player.REPEAT_MODE_ONE
-        playerInstance.playWhenReady = true
-        playerInstance.prepare()
-        Log.d(TAG_EXOPLAYER, "ExoPlayer prepared with URI: $videoUri")
     }
 
-    // Manejo del ciclo de vida de ExoPlayer y liberación de recursos
+    // --- Control del ciclo de vida (OPCIONAL PERO RECOMENDADO) ---
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(exoPlayer) { // Observa cambios en exoPlayer para el cleanup
-        val lifecycleObserver = LifecycleEventObserver { _, event ->
-            val currentPlayer = exoPlayer ?: return@LifecycleEventObserver
+    DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    Log.d(TAG_EXOPLAYER, "Lifecycle ON_RESUME: playing")
-                    currentPlayer.play()
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    Log.d(TAG_EXOPLAYER, "Lifecycle ON_PAUSE: pausing")
-                    currentPlayer.pause()
-                }
+                Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
+                Lifecycle.Event.ON_RESUME -> exoPlayer.play()
                 else -> {}
             }
         }
-
-        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
-
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            Log.d(TAG_EXOPLAYER, "Disposing ExoPlayer instance.")
-            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
-            exoPlayer?.release() // Libera el reproductor
-            // exoPlayer = null // No es necesario setearlo a null aquí, el remember lo manejará
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
+    // --- Fin Control del ciclo de vida ---
 
-    // Configuración de la vista (PlayerView)
-    if (videoUri != null) { // Solo muestra PlayerView si tenemos un URI válido
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    this.player = exoPlayer // Asigna la instancia de ExoPlayer al PlayerView
-                    useController = false // No mostrar controles de reproducción
-                    // Para que el fondo sea transparente y se vea el .background(Color.Black) de Compose:
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT) // Fondo del PlayerView
-                    // La transparencia del SurfaceView subyacente de ExoPlayer suele ser buena por defecto
-                    // para formatos con alfa (como VP8/VP9 en WebM), pero si no:
-                    // this.videoSurfaceView?.holder?.setFormat(PixelFormat.TRANSLUCENT)
-                    // (videoSurfaceView es a veces null aquí, puede necesitarse post-layout)
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false // No mostrar controles
+
+                // --- INICIO DE AJUSTES DE TRANSPARENCIA ---
+                // Para que el fondo de Compose se vea a través de las partes transparentes del WebM
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
+                val surfaceView = this.videoSurfaceView
+                if (surfaceView is android.view.SurfaceView) {
+                    Log.d("ExoPlayerSimple", "Configuring SurfaceView for transparency.")
+                    surfaceView.setZOrderOnTop(true)
+                    surfaceView.holder.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+                } else if (surfaceView is android.view.TextureView) {
+                    Log.d("ExoPlayerSimple", "Video surface is TextureView. Setting Opaque to false.")
+                    surfaceView.isOpaque = false
                 }
-            },
-            update = { view ->
-                // Actualiza el player en la vista si la instancia de ExoPlayer cambia
-                // (útil si el LaunchedEffect recrea exoPlayer por cambio de contexto)
-                if (view.player != exoPlayer) {
-                    Log.d(TAG_EXOPLAYER, "AndroidView update: Player instance changed, updating view.")
-                    view.player = exoPlayer
-                }
-            },
-            modifier = modifier
-        )
-    } else {
-        // Opcional: Muestra algo si el videoUri es nulo (ej. un Box con un icono de error o un texto)
-        Log.w(TAG_EXOPLAYER, "videoUri is null, not rendering PlayerView for resourceName: $resourceName")
-        // androidx.compose.foundation.layout.Box(modifier = modifier.background(Color.Gray)) { /* Placeholder */ }
-    }
+                // --- FIN DE AJUSTES DE TRANSPARENCIA ---
+
+                // Originalmente tenías esto, si el objetivo NO es transparencia sino un fondo negro para el video:
+//                 setShutterBackgroundColor(android.graphics.Color.BLACK) // Color mientras el video carga
+//                 setBackgroundColor(android.graphics.Color.BLACK) // Fondo del PlayerView
+            }
+        },
+        modifier = modifier
+    )
 }
 
+fun transformPokemonNameToResourceName(pokemonInputName: String): String {
+    val inputLower = pokemonInputName.lowercase()
+
+    // 1. Manejar casos especiales primero, ya que pueden tener una lógica única.
+    when (inputLower) {
+        // Pokémon con nombres que necesitan un manejo muy específico y no encajan en patrones generales.
+
+
+        // Añade aquí otros casos verdaderamente únicos.
+    }
+
+    // 2. Lógica para formas "mega" (X, Y o simple)
+    // Buscamos patrones como "pokemon-mega-x", "pokemon-mega-y", "pokemon-mega"
+    // o "pokemon mega x", "pokemon mega y", "pokemon mega"
+    // y los transformamos a "mega_pokemon_x", "mega_pokemon_y", "mega_pokemon"
+
+    val megaXRegex = Regex("""(.+)[-\s]?mega[-\s]?x""")
+    val megaYRegex = Regex("""(.+)[-\s]?mega[-\s]?y""")
+    val megaSimpleRegex = Regex("""(.+)[-\s]?mega""") // Debe ir después de X/Y para evitar falsos positivos
+
+    megaXRegex.matchEntire(inputLower)?.let { matchResult ->
+        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
+        return "mega_${pokemonBaseName}_x" // ej., "charizard-mega-x" -> "mega_charizard_x"
+    }
+
+    megaYRegex.matchEntire(inputLower)?.let { matchResult ->
+        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
+        return "mega_${pokemonBaseName}_y" // ej., "charizard-mega-y" -> "mega_charizard_y"
+    }
+
+    megaSimpleRegex.matchEntire(inputLower)?.let { matchResult ->
+        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
+        return "mega_$pokemonBaseName" // ej., "blastoise-mega" -> "mega_blastoise"
+    }
+
+
+    // 3. Patrón general para otros casos (como reemplazar guiones o espacios con guiones bajos)
+    // Esta es una regla de fallback si no es un caso especial ni una forma mega conocida.
+    // Ejemplos: "porygon-z" -> "porygon_z", "tapu koko" -> "tapu_koko"
+    return inputLower
+        .replace('-', '_')
+        .replace(' ', '_')
+    // Podrías añadir más reemplazos si es necesario, ej., para apóstrofes o puntos.
+    // .replace("'", "") // Ejemplo: "sirfetch'd" -> "sirfetchd" (si ese fuera tu nombre de archivo)
+    // .replace(".", "")  // Ejemplo: "mr. rime" -> "mr_rime" (después del reemplazo de espacio)
+}

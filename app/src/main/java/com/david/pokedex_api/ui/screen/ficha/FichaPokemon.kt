@@ -66,8 +66,6 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.WebmImageDialog
-import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.findPokemonResourceName
-import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.loadPokemonSprites
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.shimmerBrush
@@ -299,163 +297,7 @@ fun PokemonDetailsView(
     }
 }
 
-@Composable
-fun ComponenteImagen2(
-    pokemon: PokemonDetailResponse,
-) {
-    var playAppearAnimation by remember(pokemon) { mutableStateOf(true) }
 
-    // Estado para controlar la visibilidad de la imagen expandida
-    var showExpandedImage by remember { mutableStateOf(false) }
-    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
-        ?: pokemon.sprites.frontDefault
-
-
-    LaunchedEffect(key1 = pokemon) {
-        playAppearAnimation = true
-        delay(550)
-        playAppearAnimation = false
-    }
-
-    var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
-
-    LaunchedEffect(pokemon) {
-        internalScaleTarget = 0f
-        delay(50)
-        internalScaleTarget = 1f
-    }
-
-    val actualScale by animateFloatAsState(
-        targetValue = internalScaleTarget,
-        animationSpec = keyframes {
-            durationMillis = 1000
-            0f at 0
-            1f at 500
-        }, label = "PokemonAppearScale"
-    )
-
-
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        if (imageUrl != null) {
-            val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
-            val color2 = if (pokemon.types.size > 1) {
-                getPokemonTypeColor(pokemon.types[1].type.name)
-            } else {
-                color1
-            }
-
-            // Card de fondo con los colores del tipo
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp) // Ajusta la altura según necesites para el fondo
-                    .background(Color.Transparent),
-                shape = RoundedCornerShape(0.dp)
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) { // Usar Column para apilar los Box de colores
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .background(color1),
-                        contentAlignment = Alignment.BottomEnd
-                    ) {
-                        val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
-                        if (iconResId != 0) {
-                            if (pokemon.types.size == 2) {
-                                Image(
-                                    painter = painterResource(id = iconResId),
-                                    contentDescription = pokemon.types[0].type.name,
-                                    modifier = Modifier.padding(8.dp) // Añade padding si es necesario
-                                )
-                            }
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .background(color2),
-                        contentAlignment = Alignment.BottomStart // Alinea al inicio para el ícono de pokeball
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp), // Padding para los íconos
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.pokeball_icon),
-                                contentDescription = "Pokeball icon",
-                                modifier = Modifier.size(80.dp) // Tamaño ajustado del ícono
-                            )
-                            if (pokemon.types.size == 1) {
-                                val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
-                                if (iconResId != 0) {
-                                    Image(
-                                        painter = painterResource(id = iconResId),
-                                        contentDescription = pokemon.types[0].type.name,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                }
-                            } else if (pokemon.types.size > 1) {
-                                val iconResId = getPokemonTypeToIcon(pokemon.types[1].type.name)
-                                if (iconResId != 0) {
-                                    Image(
-                                        painter = painterResource(id = iconResId),
-                                        contentDescription = pokemon.types[1].type.name,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Box para la imagen principal del Pokémon (la que se hace clic)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize() // Asegúrate de que este Box tenga un tamaño definido para que Alignment.Center funcione
-                    .padding(horizontal = 75.dp)
-                    .scale(actualScale)
-                    .align(Alignment.Center)
-                    .clickable { showExpandedImage = true }, // <-- IMPORTANTE: Hacer clic aquí
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "${pokemon.name} sprite",
-                    modifier = Modifier.size(350.dp), // Tamaño de la imagen principal
-                    colorFilter = if (actualScale < 1f && actualScale > 0.01f) ColorFilter.tint(color = Color.White.copy(alpha = 0.7f), blendMode = BlendMode.SrcAtop) else null,
-                    error = painterResource(id = R.drawable.pokeball_icon),
-                    placeholder = painterResource(id = R.drawable.pokeball_icon)
-                )
-                if (actualScale < 1f && actualScale > 0.01f) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(CircleShape)
-                            .background(shimmerBrush(showShimmer = true)) // Asegúrate que shimmerBrush esté definido
-                    )
-                }
-            }
-        }
-    }
-
-    // Mostrar el Composable de imagen expandida si showExpandedImage es true
-    if (showExpandedImage && imageUrl != null) {
-        ExpandedImageView(
-            pokemon = pokemon, // <-- Pasa el objeto Pokemon completo
-            onDismiss = { showExpandedImage = false }
-        )
-    }
-}
 
 @Composable
 fun ExpandedImageView(
@@ -618,22 +460,15 @@ private const val TAG = "SimpleWebmPlayer"
 private const val TAG_COMP_IMG = "ComponenteImagen"
 @Composable
 fun ComponenteImagen(
-    pokemon: PokemonDetailResponse,
+    pokemon: PokemonDetailResponse, // Asumimos que PokemonDetailResponse tiene al menos 'name'
 ) {
     val context = LocalContext.current
-
     var showWebmDialog by remember { mutableStateOf(false) }
-    var pokemonResourceNameForDialog by remember { mutableStateOf<String?>(null) }
 
-    val allPokemonSprites = remember(context) { loadPokemonSprites(context) }
-
-    LaunchedEffect(pokemon.name, allPokemonSprites) {
-        pokemonResourceNameForDialog = findPokemonResourceName(pokemon.name, allPokemonSprites)
-        if (pokemonResourceNameForDialog == null) {
-            Log.w(TAG_COMP_IMG, "Sprite 3D (WebM resource) no encontrado para ${pokemon.name}")
-        } else {
-            Log.d(TAG_COMP_IMG, "Sprite 3D (WebM resource) para ${pokemon.name}: $pokemonResourceNameForDialog")
-        }
+    // Deriva el nombre del recurso directamente del nombre del Pokémon.
+    // Asume que los archivos en res/raw son, por ejemplo, "pikachu.webm" para "Pikachu".
+    val pokemonResourceNameForDialog = remember(pokemon.name) {
+        pokemon.name.lowercase() // Convierte "Pikachu" a "pikachu"
     }
 
     val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
@@ -683,7 +518,7 @@ fun ComponenteImagen(
                 ) {
                     if (pokemon.types.size == 2 && type1Name != null) {
                         val iconResId = getPokemonTypeToIcon(type1Name)
-                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) { // Asume R.drawable.ic_type_normal existe o ajusta la lógica
                             Image(
                                 painter = painterResource(id = iconResId),
                                 contentDescription = type1Name,
@@ -708,7 +543,7 @@ fun ComponenteImagen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        Image(
+                        Image( // Asume R.drawable.pokeball_icon existe
                             painter = painterResource(id = R.drawable.pokeball_icon),
                             contentDescription = "Pokeball icon",
                             modifier = Modifier.size(70.dp)
@@ -717,7 +552,7 @@ fun ComponenteImagen(
                         val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
                         if (typeToShowOnBottom != null) {
                             val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
-                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) { // Asume R.drawable.ic_type_normal existe o ajusta la lógica
                                 Image(
                                     painter = painterResource(id = iconResId),
                                     contentDescription = typeToShowOnBottom,
@@ -741,20 +576,26 @@ fun ComponenteImagen(
                     .scale(actualScale)
                     .align(Alignment.Center)
                     .clickable {
-                        if (pokemonResourceNameForDialog != null) {
-                            showWebmDialog = true
-                        } else {
-                            Log.w(
-                                TAG_COMP_IMG,
-                                "WebM resource name is null for ${pokemon.name}. Dialog not shown."
+                        // pokemonResourceNameForDialog ahora es simplemente el nombre en minúsculas.
+                        // No necesitamos verificar si es nulo si siempre se deriva de pokemon.name,
+                        // a menos que pokemon.name pueda ser nulo/vacío.
+                        if (pokemonResourceNameForDialog.isNotBlank()) {
+                            // Antes de mostrar el diálogo, podrías verificar si el recurso realmente existe
+                            // para evitar errores en ExoPlayer si el archivo no está.
+                            val resourceId = context.resources.getIdentifier(
+                                pokemonResourceNameForDialog,
+                                "raw",
+                                context.packageName
                             )
-                            Toast
-                                .makeText(
-                                    context,
-                                    "Sprite 3D no disponible para ${pokemon.name}",
-                                    Toast.LENGTH_SHORT
-                                )
-                                .show()
+                            if (resourceId != 0) {
+                                showWebmDialog = true
+                            } else {
+                                Log.w(TAG_COMP_IMG, "WebM resource '$pokemonResourceNameForDialog' not found in res/raw.")
+                                Toast.makeText(context, "Sprite 3D no disponible para ${pokemon.name}", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Log.w(TAG_COMP_IMG, "Nombre del Pokémon vacío, no se puede mostrar el diálogo 3D.")
+                            Toast.makeText(context, "Nombre de Pokémon no válido", Toast.LENGTH_SHORT).show()
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -764,34 +605,197 @@ fun ComponenteImagen(
                     contentDescription = "${pokemon.name} sprite",
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(CircleShape),
+                        .clip(CircleShape), // Opcional
                     contentScale = ContentScale.Fit,
                     colorFilter = if (showShimmerEffect) ColorFilter.tint(
                         color = Color.White.copy(alpha = 0.7f),
                         blendMode = BlendMode.SrcAtop
                     ) else null,
-                    error = painterResource(id = R.drawable.pokeball_icon),
-                    placeholder = painterResource(id = R.drawable.pokeball_icon)
+                    error = painterResource(id = R.drawable.pokeball_icon), // Asume R.drawable.pokeball_icon existe
+                    placeholder = painterResource(id = R.drawable.pokeball_icon) // Asume R.drawable.pokeball_icon existe
                 )
 
                 if (showShimmerEffect) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clip(CircleShape)
-                            .background(shimmerBrush(showShimmer = true))
+                            .clip(CircleShape) // Opcional
+                            .background(shimmerBrush(showShimmer = true)) // Asume shimmerBrush existe
                     )
                 }
             }
         }
     }
 
-    if (showWebmDialog && pokemonResourceNameForDialog != null) {
+    // El diálogo WebM se muestra si showWebmDialog es true.
+    // pokemonResourceNameForDialog aquí será el nombre en minúsculas, ej: "pikachu"
+    if (showWebmDialog) {
         WebmImageDialog(
-            pokemonResourceName = pokemonResourceNameForDialog,
-            pokemonDisplayName = pokemon.name,
+            pokemonResourceName = pokemonResourceNameForDialog, // ej: "pikachu"
+            pokemonDisplayName = pokemon.name, // ej: "Pikachu"
             onDismiss = { showWebmDialog = false }
         )
     }
 }
 
+
+/*
+@Composable
+fun ComponenteImagen2(
+    pokemon: PokemonDetailResponse,
+) {
+    var playAppearAnimation by remember(pokemon) { mutableStateOf(true) }
+
+    // Estado para controlar la visibilidad de la imagen expandida
+    var showExpandedImage by remember { mutableStateOf(false) }
+    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
+        ?: pokemon.sprites.frontDefault
+
+
+    LaunchedEffect(key1 = pokemon) {
+        playAppearAnimation = true
+        delay(550)
+        playAppearAnimation = false
+    }
+
+    var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
+
+    LaunchedEffect(pokemon) {
+        internalScaleTarget = 0f
+        delay(50)
+        internalScaleTarget = 1f
+    }
+
+    val actualScale by animateFloatAsState(
+        targetValue = internalScaleTarget,
+        animationSpec = keyframes {
+            durationMillis = 1000
+            0f at 0
+            1f at 500
+        }, label = "PokemonAppearScale"
+    )
+
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        if (imageUrl != null) {
+            val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
+            val color2 = if (pokemon.types.size > 1) {
+                getPokemonTypeColor(pokemon.types[1].type.name)
+            } else {
+                color1
+            }
+
+            // Card de fondo con los colores del tipo
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp) // Ajusta la altura según necesites para el fondo
+                    .background(Color.Transparent),
+                shape = RoundedCornerShape(0.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) { // Usar Column para apilar los Box de colores
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .background(color1),
+                        contentAlignment = Alignment.BottomEnd
+                    ) {
+                        val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
+                        if (iconResId != 0) {
+                            if (pokemon.types.size == 2) {
+                                Image(
+                                    painter = painterResource(id = iconResId),
+                                    contentDescription = pokemon.types[0].type.name,
+                                    modifier = Modifier.padding(8.dp) // Añade padding si es necesario
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .background(color2),
+                        contentAlignment = Alignment.BottomStart // Alinea al inicio para el ícono de pokeball
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp), // Padding para los íconos
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.pokeball_icon),
+                                contentDescription = "Pokeball icon",
+                                modifier = Modifier.size(80.dp) // Tamaño ajustado del ícono
+                            )
+                            if (pokemon.types.size == 1) {
+                                val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
+                                if (iconResId != 0) {
+                                    Image(
+                                        painter = painterResource(id = iconResId),
+                                        contentDescription = pokemon.types[0].type.name,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            } else if (pokemon.types.size > 1) {
+                                val iconResId = getPokemonTypeToIcon(pokemon.types[1].type.name)
+                                if (iconResId != 0) {
+                                    Image(
+                                        painter = painterResource(id = iconResId),
+                                        contentDescription = pokemon.types[1].type.name,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Box para la imagen principal del Pokémon (la que se hace clic)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize() // Asegúrate de que este Box tenga un tamaño definido para que Alignment.Center funcione
+                    .padding(horizontal = 75.dp)
+                    .scale(actualScale)
+                    .align(Alignment.Center)
+                    .clickable { showExpandedImage = true }, // <-- IMPORTANTE: Hacer clic aquí
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "${pokemon.name} sprite",
+                    modifier = Modifier.size(350.dp), // Tamaño de la imagen principal
+                    colorFilter = if (actualScale < 1f && actualScale > 0.01f) ColorFilter.tint(color = Color.White.copy(alpha = 0.7f), blendMode = BlendMode.SrcAtop) else null,
+                    error = painterResource(id = R.drawable.pokeball_icon),
+                    placeholder = painterResource(id = R.drawable.pokeball_icon)
+                )
+                if (actualScale < 1f && actualScale > 0.01f) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(CircleShape)
+                            .background(shimmerBrush(showShimmer = true)) // Asegúrate que shimmerBrush esté definido
+                    )
+                }
+            }
+        }
+    }
+
+    // Mostrar el Composable de imagen expandida si showExpandedImage es true
+    if (showExpandedImage && imageUrl != null) {
+        ExpandedImageView(
+            pokemon = pokemon, // <-- Pasa el objeto Pokemon completo
+            onDismiss = { showExpandedImage = false }
+        )
+    }
+}
+
+ */
