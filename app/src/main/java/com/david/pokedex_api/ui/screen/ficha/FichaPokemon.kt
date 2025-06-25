@@ -1,8 +1,10 @@
 package com.david.pokedex_api.ui.screen.ficha
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
@@ -12,7 +14,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,20 +59,22 @@ import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
-import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
-import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
-import com.david.pokedex_api.util.Lottie
-import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
-import com.david.pokedex_api.ui.theme.CardBorder
+import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.WebmImageDialog
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.findPokemonResourceName
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.loadPokemonSprites
 import com.david.pokedex_api.ui.theme.background_app
+import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.shimmerBrush
 import kotlinx.coroutines.delay
 
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,6 +184,7 @@ fun PokemonDetailScreen(
 }
 
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("DefaultLocale")
 @Composable
 fun PokemonDetailsView(
@@ -213,6 +217,8 @@ fun PokemonDetailsView(
 
         ) {
             ComponenteImagen(pokemon = pokemon)
+//            ComponenteImagenHomeSprite(pokemon = pokemon)
+
         }
         //nombre, número, altura y peso
         Row(
@@ -294,7 +300,7 @@ fun PokemonDetailsView(
 }
 
 @Composable
-fun ComponenteImagen(
+fun ComponenteImagen2(
     pokemon: PokemonDetailResponse,
 ) {
     var playAppearAnimation by remember(pokemon) { mutableStateOf(true) }
@@ -435,7 +441,7 @@ fun ComponenteImagen(
                         modifier = Modifier
                             .matchParentSize()
                             .clip(CircleShape)
-                         .background(shimmerBrush(showShimmer = true)) // Asegúrate que shimmerBrush esté definido
+                            .background(shimmerBrush(showShimmer = true)) // Asegúrate que shimmerBrush esté definido
                     )
                 }
             }
@@ -511,7 +517,9 @@ fun ExpandedImageView(
                                             Image(
                                                 painter = painterResource(id = iconResId),
                                                 contentDescription = pokemon.types[0].type.name,
-                                                modifier = Modifier.padding(12.dp).size(50.dp)
+                                                modifier = Modifier
+                                                    .padding(12.dp)
+                                                    .size(50.dp)
                                             )
                                         }
                                     }
@@ -543,7 +551,9 @@ fun ExpandedImageView(
                                                 Image(
                                                     painter = painterResource(id = iconResId),
                                                     contentDescription = pokemon.types[typeToShowIndex].type.name,
-                                                    modifier = Modifier.padding(start = 8.dp).size(50.dp)
+                                                    modifier = Modifier
+                                                        .padding(start = 8.dp)
+                                                        .size(50.dp)
                                                 )
                                             }
                                         }
@@ -602,3 +612,186 @@ fun ExpandedImageView(
         } // Fin de la Card del Dialog
     } // Fin del Dialog
 }
+
+private const val TAG = "SimpleWebmPlayer"
+
+private const val TAG_COMP_IMG = "ComponenteImagen"
+@Composable
+fun ComponenteImagen(
+    pokemon: PokemonDetailResponse,
+) {
+    val context = LocalContext.current
+
+    var showWebmDialog by remember { mutableStateOf(false) }
+    var pokemonResourceNameForDialog by remember { mutableStateOf<String?>(null) }
+
+    val allPokemonSprites = remember(context) { loadPokemonSprites(context) }
+
+    LaunchedEffect(pokemon.name, allPokemonSprites) {
+        pokemonResourceNameForDialog = findPokemonResourceName(pokemon.name, allPokemonSprites)
+        if (pokemonResourceNameForDialog == null) {
+            Log.w(TAG_COMP_IMG, "Sprite 3D (WebM resource) no encontrado para ${pokemon.name}")
+        } else {
+            Log.d(TAG_COMP_IMG, "Sprite 3D (WebM resource) para ${pokemon.name}: $pokemonResourceNameForDialog")
+        }
+    }
+
+    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
+        ?: pokemon.sprites.frontDefault
+
+    var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
+    LaunchedEffect(pokemon) {
+        internalScaleTarget = 0f
+        delay(50)
+        internalScaleTarget = 1f
+    }
+    val actualScale by animateFloatAsState(
+        targetValue = internalScaleTarget,
+        animationSpec = keyframes {
+            durationMillis = 500
+            0f at 0
+            1f at 500
+        },
+        label = "PokemonImageAppearScale"
+    )
+
+    val showShimmerEffect = actualScale < 0.95f && actualScale > 0.01f
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+            shape = RoundedCornerShape(0.dp),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                val type1Name = pokemon.types.getOrNull(0)?.type?.name
+                val type2Name = pokemon.types.getOrNull(1)?.type?.name
+
+                val color1 = type1Name?.let { getPokemonTypeColor(it) } ?: Color.Gray
+                val color2 = type2Name?.let { getPokemonTypeColor(it) } ?: color1
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(color1),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    if (pokemon.types.size == 2 && type1Name != null) {
+                        val iconResId = getPokemonTypeToIcon(type1Name)
+                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                            Image(
+                                painter = painterResource(id = iconResId),
+                                contentDescription = type1Name,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .size(40.dp)
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(color2),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.pokeball_icon),
+                            contentDescription = "Pokeball icon",
+                            modifier = Modifier.size(70.dp)
+                        )
+
+                        val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
+                        if (typeToShowOnBottom != null) {
+                            val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
+                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                                Image(
+                                    painter = painterResource(id = iconResId),
+                                    contentDescription = typeToShowOnBottom,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(40.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (imageUrl != null) {
+            Box(
+                modifier = Modifier
+                    .height(300.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 30.dp, vertical = 15.dp)
+                    .scale(actualScale)
+                    .align(Alignment.Center)
+                    .clickable {
+                        if (pokemonResourceNameForDialog != null) {
+                            showWebmDialog = true
+                        } else {
+                            Log.w(
+                                TAG_COMP_IMG,
+                                "WebM resource name is null for ${pokemon.name}. Dialog not shown."
+                            )
+                            Toast
+                                .makeText(
+                                    context,
+                                    "Sprite 3D no disponible para ${pokemon.name}",
+                                    Toast.LENGTH_SHORT
+                                )
+                                .show()
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "${pokemon.name} sprite",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Fit,
+                    colorFilter = if (showShimmerEffect) ColorFilter.tint(
+                        color = Color.White.copy(alpha = 0.7f),
+                        blendMode = BlendMode.SrcAtop
+                    ) else null,
+                    error = painterResource(id = R.drawable.pokeball_icon),
+                    placeholder = painterResource(id = R.drawable.pokeball_icon)
+                )
+
+                if (showShimmerEffect) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(CircleShape)
+                            .background(shimmerBrush(showShimmer = true))
+                    )
+                }
+            }
+        }
+    }
+
+    if (showWebmDialog && pokemonResourceNameForDialog != null) {
+        WebmImageDialog(
+            pokemonResourceName = pokemonResourceNameForDialog,
+            pokemonDisplayName = pokemon.name,
+            onDismiss = { showWebmDialog = false }
+        )
+    }
+}
+

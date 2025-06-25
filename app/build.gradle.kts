@@ -49,6 +49,7 @@ android {
     buildFeatures {
         compose = true
     }
+
 }
 val camerax_version = "1.3.0" // Revisa la última versión estable
 dependencies {
@@ -96,6 +97,36 @@ dependencies {
     //coil
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("io.coil-kt:coil-gif:2.6.0")
+    //video webm
+    implementation("io.coil-kt:coil-video:2.6.0")
+//    val mediaThreeVersion = "1.7.1"
+//    implementation("androidx.media3:media3-exoplayer:$mediaThreeVersion")
+//    implementation("androidx.media3:media3-exoplayer-dash:$mediaThreeVersion") // Si la usas
+//    implementation("androidx.media3:media3-ui:$mediaThreeVersion")
+//    implementation("androidx.media3:media3-decoder:$mediaThreeVersion") // Esta es la clave para software decoders
+
+    // https://mvnrepository.com/artifact/org.videolan/vlc-lib-android
+//    implementation("org.videolan:vlc-lib-android:3.1.7")
+    implementation("org.videolan.android:libvlc-all:4.0.0-eap20")
+
+    //-----------------------------
+    // ExoPlayer core
+    implementation ("androidx.media3:media3-exoplayer:1.7.1")
+
+    // UI para PlayerView (usado en AndroidView)
+    implementation ("androidx.media3:media3-ui:1.3.1")
+
+    // Opcional: para formatos como WebM, MKV, etc.
+//    implementation ("androidx.media3:media3-exoplayer-dash:1.3.1")
+    implementation ("androidx.media3:media3-exoplayer-hls:1.7.1")
+    implementation ("androidx.media3:media3-exoplayer-rtsp:1.7.1")
+    implementation ("com.google.android.exoplayer:exoplayer:2.19.1")
+    implementation ("com.google.android.exoplayer:exoplayer-ui:2.19.1")
+    //-----------------------------
+
+
+
+
 
     //pager
     implementation("androidx.compose.foundation:foundation:1.7.0-alpha0")
@@ -135,6 +166,8 @@ dependencies {
 
     // Kotlinx Serialization (Ktor lo usa para JSON)
     implementation ("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Revisa la última
+
+
 
 
 

@@ -64,7 +64,6 @@ import java.util.concurrent.Executors
 
 
 //ANTERIOR AL SOPORTE DE LA CÁMARA
-
 @OptIn(
     ExperimentalFoundationApi::class,
     ExperimentalMaterial3Api::class
