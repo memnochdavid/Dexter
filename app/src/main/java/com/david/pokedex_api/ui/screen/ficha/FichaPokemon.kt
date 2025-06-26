@@ -66,6 +66,7 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.WebmImageDialog
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.util.Lottie
@@ -198,6 +199,14 @@ fun PokemonDetailsView(
     val spanishGenus = remember(pokemonSpecies) { // Recalcular solo si pokemonSpecies cambia
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
     }
+
+    val spanishPokemonName = remember(pokemonSpecies, pokemon) {
+        // Primero intenta obtener el nombre en español de pokemonSpecies
+        val localizedName = pokemonSpecies?.localizedNames?.find { it.language.name == "es" }?.name
+        // Si no se encuentra, usa el nombre de pokemon.name (que suele ser el nombre científico/inglés)
+        // o el nombre de la especie si el localizado no está pero la especie sí.
+        localizedName ?: pokemonSpecies?.name ?: pokemon.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+    }
     ConstraintLayout(
         modifier = Modifier
             .fillMaxSize()
@@ -215,7 +224,7 @@ fun PokemonDetailsView(
                 }
 
         ) {
-            ComponenteImagen(pokemon = pokemon)
+            ComponenteImagen(pokemon = pokemon, nombreSpanish = spanishPokemonName)
 //            ComponenteImagenHomeSprite(pokemon = pokemon)
 
         }
@@ -245,7 +254,7 @@ fun PokemonDetailsView(
                         Color.Black // Reemplaza CardBorder si no está definido globalmente
                         // o define CardBorder en tu tema.
                     },
-                    nombre = pokemon.name,
+                    nombre = spanishPokemonName,
                     numero = pokemon.id,
                     genus = spanishGenus, // <--- PASAR EL GENUS EXTRAÍDO
                     altura = pokemon.height.toDouble(),
@@ -300,176 +309,23 @@ fun PokemonDetailsView(
 
 
 
-@Composable
-fun ExpandedImageView(
-    pokemon: PokemonDetailResponse, // Acepta el objeto Pokemon completo
-    onDismiss: () -> Unit
-) {
-    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
-        ?: pokemon.sprites.frontDefault
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)  // 90% del ancho de la pantalla, deja margen
-                .wrapContentHeight()   // <-- CAMBIO CLAVE: La altura se ajusta al contenido
-                .padding(vertical = 32.dp), // Opcional: añade padding vertical si quieres espacio arriba/abajo del contenido
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    // No necesitas fillMaxSize aquí si la Card se ajusta al contenido.
-                    // Pero sí necesitas definir cómo se estructura el contenido interno.
-                    .padding(0.dp), // Opcional: padding interno para la Card del Dialog
-                contentAlignment = Alignment.Center
-            ) {
-                // Contenido interno (fondos e imagen)
-                Column { // Usar Column para apilar fondos e imagen si es necesario
-                    // Lógica de fondos de tipo (igual que antes)
-                    if (pokemon.types.isNotEmpty()) {
-                        val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
-                        val color2 = if (pokemon.types.size > 1) {
-                            getPokemonTypeColor(pokemon.types[1].type.name)
-                        } else {
-                            color1
-                        }
 
-                        // Contenedor para los fondos, con una altura específica o basada en la imagen
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // Podrías darle una altura fija o relativa a la imagen esperada
-                                // Por ejemplo, si la imagen es cuadrada y ocupa X dp, los fondos podrían ser X dp de alto
-                                .height(300.dp) // Ejemplo: Altura fija para la sección de fondos
-                        ) {
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .background(color1),
-                                    contentAlignment = Alignment.BottomEnd
-                                ) {
-                                    if (pokemon.types.size == 2) {
-                                        val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
-                                        if (iconResId != 0) {
-                                            Image(
-                                                painter = painterResource(id = iconResId),
-                                                contentDescription = pokemon.types[0].type.name,
-                                                modifier = Modifier
-                                                    .padding(12.dp)
-                                                    .size(50.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .background(color2),
-                                    contentAlignment = Alignment.BottomStart
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.Bottom
-                                    ) {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.pokeball_icon),
-                                            contentDescription = "Pokeball icon",
-                                            modifier = Modifier.size(90.dp)
-                                        )
-                                        val typeToShowIndex = if (pokemon.types.size == 1) 0 else 1
-                                        if (pokemon.types.isNotEmpty()) {
-                                            val iconResId = getPokemonTypeToIcon(pokemon.types[typeToShowIndex].type.name)
-                                            if (iconResId != 0) {
-                                                Image(
-                                                    painter = painterResource(id = iconResId),
-                                                    contentDescription = pokemon.types[typeToShowIndex].type.name,
-                                                    modifier = Modifier
-                                                        .padding(start = 8.dp)
-                                                        .size(50.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            // Imagen del Pokémon (superpuesta a los fondos)
-                            if (imageUrl != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize() // Se ajusta al tamaño del Box de fondos
-                                        .padding(16.dp), // Padding para que la imagen no toque los bordes del fondo
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    AsyncImage(
-                                        model = imageUrl,
-                                        contentDescription = "${pokemon.name} sprite (expanded)",
-                                        modifier = Modifier.fillMaxSize(), // La imagen llena este Box interno
-                                        contentScale = ContentScale.Fit,
-                                        error = painterResource(id = R.drawable.pokeball_icon),
-                                        placeholder = painterResource(id = R.drawable.pokeball_icon)
-                                    )
-                                }
-                            }
-                        } // Fin del Box de fondos e imagen
-                    } else if (imageUrl != null) {
-                        // Fallback si no hay tipos, solo mostrar la imagen
-                        AsyncImage(
-                            model = imageUrl,
-                            contentDescription = "${pokemon.name} sprite (expanded)",
-                            modifier = Modifier
-                                .fillMaxWidth() // Ocupa el ancho disponible
-                                .height(300.dp) // Dale una altura explícita
-                                .padding(16.dp),
-                            contentScale = ContentScale.Fit,
-                            error = painterResource(id = R.drawable.pokeball_icon),
-                            placeholder = painterResource(id = R.drawable.pokeball_icon)
-                        )
-                    }
-                } // Fin de la Column principal dentro de la Card del Dialog
-
-                // Botón para cerrar (se mantiene igual, se alinea al TopEnd de la Card del Dialog)
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd) // Se alinea respecto al Box que contiene la Column
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Close expanded view",
-                        tint = Color.Black
-                    )
-                }
-            } // Fin del Box principal de la Card del Dialog
-        } // Fin de la Card del Dialog
-    } // Fin del Dialog
-}
-
-private const val TAG = "SimpleWebmPlayer"
+//private const val TAG = "SimpleWebmPlayer"
 
 private const val TAG_COMP_IMG = "ComponenteImagen"
 @Composable
 fun ComponenteImagen(
     pokemon: PokemonDetailResponse, // Asumimos que PokemonDetailResponse tiene al menos 'name'
+    nombreSpanish: String = "", // Asumimos que PokemonDetailResponse tiene al menos 'name'
 ) {
     val context = LocalContext.current
     var showWebmDialog by remember { mutableStateOf(false) }
 
     // Deriva el nombre del recurso directamente del nombre del Pokémon.
     // Asume que los archivos en res/raw son, por ejemplo, "pikachu.webm" para "Pikachu".
-    val pokemonResourceNameForDialog = remember(pokemon.name) {
-        pokemon.name.lowercase() // Convierte "Pikachu" a "pikachu"
+    val pokemonResourceNameForDialog = remember(nombreSpanish) {
+        nombreSpanish.lowercase() // Convierte "Pikachu" a "pikachu"
     }
 
     val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
@@ -573,7 +429,7 @@ fun ComponenteImagen(
                 modifier = Modifier
                     .height(300.dp)
                     .fillMaxWidth()
-                    .padding(horizontal = 30.dp, vertical = 15.dp)
+                    .padding(horizontal = 30.dp)//, vertical = 15.dp)
                     .scale(actualScale)
                     .align(Alignment.Center)
                     .clickable {
@@ -592,7 +448,7 @@ fun ComponenteImagen(
                                 showWebmDialog = true
                             } else {
                                 Log.w(TAG_COMP_IMG, "WebM resource '$pokemonResourceNameForDialog' not found in res/raw.")
-                                Toast.makeText(context, "Sprite no disponible para ${pokemon.name}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Sprite no disponible para ${nombreSpanish}", Toast.LENGTH_SHORT).show()
                                 Toast.makeText(context, "Nombre convertido: ${transformPokemonNameToResourceName(pokemonResourceNameForDialog)}", Toast.LENGTH_SHORT).show()
                             }
                         } else {
@@ -633,8 +489,9 @@ fun ComponenteImagen(
     // pokemonResourceNameForDialog aquí será el nombre en minúsculas, ej: "pikachu"
     if (showWebmDialog) {
         WebmImageDialog(
-            pokemonResourceName = pokemonResourceNameForDialog, // ej: "pikachu"
-            pokemonDisplayName = pokemon.name, // ej: "Pikachu"
+//            pokemonResourceName = pokemonResourceNameForDialog, // ej: "pikachu"
+            pokemonResourceName = transformPokemonNameToResourceName(nombreSpanish), // ej: "pikachu"
+            pokemonDisplayName = adaptaNombre(transformPokemonNameToResourceName(nombreSpanish)), // ej: "Pikachu"
             onDismiss = { showWebmDialog = false }
         )
     }
@@ -801,3 +658,160 @@ fun ComponenteImagen2(
 }
 
  */
+/*
+@Composable
+fun ExpandedImageView(
+    pokemon: PokemonDetailResponse, // Acepta el objeto Pokemon completo
+    onDismiss: () -> Unit
+) {
+    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
+        ?: pokemon.sprites.frontDefault
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)  // 90% del ancho de la pantalla, deja margen
+                .wrapContentHeight()   // <-- CAMBIO CLAVE: La altura se ajusta al contenido
+                .padding(vertical = 32.dp), // Opcional: añade padding vertical si quieres espacio arriba/abajo del contenido
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    // No necesitas fillMaxSize aquí si la Card se ajusta al contenido.
+                    // Pero sí necesitas definir cómo se estructura el contenido interno.
+                    .padding(0.dp), // Opcional: padding interno para la Card del Dialog
+                contentAlignment = Alignment.Center
+            ) {
+                // Contenido interno (fondos e imagen)
+                Column { // Usar Column para apilar fondos e imagen si es necesario
+                    // Lógica de fondos de tipo (igual que antes)
+                    if (pokemon.types.isNotEmpty()) {
+                        val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
+                        val color2 = if (pokemon.types.size > 1) {
+                            getPokemonTypeColor(pokemon.types[1].type.name)
+                        } else {
+                            color1
+                        }
+
+                        // Contenedor para los fondos, con una altura específica o basada en la imagen
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Podrías darle una altura fija o relativa a la imagen esperada
+                                // Por ejemplo, si la imagen es cuadrada y ocupa X dp, los fondos podrían ser X dp de alto
+                                .height(300.dp) // Ejemplo: Altura fija para la sección de fondos
+                        ) {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .background(color1),
+                                    contentAlignment = Alignment.BottomEnd
+                                ) {
+                                    if (pokemon.types.size == 2) {
+                                        val iconResId = getPokemonTypeToIcon(pokemon.types[0].type.name)
+                                        if (iconResId != 0) {
+                                            Image(
+                                                painter = painterResource(id = iconResId),
+                                                contentDescription = pokemon.types[0].type.name,
+                                                modifier = Modifier
+                                                    .padding(12.dp)
+                                                    .size(50.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .background(color2),
+                                    contentAlignment = Alignment.BottomStart
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Bottom
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.pokeball_icon),
+                                            contentDescription = "Pokeball icon",
+                                            modifier = Modifier.size(90.dp)
+                                        )
+                                        val typeToShowIndex = if (pokemon.types.size == 1) 0 else 1
+                                        if (pokemon.types.isNotEmpty()) {
+                                            val iconResId = getPokemonTypeToIcon(pokemon.types[typeToShowIndex].type.name)
+                                            if (iconResId != 0) {
+                                                Image(
+                                                    painter = painterResource(id = iconResId),
+                                                    contentDescription = pokemon.types[typeToShowIndex].type.name,
+                                                    modifier = Modifier
+                                                        .padding(start = 8.dp)
+                                                        .size(50.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Imagen del Pokémon (superpuesta a los fondos)
+                            if (imageUrl != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize() // Se ajusta al tamaño del Box de fondos
+                                        .padding(16.dp), // Padding para que la imagen no toque los bordes del fondo
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = imageUrl,
+                                        contentDescription = "${pokemon.name} sprite (expanded)",
+                                        modifier = Modifier.fillMaxSize(), // La imagen llena este Box interno
+                                        contentScale = ContentScale.Fit,
+                                        error = painterResource(id = R.drawable.pokeball_icon),
+                                        placeholder = painterResource(id = R.drawable.pokeball_icon)
+                                    )
+                                }
+                            }
+                        } // Fin del Box de fondos e imagen
+                    } else if (imageUrl != null) {
+                        // Fallback si no hay tipos, solo mostrar la imagen
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "${pokemon.name} sprite (expanded)",
+                            modifier = Modifier
+                                .fillMaxWidth() // Ocupa el ancho disponible
+                                .height(300.dp) // Dale una altura explícita
+                                .padding(16.dp),
+                            contentScale = ContentScale.Fit,
+                            error = painterResource(id = R.drawable.pokeball_icon),
+                            placeholder = painterResource(id = R.drawable.pokeball_icon)
+                        )
+                    }
+                } // Fin de la Column principal dentro de la Card del Dialog
+
+                // Botón para cerrar (se mantiene igual, se alinea al TopEnd de la Card del Dialog)
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd) // Se alinea respecto al Box que contiene la Column
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Close expanded view",
+                        tint = Color.Black
+                    )
+                }
+            } // Fin del Box principal de la Card del Dialog
+        } // Fin de la Card del Dialog
+    } // Fin del Dialog
+}
+*/
