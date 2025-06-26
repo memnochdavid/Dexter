@@ -399,48 +399,50 @@ fun ExoPlayerSimple(
 }
 
 fun transformPokemonNameToResourceName(pokemonInputName: String): String {
-    val inputLower = pokemonInputName.lowercase()
-
-    // 1. Manejar casos especiales primero, ya que pueden tener una lógica única.
-    when (inputLower) {
-        // Pokémon con nombres que necesitan un manejo muy específico y no encajan en patrones generales.
-
-
-        // Añade aquí otros casos verdaderamente únicos.
+    var inputLower = pokemonInputName.lowercase()
+    var partes = listOf<String>()
+    if(inputLower.contains("-")){
+        partes = inputLower.split("-")
     }
-
-    // 2. Lógica para formas "mega" (X, Y o simple)
-    // Buscamos patrones como "pokemon-mega-x", "pokemon-mega-y", "pokemon-mega"
-    // o "pokemon mega x", "pokemon mega y", "pokemon mega"
-    // y los transformamos a "mega_pokemon_x", "mega_pokemon_y", "mega_pokemon"
-
-    val megaXRegex = Regex("""(.+)[-\s]?mega[-\s]?x""")
-    val megaYRegex = Regex("""(.+)[-\s]?mega[-\s]?y""")
-    val megaSimpleRegex = Regex("""(.+)[-\s]?mega""") // Debe ir después de X/Y para evitar falsos positivos
-
-    megaXRegex.matchEntire(inputLower)?.let { matchResult ->
-        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
-        return "mega_${pokemonBaseName}_x" // ej., "charizard-mega-x" -> "mega_charizard_x"
+    if(partes.isEmpty()){
+       return inputLower
     }
-
-    megaYRegex.matchEntire(inputLower)?.let { matchResult ->
-        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
-        return "mega_${pokemonBaseName}_y" // ej., "charizard-mega-y" -> "mega_charizard_y"
+    else{
+        if(partes.size == 2 && partes[1].equals("mega")){
+            return "mega_" + partes[0]
+        }
+        else if(partes.size == 3 && partes[1].equals("mega")){
+            return "mega_" + partes[0] + "_" + partes[2]
+        }
+        //regionales o nombres compuestos
+        else {
+            when(partes[1]){
+                "alola" -> {return partes[0] + "_de_alola"}
+                "galar" -> {return partes[0] + "_de_galar"}
+                "hisui" -> {return partes[0] + "_de_hisui"}
+                "paldea" -> {
+                    if(partes[0].equals("tauros")){
+                        when(partes[2]){
+                            "blaze" -> {return partes[0] + "_de_paldea_ardiente"}
+                            "aqua" -> {return partes[0] + "_de_paldea_acuatica"}
+                            "combat" -> {return partes[0] + "_de_paldea_combatiente"}
+                        }
+                    }
+                    else{
+                        return partes[0] + "_de_paldea"
+                    }
+                }
+                "f" -> {return partes[0] + "_hembra"}
+                "m" -> {return partes[0] + "_macho"}
+                "shield" -> {return partes[0] + "_escudo"}//falta el filo
+                "z" -> {return partes[0] + "_z"}
+                else -> {
+                    //casos aun más particulares
+                    inputLower = partes[0] + "_" + partes[1]
+                    inputLower
+                }
+            }
+        }
     }
-
-    megaSimpleRegex.matchEntire(inputLower)?.let { matchResult ->
-        val pokemonBaseName = matchResult.groupValues[1].replace('-', '_').replace(" ", "_")
-        return "mega_$pokemonBaseName" // ej., "blastoise-mega" -> "mega_blastoise"
-    }
-
-
-    // 3. Patrón general para otros casos (como reemplazar guiones o espacios con guiones bajos)
-    // Esta es una regla de fallback si no es un caso especial ni una forma mega conocida.
-    // Ejemplos: "porygon-z" -> "porygon_z", "tapu koko" -> "tapu_koko"
     return inputLower
-        .replace('-', '_')
-        .replace(' ', '_')
-    // Podrías añadir más reemplazos si es necesario, ej., para apóstrofes o puntos.
-    // .replace("'", "") // Ejemplo: "sirfetch'd" -> "sirfetchd" (si ese fuera tu nombre de archivo)
-    // .replace(".", "")  // Ejemplo: "mr. rime" -> "mr_rime" (después del reemplazo de espacio)
 }

@@ -66,6 +66,7 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.WebmImageDialog
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.shimmerBrush
@@ -583,7 +584,7 @@ fun ComponenteImagen(
                             // Antes de mostrar el diálogo, podrías verificar si el recurso realmente existe
                             // para evitar errores en ExoPlayer si el archivo no está.
                             val resourceId = context.resources.getIdentifier(
-                                pokemonResourceNameForDialog,
+                                transformPokemonNameToResourceName(pokemonResourceNameForDialog),
                                 "raw",
                                 context.packageName
                             )
@@ -591,7 +592,8 @@ fun ComponenteImagen(
                                 showWebmDialog = true
                             } else {
                                 Log.w(TAG_COMP_IMG, "WebM resource '$pokemonResourceNameForDialog' not found in res/raw.")
-                                Toast.makeText(context, "Sprite 3D no disponible para ${pokemon.name}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Sprite no disponible para ${pokemon.name}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Nombre convertido: ${transformPokemonNameToResourceName(pokemonResourceNameForDialog)}", Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             Log.w(TAG_COMP_IMG, "Nombre del Pokémon vacío, no se puede mostrar el diálogo 3D.")
