@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChipForColumn
 import com.david.pokedex_api.util.formatPokemonName
+import java.util.Locale
 
 @Composable
 fun NombreNum(nombre: String, numero: Int, genus: String?, colorTexto: Color) { // <--- Añadir genus
@@ -36,7 +37,8 @@ fun NombreNum(nombre: String, numero: Int, genus: String?, colorTexto: Color) { 
             verticalAlignment = Alignment.CenterVertically
         ){
             val formattedName = remember(nombre) {
-                formatPokemonName(nombre)
+//                formatPokemonName(nombre)
+                nombre
             }
 
             Text(
@@ -132,7 +134,7 @@ fun NombreNumAlturaPeso(
                 verticalArrangement = Arrangement.spacedBy(4.dp) // Espacio entre elementos
             ) {
                 NombreNum(
-                    nombre = nombre,
+                    nombre = adaptaNombre(transformPokemonNameToResourceName(nombre)),
                     numero = numero,
                     genus = genus, // <--- PASAR GENUS
                     colorTexto = colorTexto
@@ -157,5 +159,57 @@ fun NombreNumAlturaPeso(
 //            }
         }
 
+    }
+}
+
+fun adaptaNombre(nombre: String): String {
+    val partes = nombre.split("_")
+
+    // Función auxiliar interna para capitalizar una parte
+    fun capitalizarParte(parte: String): String {
+        if (parte.isEmpty()) return ""
+        // Si la parte es una sola letra como "x", la queremos en mayúscula "X"
+        if (parte.length == 1) return parte.uppercase(Locale.getDefault())
+        return parte.replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+        }
+    }
+
+    return when (partes.size) {
+        1 -> { // Añadido caso para una sola parte
+            capitalizarParte(partes[0])
+        }
+        2 -> {
+            if(partes[1].equals("macho")){
+                capitalizarParte(partes[0]) + " ♂"
+            }
+            else if(partes[1].equals("hembra")){
+                capitalizarParte(partes[0]) + " ♀"
+            }
+            else{
+                capitalizarParte(partes[0]) + " " +
+                        capitalizarParte(partes[1])
+            }
+        }
+        3 -> { // Este es el caso para "mega_charizard_x"
+            capitalizarParte(partes[0]) + " " +
+                    if(!partes[1].equals("de")) capitalizarParte(partes[1]) else partes[1] + " " +
+                    capitalizarParte(partes[2]) // Asegúrate que esta parte se capitalice
+        }
+        4 -> { // Para "tauros_de_paldea_combatiente"
+            capitalizarParte(partes[0]) + " " +
+                    // Aquí mantienes la lógica original de no capitalizar las partes intermedias
+                    partes[1] + " " +
+                    partes[2] + " " +
+                    capitalizarParte(partes[3])
+        }
+        else -> {
+            // Para el caso 'else', si el nombre original tiene guiones bajos,
+            // podríamos querer capitalizar todas las partes también, o devolverlo tal cual.
+            // Opción 1: Devolverlo tal cual (como lo tenías)
+            // nombre
+            // Opción 2: Intentar capitalizar todas las partes
+            partes.joinToString(" ") { capitalizarParte(it) }
+        }
     }
 }

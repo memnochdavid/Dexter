@@ -48,6 +48,8 @@ import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 
 @Composable
 fun PokemonListItemCard(
@@ -153,8 +155,10 @@ fun PokemonListItemCard(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+
                     Text(
-                        text = pokemonSummary.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+//                        text = pokemonSummary.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                        text = adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name)),
                         color = if (pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(
                                 pokemonSummary.types[0]
                             )

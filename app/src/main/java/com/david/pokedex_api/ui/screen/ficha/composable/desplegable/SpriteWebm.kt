@@ -6,7 +6,9 @@ import android.util.Log
 import android.view.TextureView
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -81,12 +87,29 @@ fun WebmImageDialog(
                 modifier = Modifier.padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "Sprite 3D de $pokemonDisplayName",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
 
+                ){
+                    Text(
+                        text = pokemonDisplayName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier
+                            .padding(bottom = 16.dp)
+                            .weight(0.8f)
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(0.2f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close"
+                        )
+                    }
+                }
                 // Usar ExoPlayerComposable
                 ExoPlayerSimple(
                     pokemonInputName = pokemonResourceName, // Pasar el nombre del recurso
@@ -97,16 +120,160 @@ fun WebmImageDialog(
 //                        .background(Color.Black) // Fondo negro detrás del video transparente
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(onClick = onDismiss) {
-                    Text("Close")
-                }
             }
         }
     }
 }
 
+
+
+
+@OptIn(UnstableApi::class)
+@Composable
+fun ExoPlayerSimple(
+    pokemonInputName: String, // Nombre como "blastoise-mega"
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    val resourceName = remember(pokemonInputName) {
+
+        transformPokemonNameToResourceName(pokemonInputName) // Ej: transforma "blastoise-mega" a "mega_blastoise"
+
+    }
+
+    Log.d("ExoPlayerSimple", "Input: '$pokemonInputName', Transformed resource name: '$resourceName'")
+
+    val resourceId = remember(resourceName) { // `remember` ahora depende del `resourceName` transformado
+        context.resources.getIdentifier(resourceName, "raw", context.packageName)
+    }
+
+    if (resourceId == 0) {
+        Text("Video resource '$resourceName.webm' not found for $pokemonInputName", color = Color.Red, modifier = modifier)
+        Log.e("ExoPlayerSimple", "Resource ID is 0 for raw file: $resourceName.webm (from input $pokemonInputName)")
+        return
+    }
+
+    val videoUri = remember(resourceId) {
+        Uri.parse("android.resource://${context.packageName}/$resourceId")
+    }
+
+    val exoPlayer = remember(videoUri) { // `remember` el player basado en el URI, para que se recree si cambia
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUri))
+            repeatMode = Player.REPEAT_MODE_ONE
+            playWhenReady = true
+            prepare()
+            Log.d("ExoPlayerSimple", "ExoPlayer prepared for URI: $videoUri")
+        }
+    }
+
+    DisposableEffect(exoPlayer) { // El efecto debe depender de exoPlayer para la limpieza correcta
+        onDispose {
+            Log.d("ExoPlayerSimple", "Releasing ExoPlayer instance for $resourceName")
+            exoPlayer.release()
+        }
+    }
+
+    // --- Control del ciclo de vida (OPCIONAL PERO RECOMENDADO) ---
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
+                Lifecycle.Event.ON_RESUME -> exoPlayer.play()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    // --- Fin Control del ciclo de vida ---
+
+
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                player = exoPlayer
+                useController = false // No mostrar controles
+
+                // --- INICIO DE AJUSTES DE TRANSPARENCIA ---
+                // Para que el fondo de Compose se vea a través de las partes transparentes del WebM
+//                setBackgroundColor(android.graphics.Color.BLACK)
+
+                val surfaceView = this.videoSurfaceView
+                if (surfaceView is android.view.SurfaceView) {
+                    Log.d("ExoPlayerSimple", "Configuring SurfaceView for transparency.")
+                    surfaceView.setZOrderOnTop(true)
+                    surfaceView.holder.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+                } else if (surfaceView is TextureView) {
+                    Log.d("ExoPlayerSimple", "Video surface is TextureView. Setting Opaque to false.")
+                    surfaceView.isOpaque = false
+                }
+                // --- FIN DE AJUSTES DE TRANSPARENCIA ---
+
+                // Originalmente tenías esto, si el objetivo NO es transparencia sino un fondo negro para el video:
+//                 setShutterBackgroundColor(android.graphics.Color.BLACK) // Color mientras el video carga
+//                 setBackgroundColor(android.graphics.Color.BLACK) // Fondo del PlayerView
+            }
+        },
+        modifier = modifier
+    )
+}
+
+fun transformPokemonNameToResourceName(pokemonInputName: String): String {
+    var inputLower = pokemonInputName.lowercase()
+    var partes = listOf<String>()
+    if(inputLower.contains("-")){
+        partes = inputLower.split("-")
+    }
+    if(partes.isEmpty()){
+        if(inputLower.contains("código")) return "codigo_cero"//caso muy particular
+        return inputLower
+    }
+    else{
+        if(partes.size == 2 && partes[1].equals("mega")){
+            return "mega_" + partes[0]
+        }
+        else if(partes.size == 3 && partes[1].equals("mega")){
+            return "mega_" + partes[0] + "_" + partes[2]
+        }
+        //regionales o nombres compuestos
+        else {
+            when(partes[1]){
+                "alola" -> {return partes[0] + "_de_alola"}
+                "galar" -> {return partes[0] + "_de_galar"}
+                "hisui" -> {return partes[0] + "_de_hisui"}
+                "paldea" -> {
+                    if(partes[0].equals("tauros")){
+                        when(partes[2]){
+                            "blaze" -> {return partes[0] + "_de_paldea_ardiente"}
+                            "aqua" -> {return partes[0] + "_de_paldea_acuatica"}
+                            "combat" -> {return partes[0] + "_de_paldea_combatiente"}
+                        }
+                    }
+                    else{
+                        return partes[0] + "_de_paldea"
+                    }
+                }
+                "f" -> {return partes[0] + "_hembra"}
+                "m" -> {return partes[0] + "_macho"}
+                "shield" -> {return partes[0] + "_escudo"}//falta el filo
+                "z" -> {return partes[0] + "_z"}
+                else -> {
+                    //casos aun más particulares
+                    inputLower = partes[0] + "_" + partes[1]
+                    inputLower
+                }
+            }
+        }
+    }
+    return inputLower
+}
+
+/*
 @Composable
 fun VlcPlayer(
     url: String,
@@ -301,148 +468,4 @@ fun VlcPlayer(
         }
     )
 }
-
-
-@OptIn(UnstableApi::class)
-@Composable
-fun ExoPlayerSimple(
-    pokemonInputName: String, // Nombre como "blastoise-mega"
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-
-    val resourceName = remember(pokemonInputName) {
-
-        transformPokemonNameToResourceName(pokemonInputName) // Ej: transforma "blastoise-mega" a "mega_blastoise"
-
-    }
-
-    Log.d("ExoPlayerSimple", "Input: '$pokemonInputName', Transformed resource name: '$resourceName'")
-
-    val resourceId = remember(resourceName) { // `remember` ahora depende del `resourceName` transformado
-        context.resources.getIdentifier(resourceName, "raw", context.packageName)
-    }
-
-    if (resourceId == 0) {
-        Text("Video resource '$resourceName.webm' not found for $pokemonInputName", color = Color.Red, modifier = modifier)
-        Log.e("ExoPlayerSimple", "Resource ID is 0 for raw file: $resourceName.webm (from input $pokemonInputName)")
-        return
-    }
-
-    val videoUri = remember(resourceId) {
-        Uri.parse("android.resource://${context.packageName}/$resourceId")
-    }
-
-    val exoPlayer = remember(videoUri) { // `remember` el player basado en el URI, para que se recree si cambia
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUri))
-            repeatMode = Player.REPEAT_MODE_ONE
-            playWhenReady = true
-            prepare()
-            Log.d("ExoPlayerSimple", "ExoPlayer prepared for URI: $videoUri")
-        }
-    }
-
-    DisposableEffect(exoPlayer) { // El efecto debe depender de exoPlayer para la limpieza correcta
-        onDispose {
-            Log.d("ExoPlayerSimple", "Releasing ExoPlayer instance for $resourceName")
-            exoPlayer.release()
-        }
-    }
-
-    // --- Control del ciclo de vida (OPCIONAL PERO RECOMENDADO) ---
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, exoPlayer) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> exoPlayer.pause()
-                Lifecycle.Event.ON_RESUME -> exoPlayer.play()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-    // --- Fin Control del ciclo de vida ---
-
-
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = false // No mostrar controles
-
-                // --- INICIO DE AJUSTES DE TRANSPARENCIA ---
-                // Para que el fondo de Compose se vea a través de las partes transparentes del WebM
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-
-                val surfaceView = this.videoSurfaceView
-                if (surfaceView is android.view.SurfaceView) {
-                    Log.d("ExoPlayerSimple", "Configuring SurfaceView for transparency.")
-                    surfaceView.setZOrderOnTop(true)
-                    surfaceView.holder.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-                } else if (surfaceView is android.view.TextureView) {
-                    Log.d("ExoPlayerSimple", "Video surface is TextureView. Setting Opaque to false.")
-                    surfaceView.isOpaque = false
-                }
-                // --- FIN DE AJUSTES DE TRANSPARENCIA ---
-
-                // Originalmente tenías esto, si el objetivo NO es transparencia sino un fondo negro para el video:
-//                 setShutterBackgroundColor(android.graphics.Color.BLACK) // Color mientras el video carga
-//                 setBackgroundColor(android.graphics.Color.BLACK) // Fondo del PlayerView
-            }
-        },
-        modifier = modifier
-    )
-}
-
-fun transformPokemonNameToResourceName(pokemonInputName: String): String {
-    var inputLower = pokemonInputName.lowercase()
-    var partes = listOf<String>()
-    if(inputLower.contains("-")){
-        partes = inputLower.split("-")
-    }
-    if(partes.isEmpty()){
-       return inputLower
-    }
-    else{
-        if(partes.size == 2 && partes[1].equals("mega")){
-            return "mega_" + partes[0]
-        }
-        else if(partes.size == 3 && partes[1].equals("mega")){
-            return "mega_" + partes[0] + "_" + partes[2]
-        }
-        //regionales o nombres compuestos
-        else {
-            when(partes[1]){
-                "alola" -> {return partes[0] + "_de_alola"}
-                "galar" -> {return partes[0] + "_de_galar"}
-                "hisui" -> {return partes[0] + "_de_hisui"}
-                "paldea" -> {
-                    if(partes[0].equals("tauros")){
-                        when(partes[2]){
-                            "blaze" -> {return partes[0] + "_de_paldea_ardiente"}
-                            "aqua" -> {return partes[0] + "_de_paldea_acuatica"}
-                            "combat" -> {return partes[0] + "_de_paldea_combatiente"}
-                        }
-                    }
-                    else{
-                        return partes[0] + "_de_paldea"
-                    }
-                }
-                "f" -> {return partes[0] + "_hembra"}
-                "m" -> {return partes[0] + "_macho"}
-                "shield" -> {return partes[0] + "_escudo"}//falta el filo
-                "z" -> {return partes[0] + "_z"}
-                else -> {
-                    //casos aun más particulares
-                    inputLower = partes[0] + "_" + partes[1]
-                    inputLower
-                }
-            }
-        }
-    }
-    return inputLower
-}
+*/
