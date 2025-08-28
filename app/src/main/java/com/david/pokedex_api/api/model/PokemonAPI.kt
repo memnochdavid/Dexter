@@ -8,10 +8,7 @@ data class NameEntry( // Objeto común para nombres localizados
 )
 
 
-data class PokemonTypeSlot(
-    val slot: Int,
-    val type: PokemonType
-)
+
 
 data class PokemonType(
     val name: String,
@@ -233,7 +230,6 @@ data class StatSlot(
     val stat: NamedApiResource // Nombre de la estadística (ej: "hp", "attack")
 )
 
-
 data class VersionGroupDetail(
     @SerializedName("level_learned_at")
     val levelLearnedAt: Int,
@@ -288,15 +284,7 @@ data class VerboseEffect(
     val language: NamedApiResource
 )
 
-data class Language(
-    @SerializedName("name") val name: String, // ej: "es", "en"
-    @SerializedName("url") val url: String
-)
 
-data class Version(
-    @SerializedName("name") val name: String, // ej: "sword", "red"
-    @SerializedName("url") val url: String
-)
 
 data class AbilityFlavorText(
     @SerializedName("flavor_text")
@@ -342,16 +330,7 @@ data class TypeDamageRelations(
     val doubleDamageFrom: List<NamedApiResource> // Tipos de los que este tipo recibe DOBLE daño (x2 defensivo)
 )
 
-data class PokemonSpeciesDetailResponse(
-    val id: Int,
-    val name: String, // Nombre de la especie
-    @SerializedName("evolution_chain")
-    val evolutionChain: NamedApiResource?, // URL a la cadena de evolución
-    @SerializedName("evolves_from_species")
-    val evolvesFromSpecies: NamedApiResource?,
-    val varieties: List<PokemonSpeciesVariety>,
-    // ... otros campos como flavor_text_entries, genera, etc.
-)
+
 
 data class PokemonSpeciesVariety(
     @SerializedName("is_default")
@@ -389,9 +368,8 @@ data class DisplayableEvolutionStage(
     // (ej: "Nivel 36", "Piedra Trueno", "Intercambio equipando Roca del Rey")
 )
 
-data class DisplayableEvolutionChain(
-    val stages: List<DisplayableEvolutionStage>
-)
+
+
 data class GenericNamedResourceDetail(
     val id: Int,
     val name: String, // Nombre API original
@@ -442,4 +420,30 @@ data class PokemonFormSprites(
 data class LocalizedName(
     val language: NamedApiResource,
     val name: String
+)
+
+data class DisplayableEvolutionChain(
+    val stages: List<DisplayableEvolutionStage>
+)
+data class PokemonSpeciesDetailResponse(
+    val id: Int,
+    val name: String, // Nombre de la especie
+    @SerializedName("evolution_chain")
+    val evolutionChain: NamedApiResource?, // URL a la cadena de evolución
+    @SerializedName("evolves_from_species")
+    val evolvesFromSpecies: NamedApiResource?,
+    val varieties: List<PokemonSpeciesVariety>,
+    // ... otros campos como flavor_text_entries, genera, etc.
+)
+data class Language(
+    @SerializedName("name") val name: String, // ej: "es", "en"
+    @SerializedName("url") val url: String
+)
+data class Version(
+    @SerializedName("name") val name: String, // ej: "sword", "red"
+    @SerializedName("url") val url: String
+)
+data class PokemonTypeSlot(
+    val slot: Int,
+    val type: PokemonType
 )

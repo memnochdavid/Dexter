@@ -1,12 +1,16 @@
 package com.david.pokedex_api.api.viewModel
 
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.david.pokedex_api.api.client.RetrofitClient
+import com.david.pokedex_api.api.model.AbilityDetailResponse
 import com.david.pokedex_api.api.model.DisplayablePokemonVariety
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.EvolutionDetail
@@ -26,15 +30,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 
+//----- FUNCIONA
 class PokemonViewModel : ViewModel() {
 
     val pokemonApiService: PokeApiService = RetrofitClient.instance
@@ -267,6 +277,9 @@ class PokemonViewModel : ViewModel() {
         return url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
     }
 
+    //-------------------------
+/*
+    // --- Carga todo de golpe ---
     fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
         if (generationId == null) {
             _error.value = "Invalid generation ID."
@@ -430,6 +443,206 @@ class PokemonViewModel : ViewModel() {
             }
         }
     }
+*/
+    //----------------------
+
+    //-------------------------
+    // --- Carga secuencialmente ---
+    private val isLoadingPokemonByGenerationMap = mutableMapOf<Int, Boolean>()
+
+    fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
+        if (generationId == null) {
+            _error.value = "Invalid generation ID."
+            if (isLoadingPokemonByGenerationMap.none { it.value }) {
+                _isLoadingPokemonForCurrentGeneration.value = false
+            }
+            return
+        }
+
+        if (!forceRefresh && _pokemonByGenerationCache.value?.containsKey(generationId) == true &&
+            _pokemonByGenerationCache.value?.get(generationId)?.isNotEmpty() == true
+        ) {
+            isLoadingPokemonByGenerationMap[generationId] = false
+            if (isLoadingPokemonByGenerationMap.none { it.value }) {
+                _isLoadingPokemonForCurrentGeneration.value = false
+            }
+            return
+        }
+
+        if (isLoadingPokemonByGenerationMap[generationId] == true && !forceRefresh) {
+            return
+        }
+
+        isLoadingPokemonByGenerationMap[generationId] = true
+        _isLoadingPokemonForCurrentGeneration.value = true
+        errorShownThisFetch = false
+        // _currentlyFetchingGenerationId.value = generationId
+
+        viewModelScope.launch { // Corrutina principal para esta operación de generación
+            // Obtener la lista actual para esta generación desde el caché o empezar con una vacía.
+            // Esta lista se irá poblando secuencialmente.
+            val progressivelyLoadedListForThisGen =
+                (_pokemonByGenerationCache.value?.get(generationId) ?: emptyList()).toMutableList()
+
+            try {
+                // Inicializar la entrada en el caché para esta generación si no existe,
+                // así la UI puede observarla desde el principio.
+                // Usamos la lista 'progressivelyLoadedListForThisGen' que ya podría tener datos de una carga previa interrumpida.
+                val initialCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
+                if (!initialCache.containsKey(generationId)) {
+                    initialCache[generationId] = ArrayList(progressivelyLoadedListForThisGen) // Postea la lista actual (podría estar vacía)
+                    _pokemonByGenerationCache.postValue(initialCache)
+                }
+
+                val generationDetailResponse = withContext(Dispatchers.IO) {
+                    pokemonApiService.getGenerationDetails(generationId)
+                }
+
+                if (generationDetailResponse.isSuccessful) {
+                    val generationData = generationDetailResponse.body()
+                    // Asumimos que la API devuelve pokemonSpecies en un orden razonable (ej. por ID de especie)
+                    val pokemonSpeciesListFromGen = generationData?.pokemonSpecies ?: emptyList()
+
+                    if (pokemonSpeciesListFromGen.isNotEmpty()) {
+                        // *** INICIO DEL PROCESAMIENTO SECUENCIAL ***
+                        for (speciesResource in pokemonSpeciesListFromGen) {
+                            // Si ya hemos cargado este Pokémon en una ejecución anterior interrumpida,
+                            // y está en `progressivelyLoadedListForThisGen`, podríamos saltarlo.
+                            // Esto requiere una forma de mapear speciesResource a un ID que ya podría estar en la lista.
+                            // Por simplicidad, lo procesaremos; la lógica de duplicados más abajo lo manejará.
+
+                            val originalPokemonName = speciesResource.name
+                            val speciesUrl = speciesResource.url
+                            var localizedName = originalPokemonName
+                            var pokemonColor: String? = null
+                            var pokemonSpriteUrl: String? = null
+                            var pokemonTypesList: List<String> = emptyList()
+                            var finalPokemonId: Int? = null
+                            var newSummary: PokemonSummary? = null // Para almacenar el resultado
+
+                            try { // Try-catch para cada Pokémon individual dentro del bucle
+                                val idFromSpeciesUrl = speciesUrl.split("/")
+                                    .dropLastWhile { it.isEmpty() }
+                                    .lastOrNull()
+                                    ?.toIntOrNull()
+
+                                if (idFromSpeciesUrl == null) {
+                                    Log.e("PokemonViewModel", "Could not parse ID from species URL: $speciesUrl for $originalPokemonName (Gen: $generationId). Skipping.")
+                                    continue // Saltar al siguiente Pokémon en el bucle
+                                }
+
+                                var resourceIdentifierForDetails = idFromSpeciesUrl.toString()
+
+                                // 1. Fetch Species Details (dentro de withContext para IO)
+                                val speciesDetailsResponse = withContext(Dispatchers.IO) {
+                                    pokemonApiService.getPokemonSpeciesDetails(idFromSpeciesUrl.toString())
+                                }
+
+                                if (speciesDetailsResponse.isSuccessful) {
+                                    speciesDetailsResponse.body()?.let { speciesDetails ->
+                                        speciesDetails.localizedNames.firstOrNull { it.language.name == "es" }?.name?.let {
+                                            localizedName = it
+                                        }
+                                        pokemonColor = speciesDetails.color?.name
+                                        val defaultVariety = speciesDetails.varieties.firstOrNull { it.isDefault }
+                                        if (defaultVariety != null) {
+                                            val defaultPokemonUrl = defaultVariety.pokemon.url
+                                            val idFromDefaultVarietyUrl = defaultPokemonUrl.split("/")
+                                                .dropLastWhile { it.isEmpty() }.lastOrNull()
+                                            if (idFromDefaultVarietyUrl?.toIntOrNull() != null) {
+                                                resourceIdentifierForDetails = idFromDefaultVarietyUrl
+                                            } else if (idFromDefaultVarietyUrl != null && idFromDefaultVarietyUrl.isNotBlank()) {
+                                                Log.w("PokemonViewModel", "Default variety for $originalPokemonName has non-numeric identifier $idFromDefaultVarietyUrl. Using species ID.")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Log.w("PokemonViewModel", "Failed to get species details for $originalPokemonName (Gen: $generationId, Code: ${speciesDetailsResponse.code()}).")
+                                    // Continuar con el siguiente Pokémon, este podría no tener todos los detalles.
+                                }
+
+                                // 2. Fetch Pokemon Details (dentro de withContext para IO)
+                                val pokemonDetailsResponse = withContext(Dispatchers.IO) {
+                                    pokemonApiService.getPokemonDetails(resourceIdentifierForDetails)
+                                }
+
+                                if (pokemonDetailsResponse.isSuccessful) {
+                                    pokemonDetailsResponse.body()?.let { detail ->
+                                        finalPokemonId = detail.id
+                                        pokemonSpriteUrl = detail.sprites.other?.officialArtwork?.frontDefault
+                                            ?: detail.sprites.frontDefault
+                                        pokemonTypesList = detail.types.map { it.type.name.replaceFirstChar(Char::titlecase) }
+                                    }
+                                } else {
+                                    Log.e("PokemonViewModel", "Error fetching Pokemon details for $originalPokemonName (Gen: $generationId, Code: ${pokemonDetailsResponse.code()}). Skipping this Pokémon.")
+                                    continue // Saltar al siguiente Pokémon en el bucle
+                                }
+
+                                // 3. Crear PokemonSummary
+                                if (finalPokemonId != null) {
+                                    newSummary = PokemonSummary(
+                                        id = finalPokemonId!!,
+                                        name = localizedName,
+                                        spriteUrl = pokemonSpriteUrl,
+                                        types = pokemonTypesList,
+                                        colorName = pokemonColor
+                                    )
+                                } else {
+                                    Log.e("PokemonViewModel", "finalPokemonId is null for $originalPokemonName (Gen: $generationId). Cannot create summary.")
+                                    // No se pudo crear el sumario, así que no se añade nada.
+                                }
+
+                            } catch (e: Exception) {
+                                Log.e("PokemonViewModel", "Exception processing summary for $originalPokemonName (Gen: $generationId) in sequential load", e)
+                                // Un error procesando este Pokémon, no lo añadimos y continuamos con el siguiente.
+                                newSummary = null
+                            }
+                            // Si se creó un sumario, añadirlo a nuestra lista progresiva y actualizar LiveData
+                            if (newSummary != null) {
+                                if (progressivelyLoadedListForThisGen.none { it.id == newSummary.id }) { // Quitado el !! innecesario
+                                    progressivelyLoadedListForThisGen.add(newSummary) // Quitado el !! innecesario
+                                    // No es estrictamente necesario ordenar aquí si pokemonSpeciesListFromGen está ordenada
+                                    // y los estamos añadiendo en ese orden. Pero para ser seguros y manejar cualquier caso:
+                                    progressivelyLoadedListForThisGen.sortBy { it.id }
+                                }
+
+                                // Actualiza el LiveData DESPUÉS de procesar CADA Pokémon
+                                // Es crucial crear una nueva instancia del Map y de la List para que LiveData detecte el cambio.
+                                val currentGlobalCache = _pokemonByGenerationCache.value ?: emptyMap()
+                                val newGlobalCache = currentGlobalCache.toMutableMap()
+                                newGlobalCache[generationId] = ArrayList(progressivelyLoadedListForThisGen) // ¡Nueva instancia de la lista!
+                                _pokemonByGenerationCache.postValue(newGlobalCache)
+                            }
+                        } // *** FIN DEL PROCESAMIENTO SECUENCIAL (for loop) ***
+                    } else { // pokemonSpeciesListFromGen está vacía
+                        val currentGlobalCache = _pokemonByGenerationCache.value ?: emptyMap()
+                        if (!currentGlobalCache.containsKey(generationId)) {
+                            val newGlobalCache = currentGlobalCache.toMutableMap()
+                            newGlobalCache[generationId] = emptyList()
+                            _pokemonByGenerationCache.postValue(newGlobalCache)
+                        }
+                        Log.i("PokemonViewModel", "No Pokémon species found for generation $generationId.")
+                    }
+                    if (!errorShownThisFetch) _error.postValue(null)
+
+                } else { // generationDetailResponse no fue successful
+                    handleError("Error fetching generation $generationId details: ${generationDetailResponse.code()}")
+                }
+            } catch (e: Exception) {
+                handleError("Exception (outer scope, fetching gen $generationId Pokémon list): ${e.message ?: "Unknown exception"}")
+            } finally {
+                // Toda la carga (secuencial) para esta generación ha terminado o fallado.
+                isLoadingPokemonByGenerationMap[generationId] = false
+                if (isLoadingPokemonByGenerationMap.none { it.value }) {
+                    _isLoadingPokemonForCurrentGeneration.postValue(false)
+                }
+                // if (_currentlyFetchingGenerationId.value == generationId) {
+                //     _currentlyFetchingGenerationId.postValue(null)
+                // }
+            }
+        }
+    }
+    //-------------------
 
     private fun fetchEvolutionChainDetails(evolutionChainUrl: String) {
         if (evolutionChainUrl.isBlank()) {
@@ -848,9 +1061,7 @@ class PokemonViewModel : ViewModel() {
         return _isLoadingPokemonForCurrentGeneration.value == true && _currentlyFetchingGenerationId.value == generationId
     }
 }
-
-
-
+//-----
 
 /*
 class PokemonViewModel : ViewModel() {
