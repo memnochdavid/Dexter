@@ -1,8 +1,14 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,9 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.AbilitySlot
-import com.david.pokedex_api.api.service.PokeApiService // Asumo que este es el nombre
-import com.david.pokedex_api.ui.theme.CardBorder // Asumo que tienes este color
-import com.david.pokedex_api.ui.theme.color_progress_bar
+import com.david.pokedex_api.api.service.PokeApiService
+import com.david.pokedex_api.ui.theme.CardBorder
 
 @Composable
 fun PokemonAbilitiesList(
