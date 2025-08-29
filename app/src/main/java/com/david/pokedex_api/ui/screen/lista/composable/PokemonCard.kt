@@ -1,9 +1,16 @@
 package com.david.pokedex_api.ui.screen.lista.composable
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateTo
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.snapTo
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -21,8 +28,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +45,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -59,15 +70,30 @@ fun PokemonListItemCard(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    // Modifica la animación aquí
-    val scaleFactor by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = tween(durationMillis = 50), // Duración muy corta para un efecto más rápido
-        label = "scaleAnimation"
+    var isPressed by remember { mutableStateOf(false) }
+//    val interactionSource = remember { MutableInteractionSource() }
+    val scale = animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy, // Moderate bouncing
+            stiffness = Spring.StiffnessMedium // Moderate stiffness
+        )
     )
+
+//    LaunchedEffect(isPressed) {
+//        if (isPressed) {
+//            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+//            scale.animateTo(
+//                targetValue = 0.8f,
+//                animationSpec = tween(durationMillis = 80) // Animar
+//            )
+//        } else {
+//            scale.animateTo(
+//                targetValue = 1f,
+//                animationSpec = tween(durationMillis = 60) // Animar de vuelta
+//            )
+//        }
+//    }
 
     // ... (el resto de tu lógica para backgroundBrush y cardActualContainerColor)
     val backgroundBrush: Brush
@@ -97,21 +123,34 @@ fun PokemonListItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scaleX = scaleFactor, scaleY = scaleFactor)
+            .scale(scale.value)
             .padding(4.dp)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onItemClick(pokemonSummary.name)
-                }
-            ),
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        try {
+                            awaitRelease()
+                            onItemClick(pokemonSummary.name)
+                        } finally {
+                            isPressed = false // Reset isPressed in finally block
+                        }
+                    }
+                )
+            },
+//            .clickable(
+//                interactionSource = interactionSource,
+//                indication = null,
+//                onClick = {
+////                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+//                    onItemClick(pokemonSummary.name)
+//                }
+//            ),
         colors = CardDefaults.cardColors(
             containerColor = cardActualContainerColor
         ),
     ) {
-        // ... (el resto de tu Composable)
         Box(
             modifier = Modifier
                 .then(

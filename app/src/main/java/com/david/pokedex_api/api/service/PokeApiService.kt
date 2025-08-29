@@ -10,13 +10,11 @@ import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonFormDetailResponse
 import com.david.pokedex_api.api.model.PokemonListResponse
-import com.david.pokedex_api.api.model.PokemonSpeciesDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.model.TypeDetailResponse
 import com.david.pokedex_api.api.model.TypeListResponse
-import retrofit2.http.GET
-import retrofit2.Call
 import retrofit2.Response
+import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url

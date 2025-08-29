@@ -3,7 +3,9 @@ package com.david.pokedex_api.ui.theme
 import androidx.compose.ui.graphics.Color
 
 //sistema
+//val background_app = Color(0xFFD3C8B6)
 val background_app = Color(0xFFD3C8B6)
+val color_boton_busqueda2 = Color(0xFF2D82DC)
 val color_boton_busqueda = Color(0xFF2D82DC)
 val color_menu_busqueda1 = Color(0xC88269DA)
 val color_menu_busqueda2 = Color(0xC46650A4)
@@ -13,8 +15,8 @@ val color_progress_bar = Color(0xFF247FEB)
 val color_stat_hp = Color(0xFF8E2626)
 val color_stat_attack = Color(0xFFF6BD00)
 val color_stat_defense = Color(0xFF009129)
-val color_stat_sp_attack = Color(0xFF247FEB)
-val color_stat_sp_defense = Color(0xFF4CCE4C)
+val color_stat_sp_attack = Color(0xFFFF5722)
+val color_stat_sp_defense = Color(0xFF247FEB)
 val color_stat_speed = Color(0xFFEB3F78)
 val color_stat_total = Color(0xFF903FC8)
 

@@ -22,7 +22,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
-import com.david.pokedex_api.camera.viewModel.PokemonVisionViewModel
 import com.david.pokedex_api.ui.screen.ficha.PokemonDetailScreen
 import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
 

@@ -89,7 +89,11 @@ fun DetallesDesplegables(
     val rowPaddingHorizontal = 16.dp
 
     val contentPages = remember { ContentPage.entries.toList() } // Lista de páginas
-    val pagerState = rememberPagerState(pageCount = { contentPages.size })
+    val pagerState = rememberPagerState(
+        initialPage = 0, // Set initial page
+        pageCount = { contentPages.size }
+    )
+
 
     // Sincronizar selectedContent cuando el Pager cambia por swipe
     LaunchedEffect(pagerState) {
@@ -477,6 +481,7 @@ fun DetallesDesplegables(
                                     modifier = Modifier.fillMaxWidth(0.95f) // Example: 95% of the width
                                 )
                             }
+
                         }
                     }
 
