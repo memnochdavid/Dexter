@@ -1,5 +1,8 @@
 package com.david.pokedex_api.ui.screen.lista.composable
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,19 +13,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
@@ -43,8 +54,17 @@ fun PokemonSearchMenu(
     onType1Changed: (String) -> Unit, // Devuelve el nombre del tipo o NO_TYPE_SELECTED
     onType2Changed: (String) -> Unit, // Devuelve el nombre del tipo o NO_TYPE_SELECTED
     modifier: Modifier = Modifier
-    // El parámetro backgroundColor ya no se usa si siempre es Pink40
 ) {
+    val haptic = LocalHapticFeedback.current
+    var isPressed by remember { mutableStateOf(false) }
+    val scale = animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy, // Moderate bouncing
+            stiffness = Spring.StiffnessMedium // Moderate stiffness
+        )
+    )
+
     Box( // Contenedor externo para el fondo y la forma
         modifier = modifier // El modifier principal se aplica a este Box
             .fillMaxWidth()
@@ -65,12 +85,46 @@ fun PokemonSearchMenu(
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp), // Ajusta el padding inferior según necesites
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Filtrar Pokémon",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp) // Padding específico para este Text
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+
+            ){
+                Text(
+                    "Filtrar Pokémon",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(.8f)
+                )
+
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isPressed = true
+                        try {
+                            onSearchQueryChanged("")
+                            onType1Changed(NO_TYPE_SELECTED)
+                            onType2Changed(NO_TYPE_SELECTED)
+                        } finally {
+                            isPressed = false // Reset isPressed in finally block
+                        }
+                    },
+                    modifier = Modifier.size(35.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = color_fuego_card,
+                        contentColor = blanco80
+                    ),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Limpiar filtros",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
 
             NameSearchBar(
                 searchQuery = searchQuery,

@@ -45,8 +45,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -101,6 +103,7 @@ fun EvolutionStageView(
             localizedPokemonName = formatApiName(chainLink.species.name)
         }
     }
+    val haptic = LocalHapticFeedback.current
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -108,7 +111,10 @@ fun EvolutionStageView(
         modifier = modifier.padding(horizontal = 4.dp)
     ) {
         ElevatedCard(
-            onClick = { onClick(chainLink.species.name) }, // Se sigue usando el nombre API para la navegación/ID
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick(chainLink.species.name)
+                      }, // Se sigue usando el nombre API para la navegación/ID
             modifier = Modifier
                 .wrapContentSize(),
             //.background(Color.Transparent), // El fondo del Card es manejado por sus colors

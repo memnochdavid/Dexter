@@ -40,8 +40,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -334,6 +336,8 @@ fun ComponenteImagen(
 
     val showShimmerEffect = actualScale < 0.95f && actualScale > 0.01f
 
+    val haptic = LocalHapticFeedback.current
+
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -430,6 +434,7 @@ fun ComponenteImagen(
                                 context.packageName
                             )
                             if (resourceId != 0) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showWebmDialog = true
                             } else {
                                 Log.w(TAG_COMP_IMG, "WebM resource '$pokemonResourceNameForDialog' not found in res/raw.")
@@ -477,7 +482,10 @@ fun ComponenteImagen(
 //            pokemonResourceName = pokemonResourceNameForDialog, // ej: "pikachu"
             pokemonResourceName = transformPokemonNameToResourceName(nombreSpanish), // ej: "pikachu"
             pokemonDisplayName = adaptaNombre(transformPokemonNameToResourceName(nombreSpanish)), // ej: "Pikachu"
-            onDismiss = { showWebmDialog = false }
+            onDismiss = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                showWebmDialog = false
+            }
         )
     }
 }
