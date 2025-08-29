@@ -160,23 +160,38 @@ class PokemonViewModel : ViewModel() {
                             "sword", "shield", "scarlet", "violet", "legends-arceus",
                             "ultra-sun", "alpha-sapphire"
                         )
-                        val allLangEntries =
-                            speciesData.flavorTextEntries.filter { it.language.name == lang }
-                        val entryFromPreferred = allLangEntries.firstOrNull { entry ->
+
+                        // --- INICIO DE LA LÓGICA MODIFICADA PARA LA DESCRIPCIÓN ---
+
+                        var descriptionText: String? = null
+
+                        // 1. Intentar obtener la descripción en el idioma principal (lang)
+                        val primaryLangEntries = speciesData.flavorTextEntries.filter { it.language.name == lang }
+                        val entryFromPreferredPrimary = primaryLangEntries.firstOrNull { entry ->
                             preferredVersions.any { version ->
-                                entry.version.name.contains(version)
+                                entry.version.name.contains(version, ignoreCase = true) // Añadir ignoreCase por si acaso
                             }
                         }
-                        val fallbackEntry = if (entryFromPreferred == null) {
-                            allLangEntries.firstOrNull()
-                        } else {
-                            null
+                        descriptionText = entryFromPreferredPrimary?.flavorText
+                            ?: primaryLangEntries.firstOrNull()?.flavorText
+
+                        // 2. Si no se encontró o está vacía, intentar con inglés ("en")
+                        if (descriptionText.isNullOrBlank() && lang != "en") { // Solo buscar en inglés si el idioma principal no es inglés
+                            val englishLangEntries = speciesData.flavorTextEntries.filter { it.language.name == "en" }
+                            val entryFromPreferredEnglish = englishLangEntries.firstOrNull { entry ->
+                                preferredVersions.any { version ->
+                                    entry.version.name.contains(version, ignoreCase = true)
+                                }
+                            }
+                            descriptionText = entryFromPreferredEnglish?.flavorText
+                                ?: englishLangEntries.firstOrNull()?.flavorText
                         }
-                        val descriptionText = entryFromPreferred?.flavorText ?: fallbackEntry?.flavorText
+
+                        // --- FIN DE LA LÓGICA MODIFICADA ---
 
                         _pokemonDescription.value = descriptionText
                             ?.replace("\n", " ")
-                            ?.replace("\u000c", " ")
+                            ?.replace("\u000c", " ") // \f (form feed)
                             ?.replace("POKéMON", "Pokémon")
 
                         speciesData.evolutionChain?.url?.let { evolutionUrl ->
@@ -191,7 +206,7 @@ class PokemonViewModel : ViewModel() {
                             _isLoadingEvolutionChain.value = false
                         }
                     } else {
-                        _pokemonDescription.value = null // Ensure description is null if speciesData is null
+                        _pokemonDescription.value = null // Asegurar que la descripción sea nula si speciesData es nulo
                     }
                 } else {
                     _pokemonSpeciesDetails.value = null
