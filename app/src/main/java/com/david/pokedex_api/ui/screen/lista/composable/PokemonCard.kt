@@ -61,6 +61,7 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
+import kotlin.text.padStart
 
 @Composable
 fun PokemonListItemCard(
@@ -178,7 +179,9 @@ fun PokemonListItemCard(
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(pokemonSummary.spriteUrl)
+//                            .data(pokemonSummary.spriteUrl)
+                            //https://chicoeevee.github.io/HOMENatDexIcons/
+                            .data("https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png")
                             .crossfade(true)
                             .build(),
                         contentDescription = "${pokemonSummary.name} sprite",
