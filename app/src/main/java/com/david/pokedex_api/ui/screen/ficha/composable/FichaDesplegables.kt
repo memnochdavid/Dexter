@@ -50,6 +50,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.LiveSprites
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraDesc
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraStatsBase
@@ -141,6 +143,8 @@ fun DetallesDesplegables(
         label = "indicatorOffsetX"
     )
 
+    val haptic = LocalHapticFeedback.current
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center
@@ -169,6 +173,7 @@ fun DetallesDesplegables(
                 ) {
                     IconButton(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             selectedContent =
                                 page // Esto disparará el LaunchedEffect para mover el Pager
                         },

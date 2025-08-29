@@ -63,11 +63,11 @@ fun Lottie(
         )
     }
 
-    val boxModifier = if (size != null) {
-        clickableModifier.size(size)
-    } else {
-        clickableModifier
-    }
+//    val boxModifier = if (size != null) {
+//        clickableModifier.size(size)
+//    } else {
+//        clickableModifier
+//    }
 
     Box(modifier = clickableModifier, contentAlignment = contentAlignment) {
         if (compositionResult.isSuccess) {

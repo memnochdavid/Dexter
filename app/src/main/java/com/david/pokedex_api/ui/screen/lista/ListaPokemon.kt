@@ -43,7 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -84,14 +86,16 @@ fun GenerationPagerScreen(
     val error by pokemonViewModel.error.observeAsState()
     val context = LocalContext.current
 
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedType1 by rememberSaveable { mutableStateOf(NO_TYPE_SELECTED) }
-    var selectedType2 by rememberSaveable { mutableStateOf(NO_TYPE_SELECTED) }
+    var selectedType1 by remember { mutableStateOf(NO_TYPE_SELECTED) }
+    var selectedType2 by remember { mutableStateOf(NO_TYPE_SELECTED) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
 
     val availablePokemonTypes by pokemonViewModel.pokemonTypes.observeAsState(ALL_POKEMON_TYPES)
+
+    val haptic = LocalHapticFeedback.current
 
     // 1. Cargar la lista de generaciones
     LaunchedEffect(key1 = Unit) {
@@ -197,7 +201,10 @@ fun GenerationPagerScreen(
         Scaffold(
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = { showBottomSheet = true },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showBottomSheet = true
+                              },
                     containerColor = color_boton_busqueda.copy(alpha = 0.75f),
                     contentColor = Color.Transparent, // El contenido del Lottie ya tiene sus colores
                     elevation = FloatingActionButtonDefaults.elevation(

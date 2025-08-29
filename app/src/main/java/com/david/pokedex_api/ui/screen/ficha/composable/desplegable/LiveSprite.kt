@@ -36,7 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -103,6 +105,7 @@ fun LiveSprites(
     var showAnimatedSpriteDialog by remember { mutableStateOf(false) }
     var isShinySpriteForDialog by remember { mutableStateOf(false) } // Para saber si es el shiny el que se clickeó
 
+    val haptic = LocalHapticFeedback.current
 
     Column(
         modifier = Modifier
@@ -141,6 +144,7 @@ fun LiveSprites(
                     modifier = Modifier
                         .weight(0.45f)
                         .clickable { // <-- Añadir clickable aquí
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             isShinySpriteForDialog = false
                             showAnimatedSpriteDialog = true
                         },
@@ -159,6 +163,7 @@ fun LiveSprites(
                         modifier = Modifier
                             .weight(0.45f)
                             .clickable { // <-- Añadir clickable aquí
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 isShinySpriteForDialog = true
                                 showAnimatedSpriteDialog = true
                             },
