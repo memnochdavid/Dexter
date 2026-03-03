@@ -7,19 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.david.pokedex_api.api.client.RetrofitClient
-import com.david.pokedex_api.api.model.DisplayablePokemonVariety
-import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
-import com.david.pokedex_api.api.model.EvolutionDetail
-import com.david.pokedex_api.api.model.GenericNamedResourceDetail
-import com.david.pokedex_api.api.model.ItemDetailResponse
-import com.david.pokedex_api.api.model.MoveDetailResponse
-import com.david.pokedex_api.api.model.NameEntry
-import com.david.pokedex_api.api.model.NamedApiResource
-import com.david.pokedex_api.api.model.PokemonDetailResponse
-import com.david.pokedex_api.api.model.PokemonFormDetailResponse
-import com.david.pokedex_api.api.model.PokemonSpeciesResponse
-import com.david.pokedex_api.api.model.PokemonSummary
-import com.david.pokedex_api.api.model.TypeDetailResponse
+import com.david.pokedex_api.api.model.*
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +36,14 @@ class PokemonViewModel : ViewModel() {
 
     private val _isLoadingDetails = MutableLiveData<Boolean>(false)
     val isLoadingDetails: LiveData<Boolean> = _isLoadingDetails
+
+    // --- OPTIMIZACIÓN DE MOVIMIENTOS ---
+    private val _moveDetailsMap = MutableStateFlow<Map<String, MoveDetailResponse>>(emptyMap())
+    val moveDetailsMap: StateFlow<Map<String, MoveDetailResponse>> = _moveDetailsMap.asStateFlow()
+
+    private val _isLoadingMoves = MutableStateFlow(false)
+    val isLoadingMoves: StateFlow<Boolean> = _isLoadingMoves.asStateFlow()
+    // ----------------------------------
 
     private val _generations = MutableLiveData<List<NamedApiResource>>(emptyList())
     val generations: LiveData<List<NamedApiResource>> = _generations
@@ -111,11 +107,8 @@ class PokemonViewModel : ViewModel() {
         }.launchIn(viewModelScope)
     }
 
-    // --- CARGA OPTIMIZADA POR BLOQUES ---
     fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
         if (generationId == null) return
-
-        // Si ya existe en caché y no forzamos refresh, no hacemos nada
         val currentCache = _pokemonByGenerationCache.value ?: emptyMap()
         if (!forceRefresh && currentCache.containsKey(generationId)) return
         if (isLoadingPokemonByGenerationMap[generationId] == true) return
@@ -125,20 +118,14 @@ class PokemonViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
-                    pokemonApiService.getGenerationDetails(generationId)
-                }
-
+                val response = withContext(Dispatchers.IO) { pokemonApiService.getGenerationDetails(generationId) }
                 if (response.isSuccessful) {
                     val speciesList = response.body()?.pokemonSpecies ?: emptyList()
-
-                    // 1. Cargamos TODOS los Pokémon en segundo plano
                     val allSummaries = speciesList.chunked(25).flatMap { chunk ->
                         val deferred = chunk.map { async(Dispatchers.IO) { fetchSinglePokemonSummary(it) } }
                         deferred.awaitAll().filterNotNull()
                     }.sortedBy { it.id }
 
-                    // 2. UNA SOLA actualización al final para evitar tirones (Jank)
                     withContext(Dispatchers.Main) {
                         val newCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
                         newCache[generationId] = allSummaries
@@ -159,7 +146,6 @@ class PokemonViewModel : ViewModel() {
         try {
             val speciesDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(id) }
             val detailsDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(id) }
-
             val sRes = speciesDef.await()
             val dRes = detailsDef.await()
 
@@ -177,13 +163,12 @@ class PokemonViewModel : ViewModel() {
         } catch (e: Exception) { null }
     }
 
-    // --- MÉTODOS DE FICHA Y EVOLUCIÓN (RESTAURADOS) ---
-
     fun fetchPokemonDetailsByName(name: String, lang: String) {
         if (_isLoadingDetails.value == true && _pokemonDetails.value?.name?.equals(name, true) == true) return
         _isLoadingDetails.value = true
         _pokemonDetails.value = null
         _pokemonDescription.value = null
+
         viewModelScope.launch {
             try {
                 val dDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(name.lowercase().trim()) }
@@ -205,9 +190,44 @@ class PokemonViewModel : ViewModel() {
                         it.evolutionChain?.url?.let { url -> fetchEvolutionChainDetails(url) }
                     }
                 }
-                if (dRes.isSuccessful) _pokemonDetails.value = dRes.body()
+                
+                if (dRes.isSuccessful) {
+                    val details = dRes.body()
+                    _pokemonDetails.value = details
+                    // --- CARGA MASIVA DE MOVIMIENTOS ---
+                    details?.let { fetchMovesDetailsParallel(it.moves) }
+                }
             } catch (e: Exception) { handleError(e.message ?: "Error") }
             finally { _isLoadingDetails.value = false }
+        }
+    }
+
+    private fun fetchMovesDetailsParallel(moves: List<PokemonMoveSlot>) {
+        viewModelScope.launch {
+            _isLoadingMoves.value = true
+            val currentMap = _moveDetailsMap.value.toMutableMap()
+            val movesToFetch = moves.filter { !currentMap.containsKey(it.move.url) }
+
+            if (movesToFetch.isNotEmpty()) {
+                // Descarga paralela por bloques de 15
+                movesToFetch.chunked(15).forEach { chunk ->
+                    val deferred = chunk.map { slot ->
+                        async(Dispatchers.IO) {
+                            try {
+                                val response = pokemonApiService.getMoveDetailsByUrl(slot.move.url)
+                                if (response.isSuccessful) slot.move.url to response.body()
+                                else null
+                            } catch (e: Exception) { null }
+                        }
+                    }
+                    deferred.awaitAll().filterNotNull().forEach { (url, detail) ->
+                        if (detail != null) currentMap[url] = detail
+                    }
+                    // Actualización reactiva para la UI
+                    _moveDetailsMap.value = currentMap.toMap()
+                }
+            }
+            _isLoadingMoves.value = false
         }
     }
 
