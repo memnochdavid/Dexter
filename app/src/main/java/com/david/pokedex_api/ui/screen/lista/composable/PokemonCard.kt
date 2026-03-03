@@ -1,49 +1,18 @@
 package com.david.pokedex_api.ui.screen.lista.composable
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateTo
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.snapTo
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -61,7 +30,6 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
-import kotlin.text.padStart
 
 @Composable
 fun PokemonListItemCard(
@@ -70,63 +38,47 @@ fun PokemonListItemCard(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-
     var isPressed by remember { mutableStateOf(false) }
-//    val interactionSource = remember { MutableInteractionSource() }
-    val scale = animateFloatAsState(
-        targetValue = if (isPressed) 0.85f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy, // Moderate bouncing
-            stiffness = Spring.StiffnessMedium // Moderate stiffness
-        )
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(stiffness = 800f),
+        label = "scale"
     )
 
-//    LaunchedEffect(isPressed) {
-//        if (isPressed) {
-//            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-//            scale.animateTo(
-//                targetValue = 0.8f,
-//                animationSpec = tween(durationMillis = 80) // Animar
-//            )
-//        } else {
-//            scale.animateTo(
-//                targetValue = 1f,
-//                animationSpec = tween(durationMillis = 60) // Animar de vuelta
-//            )
-//        }
-//    }
-
-    // ... (el resto de tu lógica para backgroundBrush y cardActualContainerColor)
-    val backgroundBrush: Brush
-    val cardActualContainerColor: Color
-
-    if (pokemonSummary.types.size == 2) {
-        val color1 = getPokemonTypeColorClear(pokemonSummary.types[0])
-        val color2 = getPokemonTypeColorClear(pokemonSummary.types[1])
-        backgroundBrush = Brush.linearGradient(
-            colors = listOf(color1, color2)
-        )
-        cardActualContainerColor = Color.Transparent
-    } else if (pokemonSummary.types.isNotEmpty()) {
-        val typeName = pokemonSummary.types[0]
-        val (gradientStartColor, gradientEndColor) = getPokemonTypeGradientColors(typeName)
-        backgroundBrush = Brush.linearGradient(
-            colors = listOf(gradientStartColor, gradientEndColor)
-        )
-        cardActualContainerColor = Color.Transparent
+    val type1 = pokemonSummary.types.getOrNull(0)
+    val type2 = pokemonSummary.types.getOrNull(1)
+    
+    val color1 = if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray
+    val color2 = if (type2 != null) getPokemonTypeColorClear(type2) else color1
+    
+    val gradientPair = if (type1 != null) {
+        getPokemonTypeGradientColors(type1)
     } else {
-        val defaultColor = MaterialTheme.colorScheme.surface
-        backgroundBrush = SolidColor(defaultColor)
-        cardActualContainerColor = defaultColor
+        Color.Gray to Color.DarkGray
     }
 
+    val backgroundBrush = remember(pokemonSummary.types, color1, color2, gradientPair) {
+        if (pokemonSummary.types.size >= 2) {
+            Brush.linearGradient(listOf(color1, color2))
+        } else {
+            Brush.linearGradient(listOf(gradientPair.first, gradientPair.second))
+        }
+    }
+
+    val isDark = remember(pokemonSummary.types) {
+        pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(pokemonSummary.types[0])
+    }
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
+    val dShape = remember { DShape() }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale.value)
-            .padding(4.dp)
-            .pointerInput(Unit) {
+            .scale(scale)
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .pointerInput(pokemonSummary.id) {
                 detectTapGestures(
                     onPress = {
                         isPressed = true
@@ -135,107 +87,46 @@ fun PokemonListItemCard(
                             awaitRelease()
                             onItemClick(pokemonSummary.name)
                         } finally {
-                            isPressed = false // Reset isPressed in finally block
+                            isPressed = false
                         }
                     }
                 )
             },
-//            .clickable(
-//                interactionSource = interactionSource,
-//                indication = null,
-//                onClick = {
-////                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-//                    onItemClick(pokemonSummary.name)
-//                }
-//            ),
-        colors = CardDefaults.cardColors(
-            containerColor = cardActualContainerColor
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .then(
-                    if (pokemonSummary.types.isNotEmpty()) {
-                        Modifier.background(brush = backgroundBrush)
-                    } else {
-                        Modifier
-                    }
-                )
-                .fillMaxSize()
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.5f), shape = DShape()
-                        )
-                        .clip(DShape())
-                ) {
+        Box(modifier = Modifier.background(backgroundBrush).fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(90.dp).background(Color.White.copy(0.3f), dShape).clip(dShape)) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-//                            .data(pokemonSummary.spriteUrl)
-                            //https://chicoeevee.github.io/HOMENatDexIcons/
                             .data("https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png")
-                            .crossfade(true)
+                            .crossfade(200)
+                            .diskCacheKey("pkmn_${pokemonSummary.id}")
                             .build(),
-                        contentDescription = "${pokemonSummary.name} sprite",
-                        modifier = Modifier
-                            .size(80.dp)
-                            .padding(end = 12.dp)
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().padding(8.dp)
                     )
                 }
 
-                Column(
-                    modifier = Modifier
-                        .weight(1f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-//                        text = pokemonSummary.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
                         text = adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name)),
-                        color = if (pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(
-                                pokemonSummary.types[0]
-                            )
-                        ) Color.White else MaterialTheme.colorScheme.onSurface,
+                        color = textColor,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "#${pokemonSummary.id.toString().padStart(3, '0')}",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = if (pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(
-                                pokemonSummary.types[0]
-                            )
-                        ) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = textColor.copy(alpha = 0.8f)
                     )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    if (pokemonSummary.types.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(
-                                16.dp,
-                                Alignment.CenterHorizontally
-                            ),
-                        ) {
-                            pokemonSummary.types.forEach { typeName ->
-                                PokemonTypeChip(
-                                    typeName = typeName,
-                                    modifier = Modifier.weight(0.8f)
-                                )
-                            }
+                    
+                    Spacer(Modifier.height(4.dp))
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pokemonSummary.types.forEach { type ->
+                            PokemonTypeChip(typeName = type, modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -245,35 +136,15 @@ fun PokemonListItemCard(
 }
 
 class DShape : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val path = Path().apply {
-            // Empieza en la esquina superior izquierda
             moveTo(0f, 0f)
-            // Línea hacia la esquina inferior izquierda
             lineTo(0f, size.height)
-            // Línea hacia la esquina inferior derecha (más ancha)
-            lineTo(size.width * 0.8f, size.height) // <--- AJUSTADO para mayor anchura en la base
-            // Curva hacia la parte superior derecha
-            quadraticBezierTo(
-                size.width, size.height * 0.75f, // Punto de control 1
-                size.width, size.height * 0.5f   // Punto final del primer segmento de la curva
-            )
-            quadraticBezierTo(
-                size.width,
-                size.height * 0.25f, // Punto de control 2
-                size.width * 0.8f,
-                0f            // <--- AJUSTADO Punto final del segundo segmento (esquina superior de la curva)
-            )
-            // Línea de vuelta a la esquina superior izquierda (para cerrar la parte recta de la D)
-            // Esta línea ahora es más corta porque la curva empieza más a la derecha
-            lineTo(0f, 0f)
-            close() // Cierra el camino
+            lineTo(size.width * 0.75f, size.height)
+            quadraticBezierTo(size.width, size.height * 0.75f, size.width, size.height * 0.5f)
+            quadraticBezierTo(size.width, size.height * 0.25f, size.width * 0.75f, 0f)
+            close()
         }
         return Outline.Generic(path)
     }
 }
-
