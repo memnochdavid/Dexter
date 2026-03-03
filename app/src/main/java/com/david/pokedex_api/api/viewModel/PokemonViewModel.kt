@@ -21,8 +21,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import retrofit2.Response
+import java.util.concurrent.ConcurrentHashMap
 
 class PokemonViewModel : ViewModel() {
 
@@ -78,13 +81,16 @@ class PokemonViewModel : ViewModel() {
 
     private val _totalGenerationsCount = MutableStateFlow(0)
     private val _currentlyFetchingGenerationId = MutableLiveData<Int?>(null)
-    private val isLoadingPokemonByGenerationMap = mutableMapOf<Int, Boolean>()
+    private val isLoadingPokemonByGenerationMap = ConcurrentHashMap<Int, Boolean>()
 
     private val _pokemonFormsAndVarieties = MutableLiveData<List<DisplayablePokemonVariety>>()
     val pokemonFormsAndVarieties: LiveData<List<DisplayablePokemonVariety>> = _pokemonFormsAndVarieties
 
     private val _isLoadingForms = MutableLiveData<Boolean>(false)
     val isLoadingForms: LiveData<Boolean> = _isLoadingForms
+
+    // Caché de memoria para evitar llamadas redundantes a la API (especialmente nombres localizados)
+    private val localizedNamesCache = ConcurrentHashMap<String, String>()
 
     init {
         combine(
@@ -121,10 +127,17 @@ class PokemonViewModel : ViewModel() {
                 val response = withContext(Dispatchers.IO) { pokemonApiService.getGenerationDetails(generationId) }
                 if (response.isSuccessful) {
                     val speciesList = response.body()?.pokemonSpecies ?: emptyList()
-                    val allSummaries = speciesList.chunked(25).flatMap { chunk ->
-                        val deferred = chunk.map { async(Dispatchers.IO) { fetchSinglePokemonSummary(it) } }
-                        deferred.awaitAll().filterNotNull()
-                    }.sortedBy { it.id }
+                    
+                    // OPTIMIZACIÓN: Paralelismo controlado con Semaphore para no saturar la API
+                    // y procesamiento completo en un hilo de fondo.
+                    val allSummaries = withContext(Dispatchers.IO) {
+                        val semaphore = Semaphore(25) // Máximo 25 peticiones concurrentes
+                        speciesList.map { resource ->
+                            async {
+                                semaphore.withPermit { fetchSinglePokemonSummary(resource) }
+                            }
+                        }.awaitAll().filterNotNull().sortedBy { it.id }
+                    }
 
                     withContext(Dispatchers.Main) {
                         val newCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
@@ -136,7 +149,7 @@ class PokemonViewModel : ViewModel() {
                 handleError("Error: ${e.message}")
             } finally {
                 isLoadingPokemonByGenerationMap[generationId] = false
-                _isLoadingPokemonForCurrentGeneration.postValue(false)
+                _isLoadingPokemonForCurrentGeneration.value = false
             }
         }
     }
@@ -144,6 +157,7 @@ class PokemonViewModel : ViewModel() {
     private suspend fun fetchSinglePokemonSummary(speciesResource: NamedApiResource): PokemonSummary? = coroutineScope {
         val id = speciesResource.url.split("/").dropLast(1).lastOrNull() ?: return@coroutineScope null
         try {
+            // Paralelizamos las dos llamadas básicas para obtener el resumen (nombre localizado y datos base)
             val speciesDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(id) }
             val detailsDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(id) }
             val sRes = speciesDef.await()
@@ -171,6 +185,7 @@ class PokemonViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
+                // Paralelismo en las llamadas de detalle
                 val dDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(name.lowercase().trim()) }
                 val sDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(name.lowercase().trim()) }
                 val dRes = dDef.await()
@@ -181,7 +196,7 @@ class PokemonViewModel : ViewModel() {
                     _pokemonSpeciesDetails.value = species
                     species?.let {
                         val preferred = listOf("sword", "shield", "scarlet", "violet", "legends-arceus")
-                        var desc = it.flavorTextEntries.filter { f -> f.language.name == lang }
+                        val desc = it.flavorTextEntries.filter { f -> f.language.name == lang }
                             .firstOrNull { f -> preferred.any { p -> f.version.name.contains(p, true) } }?.flavorText
                             ?: it.flavorTextEntries.firstOrNull { f -> f.language.name == lang }?.flavorText
                             ?: it.flavorTextEntries.firstOrNull { f -> f.language.name == "en" }?.flavorText
@@ -194,7 +209,7 @@ class PokemonViewModel : ViewModel() {
                 if (dRes.isSuccessful) {
                     val details = dRes.body()
                     _pokemonDetails.value = details
-                    // --- CARGA MASIVA DE MOVIMIENTOS ---
+                    // Carga masiva y reactiva de movimientos
                     details?.let { fetchMovesDetailsParallel(it.moves) }
                 }
             } catch (e: Exception) { handleError(e.message ?: "Error") }
@@ -209,7 +224,7 @@ class PokemonViewModel : ViewModel() {
             val movesToFetch = moves.filter { !currentMap.containsKey(it.move.url) }
 
             if (movesToFetch.isNotEmpty()) {
-                // Descarga paralela por bloques de 15
+                // Descarga paralela por bloques para mantener fluidez sin bloquear
                 movesToFetch.chunked(15).forEach { chunk ->
                     val deferred = chunk.map { slot ->
                         async(Dispatchers.IO) {
@@ -223,7 +238,7 @@ class PokemonViewModel : ViewModel() {
                     deferred.awaitAll().filterNotNull().forEach { (url, detail) ->
                         if (detail != null) currentMap[url] = detail
                     }
-                    // Actualización reactiva para la UI
+                    // Actualización reactiva: emitimos el nuevo mapa a la UI
                     _moveDetailsMap.value = currentMap.toMap()
                 }
             }
@@ -233,6 +248,11 @@ class PokemonViewModel : ViewModel() {
 
     internal suspend fun fetchLocalizedName(resourceUrl: String, fallbackApiName: String, resourceTypeHint: String, languageCode: String = "es"): String {
         if (resourceUrl.isBlank()) return formatApiName(fallbackApiName)
+        
+        // OPTIMIZACIÓN: Cache de nombres localizados para evitar cientos de peticiones repetidas
+        val cacheKey = "$resourceUrl-$languageCode"
+        localizedNamesCache[cacheKey]?.let { return it }
+
         try {
             val response: Response<out Any> = withContext(Dispatchers.IO) {
                 when (resourceTypeHint.lowercase()) {
@@ -256,30 +276,55 @@ class PokemonViewModel : ViewModel() {
                     is GenericNamedResourceDetail -> body.names
                     else -> null
                 }
-                return names?.find { it.language.name == languageCode }?.name ?: names?.find { it.language.name == "en" }?.name ?: formatApiName(fallbackApiName)
+                val result = names?.find { it.language.name == languageCode }?.name 
+                    ?: names?.find { it.language.name == "en" }?.name 
+                    ?: formatApiName(fallbackApiName)
+                
+                localizedNamesCache[cacheKey] = result
+                return result
             }
         } catch (e: Exception) { }
         return formatApiName(fallbackApiName)
     }
 
-    suspend fun buildEvolutionConditionString(detail: EvolutionDetail): String {
-        var cond = translateEvolutionTrigger(detail.trigger.name)
+    suspend fun buildEvolutionConditionString(detail: EvolutionDetail): String = coroutineScope {
+        val trigger = translateEvolutionTrigger(detail.trigger.name)
+        
+        // OPTIMIZACIÓN: Lanzamos todas las peticiones de localización necesarias en PARALELO
+        val itemDef = detail.item?.let { async { fetchLocalizedName(it.url, it.name, "item") } }
+        val heldItemDef = detail.heldItem?.let { async { fetchLocalizedName(it.url, it.name, "item") } }
+        val moveDef = detail.knownMove?.let { async { fetchLocalizedName(it.url, it.name, "move") } }
+        val moveTypeDef = detail.knownMoveType?.let { async { fetchLocalizedName(it.url, it.name, "type") } }
+        val locationDef = detail.location?.let { async { fetchLocalizedName(it.url, it.name, "location") } }
+
+        var cond = trigger
         detail.minLevel?.let { cond += " $it" }
-        detail.item?.let { cond += "\nUsando ${fetchLocalizedName(it.url, it.name, "item")}" }
-        detail.heldItem?.let { cond += "\nCon ${fetchLocalizedName(it.url, it.name, "item")} equipado" }
+        
+        itemDef?.await()?.let { cond += "\nUsando $it" }
+        heldItemDef?.await()?.let { cond += "\nCon $it equipado" }
+        
         detail.minHappiness?.let { cond += "\nFelicidad mín.: $it" }
-        detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let { cond += "\nDurante el ${if(it.lowercase()=="day") "día" else "noche"}" }
-        detail.knownMove?.let { cond += "\nConociendo ${fetchLocalizedName(it.url, it.name, "move")}" }
-        detail.knownMoveType?.let { cond += "\nConociendo mov. tipo ${fetchLocalizedName(it.url, it.name, "type")}" }
-        detail.location?.let { cond += "\nEn ${fetchLocalizedName(it.url, it.name, "location")}" }
-        detail.gender?.let { cond += "\nSiendo ${if(it==1) "Hembra" else "Macho"}" }
+        detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let { 
+            cond += "\nDurante el ${if(it.lowercase() == "day") "día" else "noche"}" 
+        }
+        
+        moveDef?.await()?.let { cond += "\nConociendo $it" }
+        moveTypeDef?.await()?.let { cond += "\nConociendo mov. tipo $it" }
+        locationDef?.await()?.let { cond += "\nEn $it" }
+        
+        detail.gender?.let { cond += "\nSiendo ${if(it == 1) "Hembra" else "Macho"}" }
         if (detail.needsOverworldRain) cond += "\nCon lluvia"
         if (detail.turnUpsideDown) cond += "\nGirando la consola"
+        
         detail.relativePhysicalStats?.let {
-            val comp = when { it > 0 -> "Ataque > Defensa"; it < 0 -> "Ataque < Defensa"; else -> "Ataque = Defensa" }
+            val comp = when {
+                it > 0 -> "Ataque > Defensa"
+                it < 0 -> "Ataque < Defensa"
+                else -> "Ataque = Defensa"
+            }
             cond += "\nCon $comp"
         }
-        return cond.trim()
+        cond.trim()
     }
 
     private fun translateEvolutionTrigger(trigger: String): String = when (trigger.lowercase()) {
