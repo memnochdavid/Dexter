@@ -114,42 +114,42 @@ class PokemonViewModel : ViewModel() {
     // --- CARGA OPTIMIZADA POR BLOQUES ---
     fun fetchPokemonForGeneration(generationId: Int?, forceRefresh: Boolean = false) {
         if (generationId == null) return
-        if (!forceRefresh && _pokemonByGenerationCache.value?.containsKey(generationId) == true &&
-            _pokemonByGenerationCache.value?.get(generationId)?.isNotEmpty() == true
-        ) return
 
-        if (isLoadingPokemonByGenerationMap[generationId] == true && !forceRefresh) return
+        // Si ya existe en caché y no forzamos refresh, no hacemos nada
+        val currentCache = _pokemonByGenerationCache.value ?: emptyMap()
+        if (!forceRefresh && currentCache.containsKey(generationId)) return
+        if (isLoadingPokemonByGenerationMap[generationId] == true) return
 
         isLoadingPokemonByGenerationMap[generationId] = true
         _isLoadingPokemonForCurrentGeneration.value = true
-        errorShownThisFetch = false
 
         viewModelScope.launch {
-            val loadedSummaries = mutableListOf<PokemonSummary>()
             try {
-                val response = withContext(Dispatchers.IO) { pokemonApiService.getGenerationDetails(generationId) }
+                val response = withContext(Dispatchers.IO) {
+                    pokemonApiService.getGenerationDetails(generationId)
+                }
+
                 if (response.isSuccessful) {
                     val speciesList = response.body()?.pokemonSpecies ?: emptyList()
-                    
-                    // Paralelismo por grupos de 20 para máxima velocidad
-                    speciesList.chunked(20).forEach { chunk ->
-                        val deferredSummaries = chunk.map { speciesResource ->
-                            async(Dispatchers.IO) { fetchSinglePokemonSummary(speciesResource) }
-                        }
-                        loadedSummaries.addAll(deferredSummaries.awaitAll().filterNotNull())
-                        
-                        val currentCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
-                        currentCache[generationId] = loadedSummaries.toList().sortedBy { it.id }
-                        _pokemonByGenerationCache.postValue(currentCache)
+
+                    // 1. Cargamos TODOS los Pokémon en segundo plano
+                    val allSummaries = speciesList.chunked(25).flatMap { chunk ->
+                        val deferred = chunk.map { async(Dispatchers.IO) { fetchSinglePokemonSummary(it) } }
+                        deferred.awaitAll().filterNotNull()
+                    }.sortedBy { it.id }
+
+                    // 2. UNA SOLA actualización al final para evitar tirones (Jank)
+                    withContext(Dispatchers.Main) {
+                        val newCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
+                        newCache[generationId] = allSummaries
+                        _pokemonByGenerationCache.value = newCache
                     }
                 }
             } catch (e: Exception) {
                 handleError("Error: ${e.message}")
             } finally {
                 isLoadingPokemonByGenerationMap[generationId] = false
-                if (isLoadingPokemonByGenerationMap.none { it.value }) {
-                    _isLoadingPokemonForCurrentGeneration.postValue(false)
-                }
+                _isLoadingPokemonForCurrentGeneration.postValue(false)
             }
         }
     }
