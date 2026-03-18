@@ -34,14 +34,25 @@ data class PokemonSpeciesResponse(
     val baseHappiness: Int?,
     @SerializedName("capture_rate")
     val captureRate: Int?,
-    @SerializedName("evolution_chain") // <--- AÑADE ESTO
-    val evolutionChain: EvolutionChainUrl?, // <--- AÑADE ESTO (puede ser null si la API alguna vez no lo envía)
+    @SerializedName("evolution_chain")
+    val evolutionChain: EvolutionChainUrl?,
     val color: NamedApiResource?,
-    @SerializedName("genera") // <--- AÑADE ESTA LÍNEA
+    @SerializedName("genera")
     val genera: List<GenusEntry>?,
-    val varieties: List<PokemonVariety>
-    // ... otros campos que ya tenías o quieras añadir
-    // como habitat, shape, gender_rate, etc.
+    val varieties: List<PokemonVariety>,
+    @SerializedName("gender_rate")
+    val genderRate: Int?,          // -1=sin género, 0=siempre macho, 8=siempre hembra, n/8=prob. hembra
+    @SerializedName("egg_groups")
+    val eggGroups: List<NamedApiResource>?,
+    @SerializedName("hatch_counter")
+    val hatchCounter: Int?,        // Ciclos de eclosión (×255 + 1 = pasos aprox.)
+    @SerializedName("growth_rate")
+    val growthRate: NamedApiResource?,
+    val habitat: NamedApiResource?,
+    @SerializedName("is_legendary")
+    val isLegendary: Boolean?,
+    @SerializedName("is_mythical")
+    val isMythical: Boolean?
 )
 data class PokemonVariety(
     @SerializedName("is_default") // Para Gson, si usas snake_case en JSON y camelCase en Kotlin
@@ -177,17 +188,24 @@ data class GenerationDetailResponse(
 
 data class PokemonDetailResponse(
     val id: Int,
-    val name: String, // Nombre original/científico
+    val name: String,
     val height: Int,
     val weight: Int,
     val sprites: PokemonSprites,
     val types: List<TypeResponseSlot>,
     val abilities: List<AbilitySlot>,
     val stats: List<StatSlot>,
-    val species: NamedApiResource, // Referencia a la especie del Pokémon
+    val species: NamedApiResource,
     val moves: List<PokemonMoveSlot>,
-    val forms: List<NamedApiResource>
-    // Añade otros campos que necesites como 'species' (NamedApiResource), 'moves', etc.
+    val forms: List<NamedApiResource>,
+    @SerializedName("base_experience")
+    val baseExperience: Int?,
+    val cries: PokemonCries?
+)
+
+data class PokemonCries(
+    val latest: String?,
+    val legacy: String?
 )
 
 data class PokemonSprites(

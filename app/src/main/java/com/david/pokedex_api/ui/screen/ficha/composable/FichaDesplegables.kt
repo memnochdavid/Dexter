@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
+import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.theme.CardBorder
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -58,6 +59,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.LiveSprites
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraDesc
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraStatsBase
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.InfoPokemon
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonAbilitiesList
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.PokemonEvolutionChainView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonMovesList
@@ -85,6 +87,7 @@ fun DetallesDesplegables(
     description: String?,
     pokemonApiService: PokeApiService,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
+    pokemonSpecies: PokemonSpeciesResponse? = null,
     modifier: Modifier = Modifier
 ) {
     // selectedContent sigue siendo la fuente de verdad para el estado lógico
@@ -192,6 +195,7 @@ fun DetallesDesplegables(
                                 ContentPage.ABILITY -> "Hab."
                                 ContentPage.INTER -> "Tipos"
                                 ContentPage.FORM -> "Form."
+                                ContentPage.INFO -> "Info"
                             },
                             colorFondo = if (selectedContent == page) getPokemonTypeColor(pokemon.types[0].type.name) else Color.Transparent,
                             colorTexto = if ((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page) {
@@ -495,6 +499,15 @@ fun DetallesDesplegables(
                         }
                     }
 
+                    ContentPage.INFO -> {
+                        InfoPokemon(
+                            pokemon = pokemon,
+                            species = pokemonSpecies,
+                            colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+                            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) Color.White else CardBorder
+                        )
+                    }
+
                     null -> { // En caso de que targetPage sea null (no debería pasar con pageCount definido)
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -532,5 +545,5 @@ fun TextoMenu(title: String, colorFondo: Color, colorTexto: Color) {
 }
 
 enum class ContentPage {
-    DESC, EVOS, STATS, MOVES, ABILITY, INTER, FORM
+    DESC, EVOS, STATS, MOVES, ABILITY, INTER, FORM, INFO
 }
