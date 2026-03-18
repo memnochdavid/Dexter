@@ -14,6 +14,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22"
 }
 
@@ -83,6 +84,11 @@ dependencies {
     //retrofit
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    //room
+    implementation("androidx.room:room-runtime:${libs.versions.room.get()}")
+    implementation("androidx.room:room-ktx:${libs.versions.room.get()}")
+    ksp("androidx.room:room-compiler:${libs.versions.room.get()}")
 
     //appwrite
 //    implementation("io.appwrite:sdk-for-kotlin:5.0.1")

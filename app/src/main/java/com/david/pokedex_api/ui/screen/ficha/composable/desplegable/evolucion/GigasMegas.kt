@@ -20,7 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import com.david.pokedex_api.R
+import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -140,7 +141,7 @@ fun PokemonSpecialFormsView(
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = color_agua_light) // Asegúrate que color_agua_light esté definido
+            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(30.dp))
         }
         return
     }

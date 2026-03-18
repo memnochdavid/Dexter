@@ -10,7 +10,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import com.david.pokedex_api.R
+import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,7 +81,7 @@ fun PokemonTypeInteractionsTable(
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = color_progress_bar)
+            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
         }
     } else if (calculatedInteractions.isNotEmpty()) {
         // El resto del Composable es igual que antes, mostrando la tabla

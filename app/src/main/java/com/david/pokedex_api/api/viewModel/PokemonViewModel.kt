@@ -6,7 +6,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
+import com.david.pokedex_api.DexterApplication
 import com.david.pokedex_api.api.client.RetrofitClient
+import com.david.pokedex_api.api.db.PokemonSummaryEntity
 import com.david.pokedex_api.api.model.*
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
@@ -30,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap
 class PokemonViewModel : ViewModel() {
 
     val pokemonApiService: PokeApiService = RetrofitClient.instance
+    private val pokemonDao = DexterApplication.database.pokemonDao()
 
     private val _pokemonDetails = MutableLiveData<PokemonDetailResponse?>()
     val pokemonDetails: LiveData<PokemonDetailResponse?> = _pokemonDetails
@@ -92,6 +95,9 @@ class PokemonViewModel : ViewModel() {
     // Caché de memoria para evitar llamadas redundantes a la API (especialmente nombres localizados)
     private val localizedNamesCache = ConcurrentHashMap<String, String>()
 
+    // MEJORA 3: Caché de cadenas evolutivas para deduplicar peticiones
+    private val evolutionChainCache = ConcurrentHashMap<String, EvolutionChainDetailResponse>()
+
     init {
         combine(
             generations.asFlow(),
@@ -124,19 +130,40 @@ class PokemonViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
+                // MEJORA 2: Intentar cargar desde Room primero
+                val cachedSummaries = withContext(Dispatchers.IO) {
+                    pokemonDao.getSummariesByGeneration(generationId)
+                }
+
+                if (!forceRefresh && cachedSummaries.isNotEmpty()) {
+                    val summaries = cachedSummaries.map { it.toPokemonSummary() }
+                    withContext(Dispatchers.Main) {
+                        val newCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
+                        newCache[generationId] = summaries
+                        _pokemonByGenerationCache.value = newCache
+                    }
+                    return@launch
+                }
+
+                // Si no hay datos en Room, descargar de la API
                 val response = withContext(Dispatchers.IO) { pokemonApiService.getGenerationDetails(generationId) }
                 if (response.isSuccessful) {
                     val speciesList = response.body()?.pokemonSpecies ?: emptyList()
-                    
-                    // OPTIMIZACIÓN: Paralelismo controlado con Semaphore para no saturar la API
-                    // y procesamiento completo en un hilo de fondo.
+
+                    // MEJORA 4: Semáforo subido a 50 para mayor paralelismo
                     val allSummaries = withContext(Dispatchers.IO) {
-                        val semaphore = Semaphore(25) // Máximo 25 peticiones concurrentes
+                        val semaphore = Semaphore(50)
                         speciesList.map { resource ->
                             async {
                                 semaphore.withPermit { fetchSinglePokemonSummary(resource) }
                             }
                         }.awaitAll().filterNotNull().sortedBy { it.id }
+                    }
+
+                    // Guardar en Room para futuras cargas
+                    withContext(Dispatchers.IO) {
+                        val entities = allSummaries.map { PokemonSummaryEntity.fromPokemonSummary(it, generationId) }
+                        pokemonDao.insertSummaries(entities)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -205,7 +232,7 @@ class PokemonViewModel : ViewModel() {
                         it.evolutionChain?.url?.let { url -> fetchEvolutionChainDetails(url) }
                     }
                 }
-                
+
                 if (dRes.isSuccessful) {
                     val details = dRes.body()
                     _pokemonDetails.value = details
@@ -248,7 +275,7 @@ class PokemonViewModel : ViewModel() {
 
     internal suspend fun fetchLocalizedName(resourceUrl: String, fallbackApiName: String, resourceTypeHint: String, languageCode: String = "es"): String {
         if (resourceUrl.isBlank()) return formatApiName(fallbackApiName)
-        
+
         // OPTIMIZACIÓN: Cache de nombres localizados para evitar cientos de peticiones repetidas
         val cacheKey = "$resourceUrl-$languageCode"
         localizedNamesCache[cacheKey]?.let { return it }
@@ -276,10 +303,10 @@ class PokemonViewModel : ViewModel() {
                     is GenericNamedResourceDetail -> body.names
                     else -> null
                 }
-                val result = names?.find { it.language.name == languageCode }?.name 
-                    ?: names?.find { it.language.name == "en" }?.name 
+                val result = names?.find { it.language.name == languageCode }?.name
+                    ?: names?.find { it.language.name == "en" }?.name
                     ?: formatApiName(fallbackApiName)
-                
+
                 localizedNamesCache[cacheKey] = result
                 return result
             }
@@ -289,7 +316,7 @@ class PokemonViewModel : ViewModel() {
 
     suspend fun buildEvolutionConditionString(detail: EvolutionDetail): String = coroutineScope {
         val trigger = translateEvolutionTrigger(detail.trigger.name)
-        
+
         // OPTIMIZACIÓN: Lanzamos todas las peticiones de localización necesarias en PARALELO
         val itemDef = detail.item?.let { async { fetchLocalizedName(it.url, it.name, "item") } }
         val heldItemDef = detail.heldItem?.let { async { fetchLocalizedName(it.url, it.name, "item") } }
@@ -299,23 +326,23 @@ class PokemonViewModel : ViewModel() {
 
         var cond = trigger
         detail.minLevel?.let { cond += " $it" }
-        
+
         itemDef?.await()?.let { cond += "\nUsando $it" }
         heldItemDef?.await()?.let { cond += "\nCon $it equipado" }
-        
+
         detail.minHappiness?.let { cond += "\nFelicidad mín.: $it" }
-        detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let { 
-            cond += "\nDurante el ${if(it.lowercase() == "day") "día" else "noche"}" 
+        detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let {
+            cond += "\nDurante el ${if(it.lowercase() == "day") "día" else "noche"}"
         }
-        
+
         moveDef?.await()?.let { cond += "\nConociendo $it" }
         moveTypeDef?.await()?.let { cond += "\nConociendo mov. tipo $it" }
         locationDef?.await()?.let { cond += "\nEn $it" }
-        
+
         detail.gender?.let { cond += "\nSiendo ${if(it == 1) "Hembra" else "Macho"}" }
         if (detail.needsOverworldRain) cond += "\nCon lluvia"
         if (detail.turnUpsideDown) cond += "\nGirando la consola"
-        
+
         detail.relativePhysicalStats?.let {
             val comp = when {
                 it > 0 -> "Ataque > Defensa"
@@ -355,12 +382,23 @@ class PokemonViewModel : ViewModel() {
         }
     }
 
+    // MEJORA 3: fetchEvolutionChainDetails con deduplicación por URL
     private fun fetchEvolutionChainDetails(url: String) {
+        // Si ya tenemos esta cadena en caché, usarla directamente
+        evolutionChainCache[url]?.let {
+            _evolutionChainDetails.value = it
+            return
+        }
+
         _isLoadingEvolutionChain.value = true
         viewModelScope.launch {
             try {
                 val res = withContext(Dispatchers.IO) { pokemonApiService.getEvolutionChainDetailsByUrl(url) }
-                if (res.isSuccessful) _evolutionChainDetails.value = res.body()
+                if (res.isSuccessful) {
+                    val body = res.body()
+                    body?.let { evolutionChainCache[url] = it }
+                    _evolutionChainDetails.value = body
+                }
             } finally { _isLoadingEvolutionChain.value = false }
         }
     }
