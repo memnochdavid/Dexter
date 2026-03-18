@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.david.pokedex_api.R
+import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonMoveSlot
 import com.david.pokedex_api.api.model.VersionGroupDetail
 import com.david.pokedex_api.api.service.PokeApiService
@@ -67,11 +68,12 @@ fun formatMoveLearnMethod(method: String): String {
 fun PokemonMovesList(
     moves: List<PokemonMoveSlot>,
     cardBackgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    textColor: Color = MaterialTheme.colorScheme.onSurface, // Ajusta CardBorder si es un color específico
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
     pokemonApiService: PokeApiService,
+    moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     modifier: Modifier = Modifier,
     initiallyExpandedCard: Boolean = true,
-    initiallyExpandedGroups: Boolean = true // Estado inicial para cada grupo de movimientos
+    initiallyExpandedGroups: Boolean = true
 ) {
     // Estado para el plegado/desplegado GENERAL de la tarjeta "Movimientos"
     var isCardExpanded by rememberSaveable { mutableStateOf(initiallyExpandedCard) }
@@ -198,9 +200,8 @@ fun PokemonMovesList(
                                         movesInGroup.forEach { moveSlot ->
                                             MoveRow(
                                                 moveSlot = moveSlot,
-                                                pokemonApiService = pokemonApiService
-                                                // backgroundColor y textColor se manejan dentro de MoveRow
-                                                // o se pueden pasar si es necesario
+                                                pokemonApiService = pokemonApiService,
+                                                cachedMoveDetail = moveDetailsMap[moveSlot.move.url]
                                             )
                                         }
                                     }
@@ -338,9 +339,9 @@ private fun determineLearnIndicatorText(versionGroupDetails: List<VersionGroupDe
 @Composable
 fun MoveRow(
     moveSlot: PokemonMoveSlot,
-    pokemonApiService: PokeApiService
+    pokemonApiService: PokeApiService,
+    cachedMoveDetail: MoveDetailResponse? = null
 ) {
-    // Estados existentes
     var displayedMoveName by remember(moveSlot.translatedName, moveSlot.move.name) {
         mutableStateOf(
             moveSlot.translatedName ?: moveSlot.move.name.replaceFirstChar {
@@ -357,73 +358,69 @@ fun MoveRow(
     var learnIndicatorText by remember { mutableStateOf<String?>(null) }
     var moveDescription by remember { mutableStateOf<String?>(null) }
 
-    // ***** NUEVO ESTADO PARA LA EXPANSIÓN DE LA FILA *****
-    var isExpanded by rememberSaveable(key = moveSlot.move.name) { mutableStateOf(false) } // `key` para persistencia individual
+    var isExpanded by rememberSaveable(key = moveSlot.move.name) { mutableStateOf(false) }
 
     val actualColorTexto = moveTypeName?.let { type ->
-        if (esTipoColorOscuro(type)) { // Asegúrate que esTipoColorOscuro está definida
-            Color.White
-        } else {
-            Color.Black
-        }
+        if (esTipoColorOscuro(type)) Color.White else Color.Black
     } ?: MaterialTheme.colorScheme.onSurface
 
-    // LaunchedEffect para cargar detalles (incluida la descripción)
-    LaunchedEffect(key1 = moveSlot.move.url) {
-        // No se carga la descripción si ya está cargada y la fila no está expandida
-        // Opcional: Podrías condicionar la carga de la descripción a `isExpanded`
-        // si quieres optimizar y solo cargarla cuando se expande por primera vez.
-        // Pero para simplificar, la cargaremos siempre que falten datos.
-        if (moveSlot.translatedName == null || moveTypeName == null || moveDescription == null) {
-            isLoadingDetails = true
-            // ... (resto de tu lógica de carga de datos, igual que antes) ...
-            try {
-                val response = pokemonApiService.getMoveDetailsByUrl(moveSlot.move.url)
-                if (response.isSuccessful) {
-                    val moveDetails = response.body()
-                    if (moveSlot.translatedName == null) {
-                        val spanishNameEntry = moveDetails?.names?.find { it.language.name == "es" }?.name
-                        if (!spanishNameEntry.isNullOrBlank()) {
-                            displayedMoveName = spanishNameEntry
-                        }
-                    }
-                    moveTypeName = moveDetails?.moveType?.name
-                    movePower = moveDetails?.power
-                    movePp = moveDetails?.pp
-                    moveAccuracy = moveDetails?.accuracy
-                    moveDamageClassName = moveDetails?.damageClass?.name
-
-                    val spanishEffectEntry = moveDetails?.effectEntries?.find { it.language.name == "es" }
-                    var foundDescription = spanishEffectEntry?.effect?.takeIf { it.isNotBlank() }
-                        ?: spanishEffectEntry?.shortEffect?.takeIf { it.isNotBlank() }
-
-                    if (foundDescription != null) {
-                        val effectChanceValue = moveDetails?.accuracy
-                        if (effectChanceValue != null) {
-                            foundDescription = foundDescription.replace("\$effect_chance", effectChanceValue.toString())
-                        }
-                        moveDescription = foundDescription.replace("\n", " ").replace("\u000c", " ")
-                    } else {
-                        val spanishFlavorText = moveDetails?.flavorTextEntries
-                            ?.filter { it.language.name == "es" }
-                            ?.firstOrNull { it.flavorText.isNotBlank() }
-                            ?.flavorText
-                        if (!spanishFlavorText.isNullOrBlank()) {
-                            moveDescription = spanishFlavorText.replace("\n", " ").replace("\u000c", " ")
-                        } else {
-                            moveDescription = "Descripción en español no disponible."
-                        }
-                    }
-                } else {
-                    if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Error)"
-                    moveDescription = "No se pudo cargar la descripción."
-                }
-            } catch (e: Exception) {
-                if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Excepción)"
-                moveDescription = "Error al cargar la descripción."
-            }
-            isLoadingDetails = false
+    // Función para aplicar los datos de un MoveDetailResponse a los estados locales
+    fun applyMoveDetails(moveDetails: MoveDetailResponse?) {
+        if (moveDetails == null) return
+        if (moveSlot.translatedName == null) {
+            val spanishNameEntry = moveDetails.names.find { it.language.name == "es" }?.name
+            if (!spanishNameEntry.isNullOrBlank()) displayedMoveName = spanishNameEntry
         }
+        moveTypeName = moveDetails.moveType?.name
+        movePower = moveDetails.power
+        movePp = moveDetails.pp
+        moveAccuracy = moveDetails.accuracy
+        moveDamageClassName = moveDetails.damageClass?.name
+
+        val spanishEffectEntry = moveDetails.effectEntries.find { it.language.name == "es" }
+        var foundDescription = spanishEffectEntry?.effect?.takeIf { it.isNotBlank() }
+            ?: spanishEffectEntry?.shortEffect?.takeIf { it.isNotBlank() }
+
+        if (foundDescription != null) {
+            val effectChanceValue = moveDetails.accuracy
+            if (effectChanceValue != null) {
+                foundDescription = foundDescription.replace("\$effect_chance", effectChanceValue.toString())
+            }
+            moveDescription = foundDescription.replace("\n", " ").replace("\u000c", " ")
+        } else {
+            val spanishFlavorText = moveDetails.flavorTextEntries
+                .filter { it.language.name == "es" }
+                .firstOrNull { it.flavorText.isNotBlank() }
+                ?.flavorText
+            moveDescription = spanishFlavorText?.replace("\n", " ")?.replace("\u000c", " ")
+                ?: "Descripción en español no disponible."
+        }
+    }
+
+    // Si el ViewModel ya pre-cargó este movimiento, usarlo directamente sin llamada API
+    LaunchedEffect(key1 = moveSlot.move.url, key2 = cachedMoveDetail) {
+        if (moveTypeName != null) return@LaunchedEffect // Ya procesado
+
+        if (cachedMoveDetail != null) {
+            applyMoveDetails(cachedMoveDetail)
+            return@LaunchedEffect
+        }
+
+        // Fallback: si el caché no lo tiene, llamar a la API (servida desde caché HTTP de OkHttp)
+        isLoadingDetails = true
+        try {
+            val response = pokemonApiService.getMoveDetailsByUrl(moveSlot.move.url)
+            if (response.isSuccessful) {
+                applyMoveDetails(response.body())
+            } else {
+                if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Error)"
+                moveDescription = "No se pudo cargar la descripción."
+            }
+        } catch (e: Exception) {
+            if (moveSlot.translatedName == null) displayedMoveName = moveSlot.move.name.replace("-", " ") + " (Excepción)"
+            moveDescription = "Error al cargar la descripción."
+        }
+        isLoadingDetails = false
     }
 
     // LaunchedEffect para learnIndicatorText (sin cambios)

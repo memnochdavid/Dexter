@@ -27,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -36,7 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -50,6 +51,7 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.AsyncImage
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
+import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
@@ -84,7 +86,8 @@ fun PokemonDetailScreen(
     val error by pokemonViewModel.error.observeAsState()
     val evolutionChain by pokemonViewModel.evolutionChainDetails.observeAsState()
     val isLoadingEvolutionChain by pokemonViewModel.isLoadingEvolutionChain.observeAsState(false)
-    val pokemonSpecies by pokemonViewModel.pokemonSpeciesDetails.observeAsState() // <--- OBSERVAR ESTE
+    val pokemonSpecies by pokemonViewModel.pokemonSpeciesDetails.observeAsState()
+    val moveDetailsMap by pokemonViewModel.moveDetailsMap.collectAsState()
 
 
 
@@ -144,13 +147,14 @@ fun PokemonDetailScreen(
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,
-                    description = pokemonDescription, // Asumo que lo obtienes del ViewModel
-                    evolutionChainDetailResponse = evolutionChain, // Asumo que lo obtienes del ViewModel
-                    isLoadingEvolutionChain = isLoadingEvolutionChain, // Asumo que lo obtienes del ViewModel
+                    description = pokemonDescription,
+                    evolutionChainDetailResponse = evolutionChain,
+                    isLoadingEvolutionChain = isLoadingEvolutionChain,
                     onEvolutionPokemonClick = { pokemonNameClicked ->
                         pokemonViewModel.fetchPokemonDetailsByName(pokemonNameClicked, "es")
                     },
-                    pokemonViewModel = pokemonViewModel // <--- Importante: Pasa el ViewModel completo
+                    pokemonViewModel = pokemonViewModel,
+                    moveDetailsMap = moveDetailsMap
                 )
             }
             else if (error != null && !isLoadingDetails) {
@@ -187,7 +191,8 @@ fun PokemonDetailsView(
     evolutionChainDetailResponse: EvolutionChainDetailResponse?,
     isLoadingEvolutionChain: Boolean,
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
-    pokemonViewModel: PokemonViewModel
+    pokemonViewModel: PokemonViewModel,
+    moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap()
 ) {
     val spanishGenus = remember(pokemonSpecies) { // Recalcular solo si pokemonSpecies cambia
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
@@ -294,7 +299,8 @@ fun PokemonDetailsView(
                 isLoadingEvolutionChain,
                 onEvolutionPokemonClick,
                 description,
-                pokemonApiService = pokemonViewModel.pokemonApiService
+                pokemonApiService = pokemonViewModel.pokemonApiService,
+                moveDetailsMap = moveDetailsMap
             )
         }
     }
@@ -419,7 +425,7 @@ fun ComponenteImagen(
                     .height(300.dp)
                     .fillMaxWidth()
                     .padding(horizontal = 30.dp)//, vertical = 15.dp)
-                    .scale(actualScale)
+                    .graphicsLayer { scaleX = actualScale; scaleY = actualScale }
                     .align(Alignment.Center)
                     .clickable {
                         // pokemonResourceNameForDialog ahora es simplemente el nombre en minúsculas.
