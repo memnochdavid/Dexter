@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,7 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import com.david.pokedex_api.R
+import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -92,12 +94,17 @@ fun PokemonRegionalFormsView(
 
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
-                    val formsFound = mutableListOf<SpecialForm>()
 
-                    speciesDetail.varieties.forEach { variety ->
-                        if (!variety.isDefault) {
+                    // Filtrar variedades regionales y cargarlas en PARALELO
+                    val regionalVarieties = speciesDetail.varieties.filter { variety ->
+                        !variety.isDefault && knownRegions.any { region ->
+                            variety.pokemon.name.contains("-$region")
+                        }
+                    }
+
+                    val formsFound = regionalVarieties.map { variety ->
+                        async {
                             val formApiName = variety.pokemon.name
-                            var displayName = ""
                             var identifiedRegion: String? = null
 
                             for (region in knownRegions) {
@@ -112,7 +119,7 @@ fun PokemonRegionalFormsView(
                                     java.util.Locale.getDefault()) }
                                 val regionTitleCase = identifiedRegion.replaceFirstChar { it.titlecase(
                                     java.util.Locale.getDefault()) }
-                                displayName = "$regionTitleCase $pokemonNamePart"
+                                var displayName = "$regionTitleCase $pokemonNamePart"
 
                                 if (identifiedRegion == "paldea" && formApiName.contains("-breed")) {
                                     val breed = formApiName.substringAfterLast("-").takeIf { it != "breed" }?.replaceFirstChar { it.titlecase(
@@ -120,9 +127,7 @@ fun PokemonRegionalFormsView(
                                     if (breed != null) {
                                         displayName += " ($breed Breed)"
                                     }
-                                } else if (formApiName.endsWith("-$identifiedRegion")) {
-                                    // Simple regional form
-                                } else {
+                                } else if (!formApiName.endsWith("-$identifiedRegion")) {
                                     val suffix = formApiName.substringAfter("-$identifiedRegion").replace("-", " ")
                                     if (suffix.isNotBlank() && suffix != " breed") {
                                         displayName += suffix.split(" ")
@@ -131,20 +136,18 @@ fun PokemonRegionalFormsView(
                                     }
                                 }
 
-                                // CAMBIO 2: Usa la función estándar para obtener detalles del Pokémon por nombre
-                                val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
-                                //                                             ^^^^^^^^^^^^^^^^^
-
-                                val sprite = if (formDetailsResponse.isSuccessful) {
-                                    formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
-                                        ?: formDetailsResponse.body()?.sprites?.frontDefault
-                                } else {
-                                    null
-                                }
-                                formsFound.add(SpecialForm(formApiName, displayName.trim(), sprite))
-                            }
+                                try {
+                                    val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
+                                    val sprite = if (formDetailsResponse.isSuccessful) {
+                                        formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
+                                            ?: formDetailsResponse.body()?.sprites?.frontDefault
+                                    } else null
+                                    SpecialForm(formApiName, displayName.trim(), sprite)
+                                } catch (e: Exception) { null }
+                            } else null
                         }
-                    }
+                    }.awaitAll().filterNotNull()
+
                     regionalForms = formsFound
                 } else {
                     error = "Failed to load species details for regional forms: ${speciesResponse.message()}"
@@ -162,7 +165,7 @@ fun PokemonRegionalFormsView(
         Box(modifier = modifier
             .fillMaxWidth()
             .padding(16.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = color_progress_bar)
+            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
         }
         return
     }
@@ -427,7 +430,7 @@ fun PokemonFormsView(
                 .fillMaxWidth()
                 .padding(16.dp), contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = color_progress_bar)
+            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
         }
         return
     }
@@ -673,7 +676,7 @@ fun PokemonFormsView(
                 .fillMaxWidth()
                 .padding(16.dp), contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = color_progress_bar)
+            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
         }
         return
     }

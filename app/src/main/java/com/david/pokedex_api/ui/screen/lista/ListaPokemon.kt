@@ -99,6 +99,11 @@ fun GenerationPagerScreen(
                 } else {
                     PokemonLazyList(filteredList, onNavigateToDetails)
                 }
+            } else if (generations.isEmpty()) {
+                // Carga inicial: las generaciones aún no se han descargado
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+                }
             } else {
                 val pagerState = rememberPagerState(pageCount = { generations.size })
                 HorizontalPager(
@@ -109,7 +114,7 @@ fun GenerationPagerScreen(
                     val genId = generations.getOrNull(page)?.getGenerationIdFromUrl()
                     val list = pokemonByGenerationCache[genId]
                     if (list == null) {
-                        Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = color_agua_light) }
+                        Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
                     } else {
                         PokemonLazyList(list, onNavigateToDetails)
                     }

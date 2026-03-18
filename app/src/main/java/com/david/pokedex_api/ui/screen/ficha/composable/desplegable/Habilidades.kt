@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import com.david.pokedex_api.R
+import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -174,13 +175,12 @@ fun AbilityRow(
         }
 
         if (isLoadingDetails) {
-            CircularProgressIndicator(
+            Lottie(
+                rawResId = R.raw.pokeball,
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(24.dp)
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 4.dp),
-                // color = color_progress_bar, // Asegúrate que esta variable de color está definida
-                strokeWidth = 2.dp
+                    .padding(top = 4.dp)
             )
         } else {
             abilityShortEffect?.let { effect ->

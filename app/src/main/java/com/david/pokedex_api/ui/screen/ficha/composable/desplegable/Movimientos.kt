@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -473,10 +473,7 @@ fun MoveRow(
                     .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color(0xFFD32F2F) // Reemplaza con tu color
-                )
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(24.dp))
             }
         } else {
             // Fila para el nombre, clase de daño e indicador de aprendizaje
@@ -592,11 +589,7 @@ fun MoveRow(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = actualColorTexto.copy(alpha = 0.7f),
-                        strokeWidth = 2.dp
-                    )
+                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -752,10 +745,7 @@ fun MoveRow(
                     .padding(vertical = 16.dp), // Darle algo de espacio
                 horizontalArrangement = Arrangement.Center
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color(0xFFD32F2F) // color_progress_bar - Reemplaza con tu color
-                )
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(24.dp))
             }
         } else {
             Column {
