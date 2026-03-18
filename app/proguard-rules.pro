@@ -5,12 +5,40 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Retrofit ---
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class retrofit2.** { *; }
+-keepclasseswithmembers class * {
+    @retrofit2.http.* <methods>;
+}
+-dontwarn retrofit2.**
+
+# --- Gson ---
+-keep class com.google.gson.** { *; }
+-keepattributes EnclosingMethod
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# --- Modelos de datos (PokeAPI) — Gson necesita los campos intactos ---
+-keep class com.david.pokedex_api.api.model.** { *; }
+
+# --- OkHttp ---
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# --- Room ---
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-dontwarn androidx.room.paging.**
+
+# --- Coil ---
+-dontwarn coil.**
+
+# --- Kotlinx Serialization ---
+-keepattributes RuntimeVisibleAnnotations
+-keep class kotlinx.serialization.** { *; }
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.

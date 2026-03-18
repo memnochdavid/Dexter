@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
+import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.theme.CardBorder
@@ -83,6 +84,7 @@ fun DetallesDesplegables(
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
     description: String?,
     pokemonApiService: PokeApiService,
+    moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     // selectedContent sigue siendo la fuente de verdad para el estado lógico
@@ -398,12 +400,13 @@ fun DetallesDesplegables(
                             moves = pokemon.moves,
                             cardBackgroundColor = getPokemonTypeColor(pokemon.types[0].type.name),
                             pokemonApiService = pokemonApiService,
+                            moveDetailsMap = moveDetailsMap,
                             textColor = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
                                 Color.White
                             } else {
                                 CardBorder
                             },
-                            modifier = Modifier.fillMaxHeight() // FillMaxHeight dentro del Box de la página
+                            modifier = Modifier.fillMaxHeight()
                         )
                     }
 

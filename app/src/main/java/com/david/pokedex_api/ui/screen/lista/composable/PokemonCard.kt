@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -31,6 +30,9 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 
+// DShape como singleton — se reutiliza en todas las cards sin crear instancias nuevas
+private val CardDShape = DShape()
+
 @Composable
 fun PokemonListItemCard(
     pokemonSummary: PokemonSummary,
@@ -48,10 +50,10 @@ fun PokemonListItemCard(
 
     val type1 = pokemonSummary.types.getOrNull(0)
     val type2 = pokemonSummary.types.getOrNull(1)
-    
+
     val color1 = if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray
     val color2 = if (type2 != null) getPokemonTypeColorClear(type2) else color1
-    
+
     val gradientPair = if (type1 != null) {
         getPokemonTypeGradientColors(type1)
     } else {
@@ -71,12 +73,11 @@ fun PokemonListItemCard(
     }
     val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
 
-    val dShape = remember { DShape() }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
+            // graphicsLayer = aceleración hardware, más eficiente que Modifier.scale()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .padding(vertical = 4.dp, horizontal = 8.dp)
             .pointerInput(pokemonSummary.id) {
                 detectTapGestures(
@@ -97,12 +98,26 @@ fun PokemonListItemCard(
     ) {
         Box(modifier = Modifier.background(backgroundBrush).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(90.dp).background(Color.White.copy(0.3f), dShape).clip(dShape)) {
+                Box(modifier = Modifier.size(90.dp).background(Color.White.copy(0.3f), CardDShape).clip(CardDShape)) {
+                    val homeUrl = remember(pokemonSummary.id) {
+                        "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png"
+                    }
+                    // Fallback a PokeAPI official artwork (GitHub) si Pokemon Home falla
+                    val fallbackUrl = pokemonSummary.spriteUrl
+                    var imageUrl by remember(pokemonSummary.id) { mutableStateOf(homeUrl) }
+
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data("https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png")
-                            .crossfade(200)
+                            .data(imageUrl)
+                            .memoryCacheKey("pkmn_${pokemonSummary.id}")
                             .diskCacheKey("pkmn_${pokemonSummary.id}")
+                            .size(128)
+                            .listener(onError = { _, _ ->
+                                // Si Pokemon Home falla, usar PokeAPI como fallback
+                                if (imageUrl == homeUrl && fallbackUrl != null) {
+                                    imageUrl = fallbackUrl
+                                }
+                            })
                             .build(),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize().padding(8.dp)
@@ -121,9 +136,9 @@ fun PokemonListItemCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = textColor.copy(alpha = 0.8f)
                     )
-                    
+
                     Spacer(Modifier.height(4.dp))
-                    
+
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         pokemonSummary.types.forEach { type ->
                             PokemonTypeChip(typeName = type, modifier = Modifier.weight(1f))
@@ -141,8 +156,8 @@ class DShape : Shape {
             moveTo(0f, 0f)
             lineTo(0f, size.height)
             lineTo(size.width * 0.75f, size.height)
-            quadraticBezierTo(size.width, size.height * 0.75f, size.width, size.height * 0.5f)
-            quadraticBezierTo(size.width, size.height * 0.25f, size.width * 0.75f, 0f)
+            quadraticTo(size.width, size.height * 0.75f, size.width, size.height * 0.5f)
+            quadraticTo(size.width, size.height * 0.25f, size.width * 0.75f, 0f)
             close()
         }
         return Outline.Generic(path)

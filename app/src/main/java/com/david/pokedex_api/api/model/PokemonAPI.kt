@@ -146,7 +146,8 @@ data class PokemonListItem(
 
 
 // Un nuevo modelo para representar un Pokémon en la lista con los detalles que queremos mostrar
-// Este lo llenaremos después de hacer llamadas individuales o si modificamos cómo cargamos los datos.
+// @Immutable para que Compose lo trate como estable y evite recomposiciones innecesarias
+@androidx.compose.runtime.Immutable
 data class PokemonSummary(
     val id: Int,
     val name: String,
