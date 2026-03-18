@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,8 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPok
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.shimmerBrush
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
 
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
@@ -300,7 +303,8 @@ fun PokemonDetailsView(
                 onEvolutionPokemonClick,
                 description,
                 pokemonApiService = pokemonViewModel.pokemonApiService,
-                moveDetailsMap = moveDetailsMap
+                moveDetailsMap = moveDetailsMap,
+                pokemonSpecies = pokemonSpecies
             )
         }
     }
@@ -321,8 +325,17 @@ fun ComponenteImagen(
         nombreSpanish.lowercase() // Convierte "Pikachu" a "pikachu"
     }
 
-    val imageUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
-        ?: pokemon.sprites.frontDefault
+    // Shiny toggle
+    var isShiny by remember { mutableStateOf(false) }
+    val imageUrl = if (isShiny) {
+        pokemon.sprites.other?.officialArtwork?.frontShiny
+            ?: pokemon.sprites.frontShiny
+            ?: pokemon.sprites.other?.officialArtwork?.frontDefault
+            ?: pokemon.sprites.frontDefault
+    } else {
+        pokemon.sprites.other?.officialArtwork?.frontDefault
+            ?: pokemon.sprites.frontDefault
+    }
 
     var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
     LaunchedEffect(pokemon) {
@@ -395,11 +408,40 @@ fun ComponenteImagen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        Image( // Asume R.drawable.pokeball_icon existe
-                            painter = painterResource(id = R.drawable.pokeball_icon),
-                            contentDescription = "Pokeball icon",
-                            modifier = Modifier.size(70.dp)
-                        )
+                        // Botones Shiny + Cry
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            // Shiny toggle
+                            Image(
+                                painter = painterResource(id = R.drawable.pokeball_icon),
+                                contentDescription = "Toggle shiny",
+                                modifier = Modifier
+                                    .size(if (isShiny) 55.dp else 45.dp)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        isShiny = !isShiny
+                                    },
+                                colorFilter = if (isShiny) ColorFilter.tint(
+                                    Color(0xFFFFD700),
+                                    BlendMode.SrcAtop
+                                ) else null
+                            )
+                            // Botón cry
+                            if (pokemon.cries?.latest != null) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.cry_logo),
+                                    contentDescription = "Escuchar cry",
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            playCry(context, pokemon.cries.latest)
+                                        }
+                                )
+                            }
+                        }
 
                         val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
                         if (typeToShowOnBottom != null) {
@@ -494,4 +536,18 @@ fun ComponenteImagen(
             }
         )
     }
+}
+
+private fun playCry(context: Context, url: String) {
+    val player = ExoPlayer.Builder(context).build()
+    player.setMediaItem(MediaItem.fromUri(url))
+    player.prepare()
+    player.play()
+    player.addListener(object : androidx.media3.common.Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == androidx.media3.common.Player.STATE_ENDED) {
+                player.release()
+            }
+        }
+    })
 }
