@@ -7,6 +7,9 @@ import com.david.pokedex_api.api.model.GenerationListResponse
 import com.david.pokedex_api.api.model.GenericNamedResourceDetail
 import com.david.pokedex_api.api.model.ItemDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
+import com.david.pokedex_api.api.model.BerryDetailResponse
+import com.david.pokedex_api.api.model.BerryListResponse
+import com.david.pokedex_api.api.model.ItemListResponse
 import com.david.pokedex_api.api.model.MoveListResponse
 import com.david.pokedex_api.api.model.PokemonEncounterResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
@@ -109,5 +112,22 @@ interface PokeApiService {
 
     @GET("move/{name}")
     suspend fun getMoveDetailsByName(@Path("name") name: String): Response<MoveDetailResponse>
+
+    // --- Items ---
+    @GET("item")
+    suspend fun getItemList(
+        @Query("offset") offset: Int = 0,
+        @Query("limit") limit: Int = 2000
+    ): Response<ItemListResponse>
+
+    // --- Berries ---
+    @GET("berry")
+    suspend fun getBerryList(
+        @Query("offset") offset: Int = 0,
+        @Query("limit") limit: Int = 100
+    ): Response<BerryListResponse>
+
+    @GET
+    suspend fun getBerryDetailsByUrl(@Url url: String): Response<BerryDetailResponse>
 
 }

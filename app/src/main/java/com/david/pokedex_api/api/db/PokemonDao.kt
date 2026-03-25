@@ -26,4 +26,18 @@ interface PokemonDao {
 
     @Query("SELECT COUNT(*) FROM move_summary")
     suspend fun countMoveSummaries(): Int
+
+    // --- Item Summary ---
+    @Query("SELECT * FROM item_summary ORDER BY id ASC")
+    suspend fun getAllItemSummaries(): List<ItemSummaryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItemSummaries(summaries: List<ItemSummaryEntity>)
+
+    // --- Berry Summary ---
+    @Query("SELECT * FROM berry_summary ORDER BY id ASC")
+    suspend fun getAllBerrySummaries(): List<BerrySummaryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBerrySummaries(summaries: List<BerrySummaryEntity>)
 }
