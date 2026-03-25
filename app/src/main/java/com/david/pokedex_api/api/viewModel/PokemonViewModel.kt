@@ -810,4 +810,141 @@ class PokemonViewModel : ViewModel() {
         "sour" -> "Acido"
         else -> formatApiName(name)
     }
+
+    // ====================== NAVEGADOR DE REGIONES ======================
+
+    private val _regions = MutableStateFlow<List<DisplayableRegion>>(emptyList())
+    val regions: StateFlow<List<DisplayableRegion>> = _regions.asStateFlow()
+
+    private val _isLoadingRegions = MutableStateFlow(false)
+    val isLoadingRegions: StateFlow<Boolean> = _isLoadingRegions.asStateFlow()
+
+    private val _regionLocations = MutableStateFlow<List<DisplayableLocation>>(emptyList())
+    val regionLocations: StateFlow<List<DisplayableLocation>> = _regionLocations.asStateFlow()
+
+    private val _isLoadingLocations = MutableStateFlow(false)
+    val isLoadingLocations: StateFlow<Boolean> = _isLoadingLocations.asStateFlow()
+
+    private val _locationAreas = MutableStateFlow<List<DisplayableLocationArea>>(emptyList())
+    val locationAreas: StateFlow<List<DisplayableLocationArea>> = _locationAreas.asStateFlow()
+
+    private val _isLoadingAreas = MutableStateFlow(false)
+    val isLoadingAreas: StateFlow<Boolean> = _isLoadingAreas.asStateFlow()
+
+    fun fetchRegions() {
+        if (_regions.value.isNotEmpty() || _isLoadingRegions.value) return
+        _isLoadingRegions.value = true
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getRegionList() }
+                if (res.isSuccessful) {
+                    val regionResources = res.body()?.results ?: emptyList()
+                    val semaphore = Semaphore(10)
+                    val displayable = regionResources.map { resource ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val detail = pokemonApiService.getRegionDetailsByUrl(resource.url)
+                                    if (detail.isSuccessful) {
+                                        val d = detail.body() ?: return@withPermit null
+                                        val localName = d.names.find { it.language.name == "es" }?.name
+                                            ?: d.names.find { it.language.name == "en" }?.name
+                                            ?: formatApiName(d.name)
+                                        val gen = d.mainGeneration?.name?.let { formatApiName(it) }
+                                        DisplayableRegion(d.id, d.name, localName, gen, d.locations.size)
+                                    } else null
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                    }.awaitAll().filterNotNull().sortedBy { it.id }
+                    _regions.value = displayable
+                }
+            } catch (e: Exception) { handleError("Error cargando regiones: ${e.message}") }
+            finally { _isLoadingRegions.value = false }
+        }
+    }
+
+    fun fetchLocationsForRegion(regionName: String) {
+        _isLoadingLocations.value = true
+        _regionLocations.value = emptyList()
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) {
+                    pokemonApiService.getRegionDetailsByUrl("https://pokeapi.co/api/v2/region/$regionName/")
+                }
+                if (res.isSuccessful) {
+                    val locations = res.body()?.locations ?: emptyList()
+                    val semaphore = Semaphore(20)
+                    val displayable = locations.map { resource ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val detail = pokemonApiService.getLocationDetailsByUrl(resource.url)
+                                    if (detail.isSuccessful) {
+                                        val d = detail.body() ?: return@withPermit null
+                                        val localName = d.names.find { it.language.name == "es" }?.name
+                                            ?: d.names.find { it.language.name == "en" }?.name
+                                            ?: formatApiName(d.name)
+                                        val id = resource.url.split("/").dropLast(1).lastOrNull()?.toIntOrNull() ?: 0
+                                        DisplayableLocation(id, d.name, localName, d.areas?.size ?: 0)
+                                    } else null
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                    }.awaitAll().filterNotNull().sortedBy { it.localizedName }
+                    _regionLocations.value = displayable
+                }
+            } catch (e: Exception) { handleError("Error cargando ubicaciones: ${e.message}") }
+            finally { _isLoadingLocations.value = false }
+        }
+    }
+
+    fun fetchLocationAreas(locationName: String) {
+        _isLoadingAreas.value = true
+        _locationAreas.value = emptyList()
+        viewModelScope.launch {
+            try {
+                val locRes = withContext(Dispatchers.IO) {
+                    pokemonApiService.getLocationDetailsByUrl("https://pokeapi.co/api/v2/location/$locationName/")
+                }
+                if (locRes.isSuccessful) {
+                    val areas = locRes.body()?.areas ?: emptyList()
+                    val semaphore = Semaphore(10)
+                    val displayable = areas.map { areaResource ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val areaRes = pokemonApiService.getLocationAreaDetailsByUrl(areaResource.url)
+                                    if (areaRes.isSuccessful) {
+                                        val a = areaRes.body() ?: return@withPermit null
+                                        val localName = a.names.find { it.language.name == "es" }?.name
+                                            ?: a.names.find { it.language.name == "en" }?.name
+                                            ?: formatApiName(a.name)
+                                        val pokemon = a.pokemonEncounters?.flatMap { enc ->
+                                            enc.versionDetails.flatMap { vd ->
+                                                vd.encounterDetails.map { ed ->
+                                                    val pokId = enc.pokemon.url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
+                                                    DisplayableAreaPokemon(
+                                                        pokemonName = formatApiName(enc.pokemon.name),
+                                                        spriteUrl = if (pokId != null) "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$pokId.png" else "",
+                                                        maxChance = vd.maxChance,
+                                                        minLevel = ed.minLevel,
+                                                        maxLevel = ed.maxLevel,
+                                                        method = translateEncounterMethod(ed.method.name)
+                                                    )
+                                                }
+                                            }
+                                        }?.distinctBy { "${it.pokemonName}_${it.method}" }?.sortedByDescending { it.maxChance } ?: emptyList()
+                                        DisplayableLocationArea(a.name, localName, pokemon)
+                                    } else null
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                    }.awaitAll().filterNotNull()
+                    _locationAreas.value = displayable
+                }
+            } catch (e: Exception) { handleError("Error cargando areas: ${e.message}") }
+            finally { _isLoadingAreas.value = false }
+        }
+    }
 }

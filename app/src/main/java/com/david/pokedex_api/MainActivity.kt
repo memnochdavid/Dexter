@@ -44,6 +44,7 @@ import com.david.pokedex_api.ui.screen.ficha.PokemonDetailScreen
 import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
 import com.david.pokedex_api.ui.screen.items.ItemBrowserScreen
 import com.david.pokedex_api.ui.screen.movimientos.MoveBrowserScreen
+import com.david.pokedex_api.ui.screen.regiones.RegionBrowserScreen
 import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.color_menu_busqueda2
@@ -53,6 +54,7 @@ object Routes {
     const val POKEMON_LIST = "pokemon_list"
     const val MOVE_BROWSER = "move_browser"
     const val ITEM_BROWSER = "item_browser"
+    const val REGION_BROWSER = "region_browser"
     const val POKEMON_DETAILS = "pokemon_details/{pokemonName}"
 
     fun pokemonDetails(pokemonName: String) = "pokemon_details/$pokemonName"
@@ -67,7 +69,8 @@ private data class BottomNavItem(
 private val bottomNavItems = listOf(
     BottomNavItem(Routes.POKEMON_LIST, "Pokémon", R.drawable.normal2),
     BottomNavItem(Routes.MOVE_BROWSER, "Movimientos", R.drawable.lucha2),
-    BottomNavItem(Routes.ITEM_BROWSER, "Items", R.drawable.pokeball_icon)
+    BottomNavItem(Routes.ITEM_BROWSER, "Items", R.drawable.pokeball_icon),
+    BottomNavItem(Routes.REGION_BROWSER, "Regiones", R.drawable.ic_location)
 )
 
 class MainActivity : ComponentActivity() {
@@ -91,7 +94,7 @@ fun PokedexApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf(Routes.POKEMON_LIST, Routes.MOVE_BROWSER, Routes.ITEM_BROWSER)
+    val showBottomBar = currentRoute in listOf(Routes.POKEMON_LIST, Routes.MOVE_BROWSER, Routes.ITEM_BROWSER, Routes.REGION_BROWSER)
 
     Scaffold(
         bottomBar = {
@@ -164,6 +167,11 @@ fun PokedexApp(
             }
             composable(Routes.ITEM_BROWSER) {
                 ItemBrowserScreen(
+                    pokemonViewModel = pokemonViewModel
+                )
+            }
+            composable(Routes.REGION_BROWSER) {
+                RegionBrowserScreen(
                     pokemonViewModel = pokemonViewModel
                 )
             }
