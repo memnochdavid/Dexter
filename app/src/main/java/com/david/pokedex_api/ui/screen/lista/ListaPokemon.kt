@@ -90,7 +90,8 @@ fun GenerationPagerScreen(
             ) {
                 Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize())
             }
-        }
+        },
+        contentWindowInsets = WindowInsets(0.dp)
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().background(background_app).padding(padding)) {
             if (isSearching) {

@@ -418,4 +418,224 @@ class PokemonViewModel : ViewModel() {
     private fun handleError(msg: String) { if (!errorShownThisFetch) { _error.postValue(msg); errorShownThisFetch = true } }
     fun clearError() { _error.value = null }
     fun isFetchingForGenerationId(id: Int?): Boolean = _isLoadingPokemonForCurrentGeneration.value == true && _currentlyFetchingGenerationId.value == id
+
+    // ====================== ENCUENTROS ======================
+
+    private val _pokemonEncounters = MutableStateFlow<List<DisplayableEncounter>>(emptyList())
+    val pokemonEncounters: StateFlow<List<DisplayableEncounter>> = _pokemonEncounters.asStateFlow()
+
+    private val _isLoadingEncounters = MutableStateFlow(false)
+    val isLoadingEncounters: StateFlow<Boolean> = _isLoadingEncounters.asStateFlow()
+
+    fun fetchPokemonEncounters(pokemonId: Int) {
+        _isLoadingEncounters.value = true
+        _pokemonEncounters.value = emptyList()
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getPokemonEncounters(pokemonId) }
+                if (res.isSuccessful) {
+                    val encounters = res.body() ?: emptyList()
+                    val displayable = encounters.map { encounter ->
+                        val locationName = withContext(Dispatchers.IO) {
+                            fetchLocalizedName(encounter.locationArea.url, encounter.locationArea.name, "location-area")
+                        }
+                        val versions = encounter.versionDetails.map { vd ->
+                            val methods = vd.encounterDetails.map { ed ->
+                                DisplayableEncounterMethod(
+                                    methodName = translateEncounterMethod(ed.method.name),
+                                    minLevel = ed.minLevel,
+                                    maxLevel = ed.maxLevel,
+                                    chance = ed.chance
+                                )
+                            }
+                            DisplayableVersionEncounter(
+                                versionName = translateVersionName(vd.version.name),
+                                maxChance = vd.maxChance,
+                                methods = methods
+                            )
+                        }
+                        DisplayableEncounter(locationName = locationName, versions = versions)
+                    }
+                    _pokemonEncounters.value = displayable
+                }
+            } catch (e: Exception) {
+                handleError("Error cargando encuentros: ${e.message}")
+            } finally {
+                _isLoadingEncounters.value = false
+            }
+        }
+    }
+
+    private fun translateEncounterMethod(method: String): String = when (method.lowercase()) {
+        "walk" -> "Caminando"
+        "old-rod" -> "Caña Vieja"
+        "good-rod" -> "Caña Buena"
+        "super-rod" -> "Supercaña"
+        "surf" -> "Surf"
+        "rock-smash" -> "Golpe Roca"
+        "headbutt" -> "Cabezazo"
+        "dark-grass" -> "Hierba oscura"
+        "grass-spots" -> "Hierba agitada"
+        "cave-spots" -> "Polvo cueva"
+        "bridge-spots" -> "Sombras puente"
+        "super-rod-spots" -> "Pesca agitada"
+        "surf-spots" -> "Agua agitada"
+        "yellow-flowers" -> "Flores amarillas"
+        "purple-flowers" -> "Flores moradas"
+        "red-flowers" -> "Flores rojas"
+        "rough-terrain" -> "Terreno escarpado"
+        "gift" -> "Regalo"
+        "gift-egg" -> "Huevo regalo"
+        "only-one" -> "Unico"
+        "pokeflute" -> "Pokéflauta"
+        "headbutt-low" -> "Cabezazo (baja)"
+        "headbutt-normal" -> "Cabezazo (normal)"
+        "headbutt-high" -> "Cabezazo (alta)"
+        "squirt-bottle" -> "Regadera"
+        "berry-piles" -> "Montones de bayas"
+        "roaming-grass" -> "Hierba errante"
+        "roaming-water" -> "Agua errante"
+        else -> formatApiName(method)
+    }
+
+    private fun translateVersionName(version: String): String = when (version.lowercase()) {
+        "red" -> "Rojo"
+        "blue" -> "Azul"
+        "yellow" -> "Amarillo"
+        "gold" -> "Oro"
+        "silver" -> "Plata"
+        "crystal" -> "Cristal"
+        "ruby" -> "Rubí"
+        "sapphire" -> "Zafiro"
+        "emerald" -> "Esmeralda"
+        "firered" -> "Rojo Fuego"
+        "leafgreen" -> "Verde Hoja"
+        "diamond" -> "Diamante"
+        "pearl" -> "Perla"
+        "platinum" -> "Platino"
+        "heartgold" -> "Oro HeartGold"
+        "soulsilver" -> "Plata SoulSilver"
+        "black" -> "Negro"
+        "white" -> "Blanco"
+        "black-2" -> "Negro 2"
+        "white-2" -> "Blanco 2"
+        "x" -> "X"
+        "y" -> "Y"
+        "omega-ruby" -> "Rubí Omega"
+        "alpha-sapphire" -> "Zafiro Alfa"
+        "sun" -> "Sol"
+        "moon" -> "Luna"
+        "ultra-sun" -> "Ultra Sol"
+        "ultra-moon" -> "Ultra Luna"
+        "lets-go-pikachu" -> "Let's Go Pikachu"
+        "lets-go-eevee" -> "Let's Go Eevee"
+        "sword" -> "Espada"
+        "shield" -> "Escudo"
+        "brilliant-diamond" -> "Diamante Brillante"
+        "shining-pearl" -> "Perla Reluciente"
+        "legends-arceus" -> "Leyendas Arceus"
+        "scarlet" -> "Escarlata"
+        "violet" -> "Violeta"
+        else -> formatApiName(version)
+    }
+
+    // ====================== NAVEGADOR DE MOVIMIENTOS ======================
+
+    private val _moveList = MutableStateFlow<List<NamedApiResource>>(emptyList())
+    val moveList: StateFlow<List<NamedApiResource>> = _moveList.asStateFlow()
+
+    private val _moveSummaries = MutableStateFlow<Map<Int, MoveSummary>>(emptyMap())
+    val moveSummaries: StateFlow<Map<Int, MoveSummary>> = _moveSummaries.asStateFlow()
+
+    private val _isLoadingMoveList = MutableStateFlow(false)
+    val isLoadingMoveList: StateFlow<Boolean> = _isLoadingMoveList.asStateFlow()
+
+    private val _isLoadingMoveSummaries = MutableStateFlow(false)
+    val isLoadingMoveSummaries: StateFlow<Boolean> = _isLoadingMoveSummaries.asStateFlow()
+
+    fun fetchMoveList() {
+        if (_moveSummaries.value.isNotEmpty() || _isLoadingMoveList.value) return
+        _isLoadingMoveList.value = true
+        viewModelScope.launch {
+            try {
+                // 1. Intentar cargar desde Room
+                val cachedMoves = withContext(Dispatchers.IO) { pokemonDao.getAllMoveSummaries() }
+                if (cachedMoves.isNotEmpty()) {
+                    val map = cachedMoves.associate { it.id to it.toMoveSummary() }
+                    _moveSummaries.value = map
+                    _isLoadingMoveList.value = false
+                    return@launch
+                }
+
+                // 2. Si no hay cache, descargar de la API
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getMoveList(limit = 2000) }
+                if (res.isSuccessful) {
+                    val moves = res.body()?.results ?: emptyList()
+                    _moveList.value = moves
+                    fetchMoveSummariesBatch(moves)
+                }
+            } catch (e: Exception) {
+                handleError("Error cargando movimientos: ${e.message}")
+            } finally {
+                _isLoadingMoveList.value = false
+            }
+        }
+    }
+
+    private fun fetchMoveSummariesBatch(moves: List<NamedApiResource>) {
+        viewModelScope.launch {
+            _isLoadingMoveSummaries.value = true
+            val currentMap = _moveSummaries.value.toMutableMap()
+            val semaphore = Semaphore(30)
+
+            moves.chunked(50).forEach { chunk ->
+                val results = chunk.map { resource ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                val id = resource.url.split("/").dropLast(1).lastOrNull()?.toIntOrNull() ?: return@withPermit null
+                                if (currentMap.containsKey(id)) return@withPermit null
+                                val response = pokemonApiService.getMoveDetailsByUrl(resource.url)
+                                if (response.isSuccessful) {
+                                    val detail = response.body() ?: return@withPermit null
+                                    val localName = detail.names.find { it.language.name == "es" }?.name
+                                        ?: detail.names.find { it.language.name == "en" }?.name
+                                        ?: formatApiName(detail.name)
+                                    val desc = detail.flavorTextEntries
+                                        .filter { it.language.name == "es" }
+                                        .firstOrNull { it.flavorText.isNotBlank() }?.flavorText
+                                        ?: detail.effectEntries.find { it.language.name == "es" }?.shortEffect
+                                        ?: detail.effectEntries.find { it.language.name == "en" }?.shortEffect
+                                    MoveSummary(
+                                        id = detail.id,
+                                        name = detail.name,
+                                        localizedName = localName,
+                                        typeName = detail.moveType?.name,
+                                        damageClass = detail.damageClass?.name,
+                                        power = detail.power,
+                                        pp = detail.pp,
+                                        accuracy = detail.accuracy,
+                                        description = desc?.replace("\n", " ")?.replace("\u000c", " ")
+                                    )
+                                } else null
+                            } catch (_: Exception) { null }
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+
+                results.forEach { currentMap[it.id] = it }
+                _moveSummaries.value = currentMap.toMap()
+            }
+
+            // 3. Guardar todo en Room para futuras cargas
+            withContext(Dispatchers.IO) {
+                val entities = currentMap.values.map {
+                    com.david.pokedex_api.api.db.MoveSummaryEntity.fromMoveSummary(it)
+                }
+                pokemonDao.insertMoveSummaries(entities)
+            }
+
+            _isLoadingMoveSummaries.value = false
+        }
+    }
 }
