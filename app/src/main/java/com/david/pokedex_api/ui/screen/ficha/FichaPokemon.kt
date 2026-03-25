@@ -91,13 +91,18 @@ fun PokemonDetailScreen(
     val isLoadingEvolutionChain by pokemonViewModel.isLoadingEvolutionChain.observeAsState(false)
     val pokemonSpecies by pokemonViewModel.pokemonSpeciesDetails.observeAsState()
     val moveDetailsMap by pokemonViewModel.moveDetailsMap.collectAsState()
-
-
+    val encounters by pokemonViewModel.pokemonEncounters.collectAsState()
+    val isLoadingEncounters by pokemonViewModel.isLoadingEncounters.collectAsState()
 
     // Cargar los detalles del Pokémon cuando esta pantalla se compone o pokemonName cambia
     LaunchedEffect(pokemonName) {
         Log.d("PokemonDetailScreen", "Fetching details for $pokemonName")
         pokemonViewModel.fetchPokemonDetailsByName(pokemonName, "es")
+    }
+
+    // Cargar encuentros cuando tengamos el ID del pokemon
+    LaunchedEffect(pokemonDetail?.id) {
+        pokemonDetail?.id?.let { pokemonViewModel.fetchPokemonEncounters(it) }
     }
 
     // Limpiar detalles cuando la pantalla se va
@@ -157,7 +162,9 @@ fun PokemonDetailScreen(
                         pokemonViewModel.fetchPokemonDetailsByName(pokemonNameClicked, "es")
                     },
                     pokemonViewModel = pokemonViewModel,
-                    moveDetailsMap = moveDetailsMap
+                    moveDetailsMap = moveDetailsMap,
+                    encounters = encounters,
+                    isLoadingEncounters = isLoadingEncounters
                 )
             }
             else if (error != null && !isLoadingDetails) {
@@ -195,7 +202,9 @@ fun PokemonDetailsView(
     isLoadingEvolutionChain: Boolean,
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
     pokemonViewModel: PokemonViewModel,
-    moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap()
+    moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
+    encounters: List<com.david.pokedex_api.api.model.DisplayableEncounter> = emptyList(),
+    isLoadingEncounters: Boolean = false
 ) {
     val spanishGenus = remember(pokemonSpecies) { // Recalcular solo si pokemonSpecies cambia
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
@@ -304,7 +313,9 @@ fun PokemonDetailsView(
                 description,
                 pokemonApiService = pokemonViewModel.pokemonApiService,
                 moveDetailsMap = moveDetailsMap,
-                pokemonSpecies = pokemonSpecies
+                pokemonSpecies = pokemonSpecies,
+                encounters = encounters,
+                isLoadingEncounters = isLoadingEncounters
             )
         }
     }

@@ -7,6 +7,8 @@ import com.david.pokedex_api.api.model.GenerationListResponse
 import com.david.pokedex_api.api.model.GenericNamedResourceDetail
 import com.david.pokedex_api.api.model.ItemDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
+import com.david.pokedex_api.api.model.MoveListResponse
+import com.david.pokedex_api.api.model.PokemonEncounterResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonFormDetailResponse
 import com.david.pokedex_api.api.model.PokemonListResponse
@@ -90,5 +92,22 @@ interface PokeApiService {
     // Ejemplos: "location", "region".
     @GET
     suspend fun getGenericNamedResourceDetailsByUrl(@Url url: String): Response<GenericNamedResourceDetail>
+
+    // --- Encounters ---
+    @GET("pokemon/{id}/encounters")
+    suspend fun getPokemonEncounters(@Path("id") id: Int): Response<List<PokemonEncounterResponse>>
+
+    // --- Move Browser ---
+    @GET("move")
+    suspend fun getMoveList(
+        @Query("offset") offset: Int = 0,
+        @Query("limit") limit: Int = 2000
+    ): Response<MoveListResponse>
+
+    @GET("move/{id}")
+    suspend fun getMoveDetailsById(@Path("id") id: Int): Response<MoveDetailResponse>
+
+    @GET("move/{name}")
+    suspend fun getMoveDetailsByName(@Path("name") name: String): Response<MoveDetailResponse>
 
 }

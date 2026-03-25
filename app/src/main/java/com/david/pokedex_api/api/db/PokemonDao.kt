@@ -16,4 +16,14 @@ interface PokemonDao {
 
     @Query("SELECT COUNT(*) FROM pokemon_summary WHERE generationId = :generationId")
     suspend fun countByGeneration(generationId: Int): Int
+
+    // --- Move Summary ---
+    @Query("SELECT * FROM move_summary ORDER BY id ASC")
+    suspend fun getAllMoveSummaries(): List<MoveSummaryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMoveSummaries(summaries: List<MoveSummaryEntity>)
+
+    @Query("SELECT COUNT(*) FROM move_summary")
+    suspend fun countMoveSummaries(): Int
 }

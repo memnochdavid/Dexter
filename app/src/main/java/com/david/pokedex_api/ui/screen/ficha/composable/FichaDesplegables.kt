@@ -69,6 +69,7 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonTypeI
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonEncountersView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonFormsView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegasGigas
 import com.david.pokedex_api.ui.theme.color_progress_bar
@@ -88,6 +89,8 @@ fun DetallesDesplegables(
     pokemonApiService: PokeApiService,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     pokemonSpecies: PokemonSpeciesResponse? = null,
+    encounters: List<com.david.pokedex_api.api.model.DisplayableEncounter> = emptyList(),
+    isLoadingEncounters: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // selectedContent sigue siendo la fuente de verdad para el estado lógico
@@ -196,6 +199,7 @@ fun DetallesDesplegables(
                                 ContentPage.INTER -> "Tipos"
                                 ContentPage.FORM -> "Form."
                                 ContentPage.INFO -> "Info"
+                                ContentPage.ENCOUNTERS -> "Ubic."
                             },
                             colorFondo = if (selectedContent == page) getPokemonTypeColor(pokemon.types[0].type.name) else Color.Transparent,
                             colorTexto = if ((esTipoColorOscuro(pokemon.types[0].type.name)) && selectedContent == page) {
@@ -508,6 +512,15 @@ fun DetallesDesplegables(
                         )
                     }
 
+                    ContentPage.ENCOUNTERS -> {
+                        PokemonEncountersView(
+                            encounters = encounters,
+                            isLoading = isLoadingEncounters,
+                            colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+                            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) Color.White else CardBorder
+                        )
+                    }
+
                     null -> { // En caso de que targetPage sea null (no debería pasar con pageCount definido)
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -545,5 +558,5 @@ fun TextoMenu(title: String, colorFondo: Color, colorTexto: Color) {
 }
 
 enum class ContentPage {
-    DESC, EVOS, STATS, MOVES, ABILITY, INTER, FORM, INFO
+    DESC, EVOS, STATS, MOVES, ABILITY, INTER, FORM, INFO, ENCOUNTERS
 }

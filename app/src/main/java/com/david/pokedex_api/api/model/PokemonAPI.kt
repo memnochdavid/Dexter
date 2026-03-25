@@ -466,3 +466,69 @@ data class PokemonTypeSlot(
     val slot: Int,
     val type: PokemonType
 )
+
+// --- Encounters ---
+data class PokemonEncounterResponse(
+    @SerializedName("location_area")
+    val locationArea: NamedApiResource,
+    @SerializedName("version_details")
+    val versionDetails: List<VersionEncounterDetail>
+)
+
+data class VersionEncounterDetail(
+    @SerializedName("encounter_details")
+    val encounterDetails: List<EncounterDetail>,
+    @SerializedName("max_chance")
+    val maxChance: Int,
+    val version: NamedApiResource
+)
+
+data class EncounterDetail(
+    val chance: Int,
+    @SerializedName("condition_values")
+    val conditionValues: List<NamedApiResource>,
+    @SerializedName("max_level")
+    val maxLevel: Int,
+    @SerializedName("method")
+    val method: NamedApiResource,
+    @SerializedName("min_level")
+    val minLevel: Int
+)
+
+data class DisplayableEncounter(
+    val locationName: String,
+    val versions: List<DisplayableVersionEncounter>
+)
+
+data class DisplayableVersionEncounter(
+    val versionName: String,
+    val maxChance: Int,
+    val methods: List<DisplayableEncounterMethod>
+)
+
+data class DisplayableEncounterMethod(
+    val methodName: String,
+    val minLevel: Int,
+    val maxLevel: Int,
+    val chance: Int
+)
+
+data class MoveListResponse(
+    val count: Int,
+    val next: String?,
+    val previous: String?,
+    val results: List<NamedApiResource>
+)
+
+@androidx.compose.runtime.Immutable
+data class MoveSummary(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val typeName: String?,
+    val damageClass: String?,
+    val power: Int?,
+    val pp: Int?,
+    val accuracy: Int?,
+    val description: String?
+)
