@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [PokemonSummaryEntity::class, MoveSummaryEntity::class],
-    version = 2,
+    entities = [PokemonSummaryEntity::class, MoveSummaryEntity::class, ItemSummaryEntity::class, BerrySummaryEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class DexterDatabase : RoomDatabase() {
@@ -38,6 +38,37 @@ abstract class DexterDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `item_summary` (
+                        `id` INTEGER NOT NULL PRIMARY KEY,
+                        `name` TEXT NOT NULL,
+                        `localizedName` TEXT NOT NULL,
+                        `category` TEXT,
+                        `cost` INTEGER,
+                        `effect` TEXT,
+                        `spriteUrl` TEXT
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `berry_summary` (
+                        `id` INTEGER NOT NULL PRIMARY KEY,
+                        `name` TEXT NOT NULL,
+                        `localizedName` TEXT NOT NULL,
+                        `naturalGiftType` TEXT,
+                        `naturalGiftPower` INTEGER NOT NULL,
+                        `growthTime` INTEGER NOT NULL,
+                        `size` INTEGER NOT NULL,
+                        `smoothness` INTEGER NOT NULL,
+                        `maxHarvest` INTEGER NOT NULL,
+                        `spriteUrl` TEXT,
+                        `flavors` TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): DexterDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -45,7 +76,7 @@ abstract class DexterDatabase : RoomDatabase() {
                     DexterDatabase::class.java,
                     "dexter_db"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { INSTANCE = it }
             }
         }

@@ -371,14 +371,92 @@ data class TypeListResponse(
 )
 data class ItemDetailResponse(
     val id: Int,
-    val name: String, // Nombre original/API
-    val names: List<NameEntry>, // Nombres localizados
-    // ... otros campos del item si los necesitas ...
-    val sprites: ItemSprites? // Ejemplo: sprites.default
+    val name: String,
+    val names: List<NameEntry>,
+    val cost: Int?,
+    val category: NamedApiResource?,
+    @SerializedName("effect_entries")
+    val effectEntries: List<VerboseEffect>?,
+    @SerializedName("flavor_text_entries")
+    val flavorTextEntries: List<ItemFlavorTextEntry>?,
+    val sprites: ItemSprites?
+)
+
+data class ItemFlavorTextEntry(
+    val text: String,
+    val language: NamedApiResource,
+    @SerializedName("version_group")
+    val versionGroup: NamedApiResource
 )
 
 data class ItemSprites(
     val default: String?
+)
+
+data class ItemListResponse(
+    val count: Int,
+    val next: String?,
+    val previous: String?,
+    val results: List<NamedApiResource>
+)
+
+@androidx.compose.runtime.Immutable
+data class ItemSummary(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val category: String?,
+    val cost: Int?,
+    val effect: String?,
+    val spriteUrl: String?
+)
+
+// --- Berries ---
+data class BerryListResponse(
+    val count: Int,
+    val next: String?,
+    val previous: String?,
+    val results: List<NamedApiResource>
+)
+
+data class BerryDetailResponse(
+    val id: Int,
+    val name: String,
+    @SerializedName("growth_time")
+    val growthTime: Int,
+    @SerializedName("max_harvest")
+    val maxHarvest: Int,
+    @SerializedName("natural_gift_power")
+    val naturalGiftPower: Int,
+    @SerializedName("natural_gift_type")
+    val naturalGiftType: NamedApiResource?,
+    val size: Int,
+    val smoothness: Int,
+    @SerializedName("soil_dryness")
+    val soilDryness: Int,
+    val firmness: NamedApiResource?,
+    val flavors: List<BerryFlavorMap>?,
+    val item: NamedApiResource
+)
+
+data class BerryFlavorMap(
+    val potency: Int,
+    val flavor: NamedApiResource
+)
+
+@androidx.compose.runtime.Immutable
+data class BerrySummary(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val naturalGiftType: String?,
+    val naturalGiftPower: Int,
+    val growthTime: Int,
+    val size: Int,
+    val smoothness: Int,
+    val maxHarvest: Int,
+    val spriteUrl: String?,
+    val flavors: Map<String, Int>
 )
 data class DisplayableEvolutionStage(
     val pokemonName: String,         // Nombre del Pokémon ya formateado/traducido

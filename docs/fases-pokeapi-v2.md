@@ -122,7 +122,7 @@ data class CharacteristicResponse(
 
 ---
 
-## FASE 3 - Navegador de Items y Bayas
+## FASE 3 - Navegador de Items y Bayas (COMPLETADA)
 
 ### Endpoints
 | Endpoint | Descripcion |

@@ -663,4 +663,151 @@ class PokemonViewModel : ViewModel() {
             _isLoadingMoveSummaries.value = false
         }
     }
+
+    // ====================== NAVEGADOR DE ITEMS ======================
+
+    private val _itemSummaries = MutableStateFlow<Map<Int, ItemSummary>>(emptyMap())
+    val itemSummaries: StateFlow<Map<Int, ItemSummary>> = _itemSummaries.asStateFlow()
+
+    private val _isLoadingItems = MutableStateFlow(false)
+    val isLoadingItems: StateFlow<Boolean> = _isLoadingItems.asStateFlow()
+
+    fun fetchItemList() {
+        if (_itemSummaries.value.isNotEmpty() || _isLoadingItems.value) return
+        _isLoadingItems.value = true
+        viewModelScope.launch {
+            try {
+                val cached = withContext(Dispatchers.IO) { pokemonDao.getAllItemSummaries() }
+                if (cached.isNotEmpty()) {
+                    _itemSummaries.value = cached.associate { it.id to it.toItemSummary() }
+                    _isLoadingItems.value = false
+                    return@launch
+                }
+
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getItemList(limit = 2000) }
+                if (res.isSuccessful) {
+                    val items = res.body()?.results ?: emptyList()
+                    val currentMap = mutableMapOf<Int, ItemSummary>()
+                    val semaphore = Semaphore(30)
+
+                    items.chunked(50).forEach { chunk ->
+                        val results = chunk.map { resource ->
+                            async(Dispatchers.IO) {
+                                semaphore.withPermit {
+                                    try {
+                                        val response = pokemonApiService.getItemDetailsByUrl(resource.url)
+                                        if (response.isSuccessful) {
+                                            val d = response.body() ?: return@withPermit null
+                                            val localName = d.names.find { it.language.name == "es" }?.name
+                                                ?: d.names.find { it.language.name == "en" }?.name
+                                                ?: formatApiName(d.name)
+                                            val effect = d.flavorTextEntries
+                                                ?.filter { it.language.name == "es" }
+                                                ?.firstOrNull { it.text.isNotBlank() }?.text
+                                                ?: d.effectEntries?.find { it.language.name == "es" }?.shortEffect
+                                                ?: d.effectEntries?.find { it.language.name == "en" }?.shortEffect
+                                            val catName = d.category?.name?.let { formatApiName(it) }
+                                            ItemSummary(
+                                                id = d.id, name = d.name, localizedName = localName,
+                                                category = catName, cost = d.cost,
+                                                effect = effect?.replace("\n", " ")?.replace("\u000c", " "),
+                                                spriteUrl = d.sprites?.default
+                                            )
+                                        } else null
+                                    } catch (_: Exception) { null }
+                                }
+                            }
+                        }.awaitAll().filterNotNull()
+                        results.forEach { currentMap[it.id] = it }
+                        _itemSummaries.value = currentMap.toMap()
+                    }
+
+                    withContext(Dispatchers.IO) {
+                        pokemonDao.insertItemSummaries(currentMap.values.map {
+                            com.david.pokedex_api.api.db.ItemSummaryEntity.from(it)
+                        })
+                    }
+                }
+            } catch (e: Exception) { handleError("Error cargando items: ${e.message}") }
+            finally { _isLoadingItems.value = false }
+        }
+    }
+
+    // ====================== NAVEGADOR DE BAYAS ======================
+
+    private val _berrySummaries = MutableStateFlow<Map<Int, BerrySummary>>(emptyMap())
+    val berrySummaries: StateFlow<Map<Int, BerrySummary>> = _berrySummaries.asStateFlow()
+
+    private val _isLoadingBerries = MutableStateFlow(false)
+    val isLoadingBerries: StateFlow<Boolean> = _isLoadingBerries.asStateFlow()
+
+    fun fetchBerryList() {
+        if (_berrySummaries.value.isNotEmpty() || _isLoadingBerries.value) return
+        _isLoadingBerries.value = true
+        viewModelScope.launch {
+            try {
+                val cached = withContext(Dispatchers.IO) { pokemonDao.getAllBerrySummaries() }
+                if (cached.isNotEmpty()) {
+                    _berrySummaries.value = cached.associate { it.id to it.toBerrySummary() }
+                    _isLoadingBerries.value = false
+                    return@launch
+                }
+
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getBerryList(limit = 100) }
+                if (res.isSuccessful) {
+                    val berries = res.body()?.results ?: emptyList()
+                    val currentMap = mutableMapOf<Int, BerrySummary>()
+                    val semaphore = Semaphore(20)
+
+                    berries.map { resource ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val bRes = pokemonApiService.getBerryDetailsByUrl(resource.url)
+                                    if (bRes.isSuccessful) {
+                                        val b = bRes.body() ?: return@withPermit null
+                                        // Get item details for localized name and sprite
+                                        val iRes = pokemonApiService.getItemDetailsByUrl(b.item.url)
+                                        val item = iRes.body()
+                                        val localName = item?.names?.find { it.language.name == "es" }?.name
+                                            ?: item?.names?.find { it.language.name == "en" }?.name
+                                            ?: formatApiName(b.name)
+                                        val flavors = b.flavors?.associate {
+                                            translateBerryFlavor(it.flavor.name) to it.potency
+                                        } ?: emptyMap()
+                                        BerrySummary(
+                                            id = b.id, name = b.name, localizedName = localName,
+                                            naturalGiftType = b.naturalGiftType?.name,
+                                            naturalGiftPower = b.naturalGiftPower,
+                                            growthTime = b.growthTime, size = b.size,
+                                            smoothness = b.smoothness, maxHarvest = b.maxHarvest,
+                                            spriteUrl = item?.sprites?.default,
+                                            flavors = flavors
+                                        )
+                                    } else null
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                    }.awaitAll().filterNotNull().forEach { currentMap[it.id] = it }
+
+                    _berrySummaries.value = currentMap.toMap()
+                    withContext(Dispatchers.IO) {
+                        pokemonDao.insertBerrySummaries(currentMap.values.map {
+                            com.david.pokedex_api.api.db.BerrySummaryEntity.from(it)
+                        })
+                    }
+                }
+            } catch (e: Exception) { handleError("Error cargando bayas: ${e.message}") }
+            finally { _isLoadingBerries.value = false }
+        }
+    }
+
+    private fun translateBerryFlavor(name: String): String = when (name.lowercase()) {
+        "spicy" -> "Picante"
+        "dry" -> "Seco"
+        "sweet" -> "Dulce"
+        "bitter" -> "Amargo"
+        "sour" -> "Acido"
+        else -> formatApiName(name)
+    }
 }
