@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -118,7 +119,7 @@ fun EvolutionStageView(
             modifier = Modifier
                 .wrapContentSize(),
             //.background(Color.Transparent), // El fondo del Card es manejado por sus colors
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(0.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.elevatedCardColors(containerColor = color) // Fondo de la tarjeta
         ) {
@@ -237,7 +238,8 @@ fun PokemonEvolutionChainView(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxSize(),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = color1)
     ) {
         Column(

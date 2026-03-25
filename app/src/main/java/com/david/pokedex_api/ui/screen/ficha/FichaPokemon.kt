@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -206,121 +207,54 @@ fun PokemonDetailsView(
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
     pokemonViewModel: PokemonViewModel,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
-    encounters: List<com.david.pokedex_api.api.model.DisplayableEncounter> = emptyList(),
+    encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false
 ) {
-    val spanishGenus = remember(pokemonSpecies) { // Recalcular solo si pokemonSpecies cambia
+    val spanishGenus = remember(pokemonSpecies) {
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
     }
 
     val spanishPokemonName = remember(pokemonSpecies, pokemon) {
-        // Primero intenta obtener el nombre en español de pokemonSpecies
         val localizedName = pokemonSpecies?.localizedNames?.find { it.language.name == "es" }?.name
-        // Si no se encuentra, usa el nombre de pokemon.name (que suele ser el nombre científico/inglés)
-        // o el nombre de la especie si el localizado no está pero la especie sí.
         localizedName ?: pokemonSpecies?.name ?: pokemon.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
     }
-    ConstraintLayout(
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(color = getPokemonTypeColorClear(pokemon.types[0].type.name).copy(alpha = 0.5f))
     ) {
-        val (imagen, nombre_num_altura_peso_tipos, desplegables) = createRefs()
-        Row(
+        // Header fijo: imagen + nombre
+        ComponenteImagen(pokemon = pokemon, nombreSpanish = spanishPokemonName)
+
+        NombreNumAlturaPeso(
+            colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
+            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) Color.White else Color.Black,
+            nombre = spanishPokemonName,
+            numero = pokemon.id,
+            genus = spanishGenus,
+            altura = pokemon.height.toDouble(),
+            peso = pokemon.weight.toDouble(),
+            modifier = Modifier.fillMaxWidth(),
+            tipo = pokemon.types[0].type.name
+        )
+
+        // Contenido con FAB de secciones - sin separacion
+        DetallesDesplegables(
+            pokemon = pokemon,
+            evolutionChainDetailResponse = evolutionChainDetailResponse,
+            isLoadingEvolutionChain = isLoadingEvolutionChain,
+            onEvolutionPokemonClick = onEvolutionPokemonClick,
+            description = description,
+            pokemonApiService = pokemonViewModel.pokemonApiService,
+            moveDetailsMap = moveDetailsMap,
+            pokemonSpecies = pokemonSpecies,
+            encounters = encounters,
+            isLoadingEncounters = isLoadingEncounters,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .constrainAs(imagen) {
-                    top.linkTo(parent.top)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                }
-
-        ) {
-            ComponenteImagen(pokemon = pokemon, nombreSpanish = spanishPokemonName)
-//            ComponenteImagenHomeSprite(pokemon = pokemon)
-
-        }
-        //nombre, número, altura y peso
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.15f)
-                .constrainAs(nombre_num_altura_peso_tipos) {
-                    top.linkTo(imagen.bottom)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                    bottom.linkTo(desplegables.top)
-                },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-//            Spacer(modifier = Modifier.weight(0.05f))
-            Column(
-                modifier = Modifier.weight(0.65f)
-            ){
-                NombreNumAlturaPeso(
-                    colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
-                    colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) {
-                        Color.White
-                    } else {
-                        Color.Black // Reemplaza CardBorder si no está definido globalmente
-                        // o define CardBorder en tu tema.
-                    },
-                    nombre = spanishPokemonName,
-                    numero = pokemon.id,
-                    genus = spanishGenus, // <--- PASAR EL GENUS EXTRAÍDO
-                    altura = pokemon.height.toDouble(),
-                    peso = pokemon.weight.toDouble(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 3.dp)
-                        .background(Color.Transparent),
-                    tipo = pokemon.types[0].type.name
-                )
-            }
-            /*
-            Column(
-                modifier = Modifier.weight(0.25f)
-            ){
-                pokemon.types.forEach { typeInfo ->
-                    PokemonTypeChip(
-                        typeName = typeInfo.type.name,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 16.dp)
-                    )
-                }
-            }
-            */
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(1f)
-                .constrainAs(desplegables) {
-                    top.linkTo(nombre_num_altura_peso_tipos.bottom)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                }
-                .padding(horizontal = 16.dp), // Padding horizontal para el contenido de la LazyColumn
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
-        ) {
-            DetallesDesplegables(
-                pokemon,
-                evolutionChainDetailResponse,
-                isLoadingEvolutionChain,
-                onEvolutionPokemonClick,
-                description,
-                pokemonApiService = pokemonViewModel.pokemonApiService,
-                moveDetailsMap = moveDetailsMap,
-                pokemonSpecies = pokemonSpecies,
-                encounters = encounters,
-                isLoadingEncounters = isLoadingEncounters
-            )
-        }
+                .weight(1f)
+        )
     }
 }
 

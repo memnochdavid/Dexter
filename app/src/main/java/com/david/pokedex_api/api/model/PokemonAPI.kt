@@ -513,6 +513,18 @@ data class DisplayableEncounterMethod(
     val chance: Int
 )
 
+// Agrupado por juego
+data class GameEncounterGroup(
+    val versionName: String,
+    val locations: List<GameEncounterLocation>
+)
+
+data class GameEncounterLocation(
+    val locationName: String,
+    val maxChance: Int,
+    val methods: List<DisplayableEncounterMethod>
+)
+
 data class MoveListResponse(
     val count: Int,
     val next: String?,

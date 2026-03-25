@@ -140,7 +140,7 @@ fun SpecialFormDisplay(
             modifier = modifier
                 .widthIn(min = 70.dp, max = 90.dp) // Ancho
                 .height(IntrinsicSize.Min), // Para que la altura se ajuste al contenido interno
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(0.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
