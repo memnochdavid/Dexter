@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -165,14 +166,13 @@ fun PokemonSpecialFormsView(
 
     Card(
         modifier = modifier
-            .fillMaxWidth(), // La altura será manejada por el contenido o AnimatedVisibility
-        shape = RoundedCornerShape(12.dp),
-//        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor) // Color de fondo principal de la tarjeta
+            .fillMaxSize(),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
             // No es necesario .background(cardColor) aquí ya que se define en CardDefaults
         ) {
             Row( // Encabezado clickeable
@@ -242,7 +242,7 @@ fun SpecialFormItemView(
         onClick = onClick,
         modifier = modifier
             .wrapContentSize(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = backgroundColor
         ),

@@ -45,8 +45,7 @@ fun InfoPokemon(
 ) {
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .fillMaxSize()
             .background(colorFondo)
     ) {
         // Titulo

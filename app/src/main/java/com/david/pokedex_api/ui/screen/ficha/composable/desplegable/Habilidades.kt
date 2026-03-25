@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -56,9 +57,8 @@ fun PokemonAbilitiesList(
     }
 
     Column(
-        modifier = modifier // Este modifier debería venir con .fillMaxHeight() desde DetallesDesplegables
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+        modifier = modifier
+            .fillMaxSize()
             .background(backgroundColor)
 //            .padding(vertical = 8.dp) // Padding interno
     ) {

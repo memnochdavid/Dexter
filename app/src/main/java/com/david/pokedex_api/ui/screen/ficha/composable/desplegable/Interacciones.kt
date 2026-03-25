@@ -90,8 +90,7 @@ fun PokemonTypeInteractionsTable(
 
         LazyColumn(
             modifier = modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .fillMaxSize()
                 .background(tableBackgroundColor)
                 .scrollable(rememberScrollState(), orientation = Orientation.Vertical) // Hacer que la tabla sea scrollable
                 .padding(vertical = 8.dp, horizontal = 12.dp)

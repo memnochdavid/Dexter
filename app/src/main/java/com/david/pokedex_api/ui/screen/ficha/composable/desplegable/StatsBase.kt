@@ -72,8 +72,7 @@ fun formatStatName(statName: String): String {
 fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, colorTexto: Color = Color.White) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .fillMaxSize()
             .background(colorFondo)
     ) {
         Row(

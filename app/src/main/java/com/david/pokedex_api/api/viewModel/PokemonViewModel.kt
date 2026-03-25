@@ -421,8 +421,8 @@ class PokemonViewModel : ViewModel() {
 
     // ====================== ENCUENTROS ======================
 
-    private val _pokemonEncounters = MutableStateFlow<List<DisplayableEncounter>>(emptyList())
-    val pokemonEncounters: StateFlow<List<DisplayableEncounter>> = _pokemonEncounters.asStateFlow()
+    private val _pokemonEncounters = MutableStateFlow<List<GameEncounterGroup>>(emptyList())
+    val pokemonEncounters: StateFlow<List<GameEncounterGroup>> = _pokemonEncounters.asStateFlow()
 
     private val _isLoadingEncounters = MutableStateFlow(false)
     val isLoadingEncounters: StateFlow<Boolean> = _isLoadingEncounters.asStateFlow()
@@ -435,11 +435,21 @@ class PokemonViewModel : ViewModel() {
                 val res = withContext(Dispatchers.IO) { pokemonApiService.getPokemonEncounters(pokemonId) }
                 if (res.isSuccessful) {
                     val encounters = res.body() ?: emptyList()
-                    val displayable = encounters.map { encounter ->
+
+                    // Paso 1: recopilar todos los pares (version, location, methods)
+                    data class FlatEncounter(
+                        val versionName: String,
+                        val locationName: String,
+                        val maxChance: Int,
+                        val methods: List<DisplayableEncounterMethod>
+                    )
+
+                    val flat = mutableListOf<FlatEncounter>()
+                    for (encounter in encounters) {
                         val locationName = withContext(Dispatchers.IO) {
                             fetchLocalizedName(encounter.locationArea.url, encounter.locationArea.name, "location-area")
                         }
-                        val versions = encounter.versionDetails.map { vd ->
+                        for (vd in encounter.versionDetails) {
                             val methods = vd.encounterDetails.map { ed ->
                                 DisplayableEncounterMethod(
                                     methodName = translateEncounterMethod(ed.method.name),
@@ -448,15 +458,30 @@ class PokemonViewModel : ViewModel() {
                                     chance = ed.chance
                                 )
                             }
-                            DisplayableVersionEncounter(
+                            flat.add(FlatEncounter(
                                 versionName = translateVersionName(vd.version.name),
+                                locationName = locationName,
                                 maxChance = vd.maxChance,
                                 methods = methods
-                            )
+                            ))
                         }
-                        DisplayableEncounter(locationName = locationName, versions = versions)
                     }
-                    _pokemonEncounters.value = displayable
+
+                    // Paso 2: agrupar por version
+                    val grouped = flat.groupBy { it.versionName }.map { (version, entries) ->
+                        GameEncounterGroup(
+                            versionName = version,
+                            locations = entries.map { e ->
+                                GameEncounterLocation(
+                                    locationName = e.locationName,
+                                    maxChance = e.maxChance,
+                                    methods = e.methods
+                                )
+                            }.sortedByDescending { it.maxChance }
+                        )
+                    }.sortedBy { it.versionName }
+
+                    _pokemonEncounters.value = grouped
                 }
             } catch (e: Exception) {
                 handleError("Error cargando encuentros: ${e.message}")

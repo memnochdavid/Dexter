@@ -1,12 +1,6 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +15,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,126 +37,168 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.R
-import com.david.pokedex_api.api.model.DisplayableEncounter
+import com.david.pokedex_api.api.model.GameEncounterGroup
+import com.david.pokedex_api.api.model.GameEncounterLocation
 import com.david.pokedex_api.util.Lottie
 
 @Composable
 fun PokemonEncountersView(
-    encounters: List<DisplayableEncounter>,
+    encounters: List<GameEncounterGroup>,
     isLoading: Boolean,
     colorFondo: Color,
     colorTexto: Color,
+    colorDropdown: Color = colorFondo,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .fillMaxSize()
             .background(colorFondo)
     ) {
-        Text(
-            text = "Encuentros",
-            textAlign = TextAlign.Center,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colorTexto,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp)
-        )
-
         if (isLoading) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
+                    .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
             }
         } else if (encounters.isEmpty()) {
-            Text(
-                text = "No se encuentra en estado salvaje",
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp,
-                color = colorTexto.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                items(items = encounters, key = { it.locationName }) { encounter ->
-                    EncounterLocationCard(
-                        encounter = encounter,
-                        colorTexto = colorTexto
-                    )
-                }
-                item { Spacer(Modifier.height(8.dp)) }
+                Text(
+                    text = "No se encuentra en estado salvaje",
+                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp,
+                    color = colorTexto.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(16.dp)
+                )
             }
-        }
-    }
-}
+        } else {
+            var selectedVersion by rememberSaveable { mutableStateOf(encounters.first().versionName) }
+            val currentLocations = remember(selectedVersion, encounters) {
+                encounters.find { it.versionName == selectedVersion }?.locations ?: emptyList()
+            }
 
-@Composable
-private fun EncounterLocationCard(
-    encounter: DisplayableEncounter,
-    colorTexto: Color
-) {
-    var isExpanded by rememberSaveable(key = "enc_${encounter.locationName}") { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(colorTexto.copy(alpha = 0.08f))
-            .clickable { isExpanded = !isExpanded }
-            .padding(10.dp)
-    ) {
-        // Nombre de la ubicacion
-        Text(
-            text = encounter.locationName,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = colorTexto
-        )
-
-        // Resumen: cuantas versiones
-        Text(
-            text = "${encounter.versions.size} versiones",
-            style = MaterialTheme.typography.bodySmall,
-            color = colorTexto.copy(alpha = 0.6f)
-        )
-
-        // Detalle expandible
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
-        ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
-                encounter.versions.forEach { version ->
-                    VersionEncounterRow(version = version, colorTexto = colorTexto)
+                // Titulo
+                Text(
+                    text = "Ubicaciones",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorTexto,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                )
+
+                // Selector de juego
+                EncounterVersionSelector(
+                    versions = encounters.map { it.versionName },
+                    selectedVersion = selectedVersion,
+                    onVersionSelected = { selectedVersion = it },
+                    colorDropdown = colorDropdown,
+                    colorTexto = colorTexto
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // Ubicaciones del juego seleccionado
+                if (currentLocations.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Sin ubicaciones para este juego",
+                            color = colorTexto.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(items = currentLocations, key = { it.locationName }) { location ->
+                            LocationEncounterRow(location = location, colorTexto = colorTexto)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VersionEncounterRow(
-    version: com.david.pokedex_api.api.model.DisplayableVersionEncounter,
+private fun EncounterVersionSelector(
+    versions: List<String>,
+    selectedVersion: String,
+    onVersionSelected: (String) -> Unit,
+    colorDropdown: Color,
+    colorTexto: Color
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedVersion,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            shape = RoundedCornerShape(10.dp),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                focusedContainerColor = colorDropdown.copy(alpha = 0.5f),
+                unfocusedContainerColor = colorDropdown.copy(alpha = 0.3f),
+                focusedBorderColor = colorTexto.copy(alpha = 0.3f),
+                unfocusedBorderColor = colorTexto.copy(alpha = 0.15f),
+                focusedTextColor = colorTexto,
+                unfocusedTextColor = colorTexto,
+                focusedTrailingIconColor = colorTexto,
+                unfocusedTrailingIconColor = colorTexto.copy(alpha = 0.6f)
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(colorDropdown)
+        ) {
+            versions.forEach { version ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = version,
+                            fontWeight = if (version == selectedVersion) FontWeight.Bold else FontWeight.Normal,
+                            color = colorTexto
+                        )
+                    },
+                    onClick = {
+                        onVersionSelected(version)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocationEncounterRow(
+    location: GameEncounterLocation,
     colorTexto: Color
 ) {
     Column(
@@ -172,21 +214,18 @@ private fun VersionEncounterRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = version.versionName,
+                text = location.locationName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = colorTexto
+                color = colorTexto,
+                modifier = Modifier.weight(1f)
             )
-            // Barra de probabilidad
-            ChanceIndicator(
-                chance = version.maxChance,
-                colorTexto = colorTexto
-            )
+            ChanceIndicator(chance = location.maxChance, colorTexto = colorTexto)
         }
 
         Spacer(Modifier.height(4.dp))
 
-        version.methods.forEach { method ->
+        location.methods.forEach { method ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

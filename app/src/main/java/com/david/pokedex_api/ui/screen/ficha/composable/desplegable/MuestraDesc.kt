@@ -24,11 +24,12 @@ fun MuestraDesc(
     numPokemon: String,
     desc: String,
     colorFondo: Color,
-    colorTexto: Color)
+    colorTexto: Color,
+    modifier: Modifier = Modifier)
 {
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(Color.Transparent),
     ) {
