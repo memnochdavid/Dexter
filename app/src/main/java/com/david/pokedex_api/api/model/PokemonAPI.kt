@@ -545,6 +545,86 @@ data class PokemonTypeSlot(
     val type: PokemonType
 )
 
+// --- Regions & Locations ---
+data class RegionListResponse(
+    val count: Int,
+    val results: List<NamedApiResource>
+)
+
+data class RegionDetailResponse(
+    val id: Int,
+    val name: String,
+    val names: List<NameEntry>,
+    @SerializedName("main_generation")
+    val mainGeneration: NamedApiResource?,
+    val locations: List<NamedApiResource>,
+    val pokedexes: List<NamedApiResource>?,
+    @SerializedName("version_groups")
+    val versionGroups: List<NamedApiResource>?
+)
+
+data class LocationDetailResponse(
+    val id: Int,
+    val name: String,
+    val names: List<NameEntry>,
+    val region: NamedApiResource?,
+    val areas: List<NamedApiResource>?
+)
+
+data class LocationAreaDetailResponse(
+    val id: Int,
+    val name: String,
+    val names: List<NameEntry>,
+    val location: NamedApiResource?,
+    @SerializedName("pokemon_encounters")
+    val pokemonEncounters: List<LocationAreaEncounter>?
+)
+
+data class LocationAreaEncounter(
+    val pokemon: NamedApiResource,
+    @SerializedName("version_details")
+    val versionDetails: List<LocationAreaVersionDetail>
+)
+
+data class LocationAreaVersionDetail(
+    val version: NamedApiResource,
+    @SerializedName("max_chance")
+    val maxChance: Int,
+    @SerializedName("encounter_details")
+    val encounterDetails: List<EncounterDetail>
+)
+
+// Display models
+data class DisplayableRegion(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val generation: String?,
+    val locationCount: Int
+)
+
+data class DisplayableLocation(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val areaCount: Int
+)
+
+data class DisplayableLocationArea(
+    val name: String,
+    val localizedName: String,
+    val pokemonEncounters: List<DisplayableAreaPokemon>
+)
+
+data class DisplayableAreaPokemon(
+    val pokemonName: String,
+    val spriteUrl: String,
+    val maxChance: Int,
+    val minLevel: Int,
+    val maxLevel: Int,
+    val method: String
+)
+
 // --- Encounters ---
 data class PokemonEncounterResponse(
     @SerializedName("location_area")

@@ -10,6 +10,10 @@ import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.BerryDetailResponse
 import com.david.pokedex_api.api.model.BerryListResponse
 import com.david.pokedex_api.api.model.ItemListResponse
+import com.david.pokedex_api.api.model.LocationAreaDetailResponse
+import com.david.pokedex_api.api.model.LocationDetailResponse
+import com.david.pokedex_api.api.model.RegionDetailResponse
+import com.david.pokedex_api.api.model.RegionListResponse
 import com.david.pokedex_api.api.model.MoveListResponse
 import com.david.pokedex_api.api.model.PokemonEncounterResponse
 import com.david.pokedex_api.api.model.PokemonDetailResponse
@@ -129,5 +133,18 @@ interface PokeApiService {
 
     @GET
     suspend fun getBerryDetailsByUrl(@Url url: String): Response<BerryDetailResponse>
+
+    // --- Regions & Locations ---
+    @GET("region")
+    suspend fun getRegionList(@Query("limit") limit: Int = 100): Response<RegionListResponse>
+
+    @GET
+    suspend fun getRegionDetailsByUrl(@Url url: String): Response<RegionDetailResponse>
+
+    @GET
+    suspend fun getLocationDetailsByUrl(@Url url: String): Response<LocationDetailResponse>
+
+    @GET
+    suspend fun getLocationAreaDetailsByUrl(@Url url: String): Response<LocationAreaDetailResponse>
 
 }

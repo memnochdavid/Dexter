@@ -190,7 +190,7 @@ data class BerryFlavorMap(
 
 ---
 
-## FASE 4 - Navegador de Ubicaciones y Regiones
+## FASE 4 - Navegador de Ubicaciones y Regiones (COMPLETADA)
 
 ### Endpoints
 | Endpoint | Descripcion |
