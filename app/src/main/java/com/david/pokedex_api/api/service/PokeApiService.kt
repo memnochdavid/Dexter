@@ -9,6 +9,14 @@ import com.david.pokedex_api.api.model.ItemDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
 import com.david.pokedex_api.api.model.BerryDetailResponse
 import com.david.pokedex_api.api.model.BerryListResponse
+import com.david.pokedex_api.api.model.ContestEffectResponse
+import com.david.pokedex_api.api.model.ContestTypeDetailResponse
+import com.david.pokedex_api.api.model.ContestTypeListResponse
+import com.david.pokedex_api.api.model.MachineResponse
+import com.david.pokedex_api.api.model.NatureDetailResponse
+import com.david.pokedex_api.api.model.NatureListResponse
+import com.david.pokedex_api.api.model.PokemonShapeResponse
+import com.david.pokedex_api.api.model.SuperContestEffectResponse
 import com.david.pokedex_api.api.model.ItemListResponse
 import com.david.pokedex_api.api.model.LocationAreaDetailResponse
 import com.david.pokedex_api.api.model.LocationDetailResponse
@@ -146,5 +154,33 @@ interface PokeApiService {
 
     @GET
     suspend fun getLocationAreaDetailsByUrl(@Url url: String): Response<LocationAreaDetailResponse>
+
+    // --- Machines ---
+    @GET("machine/{id}")
+    suspend fun getMachineById(@Path("id") id: Int): Response<MachineResponse>
+
+    // --- Contests ---
+    @GET("contest-type")
+    suspend fun getContestTypeList(): Response<ContestTypeListResponse>
+
+    @GET
+    suspend fun getContestTypeDetailsByUrl(@Url url: String): Response<ContestTypeDetailResponse>
+
+    @GET("contest-effect/{id}")
+    suspend fun getContestEffectById(@Path("id") id: Int): Response<ContestEffectResponse>
+
+    @GET("super-contest-effect/{id}")
+    suspend fun getSuperContestEffectById(@Path("id") id: Int): Response<SuperContestEffectResponse>
+
+    // --- Natures ---
+    @GET("nature")
+    suspend fun getNatureList(@Query("limit") limit: Int = 25): Response<NatureListResponse>
+
+    @GET
+    suspend fun getNatureDetailsByUrl(@Url url: String): Response<NatureDetailResponse>
+
+    // --- Pokemon Shape ---
+    @GET("pokemon-shape/{id}")
+    suspend fun getPokemonShapeById(@Path("id") id: Int): Response<PokemonShapeResponse>
 
 }

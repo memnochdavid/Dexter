@@ -260,7 +260,7 @@ data class PokemonEntry(
 
 ---
 
-## FASE 5 - Maquinas, Concursos y Extras
+## FASE 5 - Maquinas, Concursos y Extras (COMPLETADA)
 
 ### Maquinas (MT/MO)
 | Endpoint | Descripcion |

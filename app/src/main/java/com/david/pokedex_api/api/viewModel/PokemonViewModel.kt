@@ -947,4 +947,99 @@ class PokemonViewModel : ViewModel() {
             finally { _isLoadingAreas.value = false }
         }
     }
+
+    // ====================== NATURALEZAS ======================
+
+    private val _natures = MutableStateFlow<List<DisplayableNature>>(emptyList())
+    val natures: StateFlow<List<DisplayableNature>> = _natures.asStateFlow()
+
+    private val _isLoadingNatures = MutableStateFlow(false)
+    val isLoadingNatures: StateFlow<Boolean> = _isLoadingNatures.asStateFlow()
+
+    fun fetchNatures() {
+        if (_natures.value.isNotEmpty() || _isLoadingNatures.value) return
+        _isLoadingNatures.value = true
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getNatureList() }
+                if (res.isSuccessful) {
+                    val resources = res.body()?.results ?: emptyList()
+                    val semaphore = Semaphore(10)
+                    val displayable = resources.map { resource ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val detail = pokemonApiService.getNatureDetailsByUrl(resource.url)
+                                    if (detail.isSuccessful) {
+                                        val d = detail.body() ?: return@withPermit null
+                                        val localName = d.names.find { it.language.name == "es" }?.name
+                                            ?: d.names.find { it.language.name == "en" }?.name
+                                            ?: formatApiName(d.name)
+                                        DisplayableNature(
+                                            id = d.id, name = d.name, localizedName = localName,
+                                            increasedStat = d.increasedStat?.name?.let { formatStatName(it) },
+                                            decreasedStat = d.decreasedStat?.name?.let { formatStatName(it) }
+                                        )
+                                    } else null
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                    }.awaitAll().filterNotNull().sortedBy { it.id }
+                    _natures.value = displayable
+                }
+            } catch (e: Exception) { handleError("Error cargando naturalezas: ${e.message}") }
+            finally { _isLoadingNatures.value = false }
+        }
+    }
+
+    private fun formatStatName(statName: String): String = when (statName.lowercase()) {
+        "hp" -> "PS"
+        "attack" -> "Ataque"
+        "defense" -> "Defensa"
+        "special-attack" -> "At. Esp."
+        "special-defense" -> "Def. Esp."
+        "speed" -> "Velocidad"
+        else -> formatApiName(statName)
+    }
+
+    // ====================== CONCURSOS ======================
+
+    private val _contestTypes = MutableStateFlow<List<DisplayableContestType>>(emptyList())
+    val contestTypes: StateFlow<List<DisplayableContestType>> = _contestTypes.asStateFlow()
+
+    private val _isLoadingContests = MutableStateFlow(false)
+    val isLoadingContests: StateFlow<Boolean> = _isLoadingContests.asStateFlow()
+
+    fun fetchContestTypes() {
+        if (_contestTypes.value.isNotEmpty() || _isLoadingContests.value) return
+        _isLoadingContests.value = true
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { pokemonApiService.getContestTypeList() }
+                if (res.isSuccessful) {
+                    val resources = res.body()?.results ?: emptyList()
+                    val displayable = resources.map { resource ->
+                        async(Dispatchers.IO) {
+                            try {
+                                val detail = pokemonApiService.getContestTypeDetailsByUrl(resource.url)
+                                if (detail.isSuccessful) {
+                                    val d = detail.body() ?: return@async null
+                                    val esName = d.names.find { it.language.name == "es" }
+                                    val enName = d.names.find { it.language.name == "en" }
+                                    DisplayableContestType(
+                                        id = d.id, name = d.name,
+                                        localizedName = esName?.name ?: enName?.name ?: formatApiName(d.name),
+                                        color = esName?.color ?: enName?.color ?: "",
+                                        berryFlavor = d.berryFlavor?.name?.let { translateBerryFlavor(it) }
+                                    )
+                                } else null
+                            } catch (_: Exception) { null }
+                        }
+                    }.awaitAll().filterNotNull().sortedBy { it.id }
+                    _contestTypes.value = displayable
+                }
+            } catch (e: Exception) { handleError("Error cargando concursos: ${e.message}") }
+            finally { _isLoadingContests.value = false }
+        }
+    }
 }
