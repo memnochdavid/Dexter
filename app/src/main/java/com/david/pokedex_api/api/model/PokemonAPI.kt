@@ -625,6 +625,107 @@ data class DisplayableAreaPokemon(
     val method: String
 )
 
+// --- Machines (TM/HM) ---
+data class MachineResponse(
+    val id: Int,
+    val item: NamedApiResource,
+    val move: NamedApiResource,
+    @SerializedName("version_group")
+    val versionGroup: NamedApiResource
+)
+
+// --- Contests ---
+data class ContestTypeListResponse(
+    val count: Int,
+    val results: List<NamedApiResource>
+)
+
+data class ContestTypeDetailResponse(
+    val id: Int,
+    val name: String,
+    val names: List<ContestName>,
+    @SerializedName("berry_flavor")
+    val berryFlavor: NamedApiResource?
+)
+
+data class ContestName(
+    val name: String,
+    val color: String,
+    val language: NamedApiResource
+)
+
+data class ContestEffectResponse(
+    val id: Int,
+    val appeal: Int,
+    val jam: Int,
+    @SerializedName("effect_entries")
+    val effectEntries: List<EffectEntry>,
+    @SerializedName("flavor_text_entries")
+    val flavorTextEntries: List<FlavorTextSimple>
+)
+
+data class SuperContestEffectResponse(
+    val id: Int,
+    val appeal: Int,
+    @SerializedName("flavor_text_entries")
+    val flavorTextEntries: List<FlavorTextSimple>,
+    val moves: List<NamedApiResource>
+)
+
+data class EffectEntry(
+    val effect: String,
+    val language: NamedApiResource
+)
+
+data class FlavorTextSimple(
+    @SerializedName("flavor_text")
+    val flavorText: String,
+    val language: NamedApiResource
+)
+
+// --- Pokemon Shape ---
+data class PokemonShapeResponse(
+    val id: Int,
+    val name: String,
+    val names: List<NameEntry>,
+    @SerializedName("pokemon_species")
+    val pokemonSpecies: List<NamedApiResource>
+)
+
+// --- Nature ---
+data class NatureListResponse(
+    val count: Int,
+    val results: List<NamedApiResource>
+)
+
+data class NatureDetailResponse(
+    val id: Int,
+    val name: String,
+    val names: List<NameEntry>,
+    @SerializedName("increased_stat")
+    val increasedStat: NamedApiResource?,
+    @SerializedName("decreased_stat")
+    val decreasedStat: NamedApiResource?
+)
+
+@androidx.compose.runtime.Immutable
+data class DisplayableNature(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val increasedStat: String?,
+    val decreasedStat: String?
+)
+
+@androidx.compose.runtime.Immutable
+data class DisplayableContestType(
+    val id: Int,
+    val name: String,
+    val localizedName: String,
+    val color: String,
+    val berryFlavor: String?
+)
+
 // --- Encounters ---
 data class PokemonEncounterResponse(
     @SerializedName("location_area")
