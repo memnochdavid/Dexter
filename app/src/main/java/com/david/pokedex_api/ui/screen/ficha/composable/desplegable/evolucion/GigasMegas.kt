@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import com.david.pokedex_api.R
-import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -44,9 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.SpecialForm
 import com.david.pokedex_api.api.service.PokeApiService
-import com.david.pokedex_api.ui.theme.color_agua_light
+import com.david.pokedex_api.util.Lottie
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
