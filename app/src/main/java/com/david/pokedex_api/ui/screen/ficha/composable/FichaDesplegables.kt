@@ -222,19 +222,29 @@ fun DetallesDesplegables(
                                 colorTexto = colorTexto
                             )
 
-                            // Descripcion centrada
+                            // Descripcion que escala el texto al espacio disponible
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
+                                val fontSize = remember(currentText) {
+                                    when {
+                                        currentText.length < 60 -> 24.sp
+                                        currentText.length < 100 -> 20.sp
+                                        currentText.length < 160 -> 18.sp
+                                        currentText.length < 250 -> 16.sp
+                                        else -> 14.sp
+                                    }
+                                }
                                 Text(
                                     text = currentText,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontSize = fontSize,
+                                    lineHeight = fontSize * 1.4f,
                                     color = colorTexto,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
