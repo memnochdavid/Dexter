@@ -227,34 +227,37 @@ fun PokemonEvolutionChainView(
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
                 if (isLinear && linearEvolutionPath.isNotEmpty()) {
-                    // LINEAL: lista vertical de cards con flechas entre ellos
-                    Column(
+                    // LINEAL: lista vertical scrollable con flechas entre cards
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
-                            val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-                                value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-                            }
-                            EvolutionStageView(
-                                chainLink = chainLink,
-                                builtEvolutionCondition = condition,
-                                onClick = onPokemonClick,
-                                viewModel = viewModel,
-                                color = color2,
-                                colorTexto = colorTexto,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            if (index < linearEvolutionPath.size - 1) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowDropDown,
-                                    contentDescription = "Evolves to",
-                                    modifier = Modifier.size(28.dp),
-                                    tint = colorTexto
+                            item(key = "evo_${chainLink.species.name}") {
+                                val condition by produceState<String?>(initialValue = null, evolutionDetail) {
+                                    value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
+                                }
+                                EvolutionStageView(
+                                    chainLink = chainLink,
+                                    builtEvolutionCondition = condition,
+                                    onClick = onPokemonClick,
+                                    viewModel = viewModel,
+                                    color = color2,
+                                    colorTexto = colorTexto,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                            if (index < linearEvolutionPath.size - 1) {
+                                item(key = "arrow_$index") {
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowDropDown,
+                                        contentDescription = "Evolves to",
+                                        modifier = Modifier.size(28.dp),
+                                        tint = colorTexto
+                                    )
+                                }
                             }
                         }
                     }
