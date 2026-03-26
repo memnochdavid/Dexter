@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [PokemonSummaryEntity::class, MoveSummaryEntity::class, ItemSummaryEntity::class, BerrySummaryEntity::class],
-    version = 3,
+    entities = [PokemonSummaryEntity::class, MoveSummaryEntity::class, ItemSummaryEntity::class, BerrySummaryEntity::class, WikiDexCacheEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class DexterDatabase : RoomDatabase() {
@@ -33,6 +33,21 @@ abstract class DexterDatabase : RoomDatabase() {
                         `pp` INTEGER,
                         `accuracy` INTEGER,
                         `description` TEXT
+                    )
+                """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `wikidex_cache` (
+                        `pokemonName` TEXT NOT NULL,
+                        `dataType` TEXT NOT NULL,
+                        `dataKey` TEXT NOT NULL,
+                        `value` TEXT NOT NULL,
+                        `fetchedAtMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`pokemonName`, `dataType`, `dataKey`)
                     )
                 """.trimIndent())
             }
@@ -76,7 +91,7 @@ abstract class DexterDatabase : RoomDatabase() {
                     DexterDatabase::class.java,
                     "dexter_db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { INSTANCE = it }
             }
         }

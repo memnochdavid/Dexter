@@ -175,6 +175,9 @@ dependencies {
     // Kotlinx Serialization (Ktor lo usa para JSON)
     implementation ("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3") // Revisa la última
 
+    //jsoup (scraping WikiDex)
+    implementation("org.jsoup:jsoup:1.18.1")
+
 
 
 

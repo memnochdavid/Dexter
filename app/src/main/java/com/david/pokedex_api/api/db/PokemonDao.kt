@@ -40,4 +40,11 @@ interface PokemonDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBerrySummaries(summaries: List<BerrySummaryEntity>)
+
+    // --- WikiDex Cache ---
+    @Query("SELECT * FROM wikidex_cache WHERE pokemonName = :name AND dataType = :type")
+    suspend fun getWikiDexCache(name: String, type: String): List<WikiDexCacheEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWikiDexCache(entries: List<WikiDexCacheEntity>)
 }

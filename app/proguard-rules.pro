@@ -36,6 +36,10 @@
 # --- Coil ---
 -dontwarn coil.**
 
+# --- Jsoup ---
+-keep class org.jsoup.** { *; }
+-dontwarn org.jsoup.**
+
 # --- Kotlinx Serialization ---
 -keepattributes RuntimeVisibleAnnotations
 -keep class kotlinx.serialization.** { *; }
