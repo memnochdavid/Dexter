@@ -76,6 +76,8 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonTypeI
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorDark
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorSurface
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorTypeChip
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonEncountersView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonFormsView
@@ -106,25 +108,27 @@ fun DetallesDesplegables(
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     pokemonSpecies: PokemonSpeciesResponse? = null,
     wikiDexFlavorTexts: Map<String, String> = emptyMap(),
+    wikiDexLocations: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
-    val isDark = esTipoColorOscuro(typeName)
-    val colorTexto = if (isDark) Color.White else CardBorder
+    val colorTexto = CardBorder
 
-    // 3 variantes del color del tipo para dar variedad visual
-    val colorCard = getPokemonTypeColor(typeName)         // medio - para secciones principales
-    val colorLight = getPokemonTypeColorTypeChip(typeName) // intenso - para headers/acentos
-    val colorSoft = getPokemonTypeColorClear(typeName)     // suave/pastel - para fondos de secciones
+    // 5 variantes del color del tipo
+    val colorDark = getPokemonTypeColorDark(typeName)          // profundo - cabeceras, hero
+    val colorBase = getPokemonTypeColor(typeName)              // medio - secciones principales
+    val colorSoft = getPokemonTypeColorClear(typeName)         // pastel - fondos de secciones
+    val colorAccent = getPokemonTypeColorTypeChip(typeName)    // intenso - chips, badges, acentos
+    val colorSurface = getPokemonTypeColorSurface(typeName)    // tinte sutil - cards internas, listas
 
-    // Color para dropdowns: segundo tipo soft, o colorCard si mono-tipo
+    // Color para dropdowns: segundo tipo surface, o colorBase si mono-tipo
     val type2Name = pokemon.types.getOrNull(1)?.type?.name
-    val colorDropdown = if (type2Name != null) getPokemonTypeColorClear(type2Name) else colorCard
+    val colorDropdown = if (type2Name != null) getPokemonTypeColorSurface(type2Name) else colorSurface
 
     // Fondo del contenedor general de secciones
-    val colorComponentBg = colorSoft.copy(alpha = 0.25f)
+    val colorComponentBg = colorSurface
 
     var selectedSection by rememberSaveable { mutableStateOf(SectionPage.DESC.name) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -182,7 +186,7 @@ fun DetallesDesplegables(
                         val fallback = descripcionesMegasGigas.find { it.pokeId == pokemon.id }?.desc
                             ?: "No hay descripcion disponible."
                         Box(
-                            modifier = Modifier.fillMaxSize().background(colorLight),
+                            modifier = Modifier.fillMaxSize().background(colorSoft),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(text = fallback, style = MaterialTheme.typography.bodyLarge, color = colorTexto, textAlign = TextAlign.Center, modifier = Modifier.padding(20.dp))
@@ -196,7 +200,7 @@ fun DetallesDesplegables(
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(colorLight)
+                                .background(colorSoft)
                                 .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -241,11 +245,12 @@ fun DetallesDesplegables(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(colorLight)
+                            .background(colorSoft)
                     ) {
                         LiveSprites(
                             pokemon = pokemon,
                             colorTexto = colorTexto,
+                            nombreSpanish = pokemon.name,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -254,7 +259,7 @@ fun DetallesDesplegables(
                 SectionPage.STATS -> {
                     MuestraStatsBase(
                         stats = pokemon.stats,
-                        colorFondo = colorLight,
+                        colorFondo = colorSoft,
                         colorTexto = colorTexto
                     )
                 }
@@ -268,7 +273,7 @@ fun DetallesDesplegables(
                         PokemonEvolutionChainView(
                             evolutionChainResponse = evolutionChainDetailResponse,
                             onPokemonClick = onEvolutionPokemonClick,
-                            color1 = colorLight,
+                            color1 = colorSoft,
                             color2 = colorSoft,
                             colorTexto = colorTexto,
                             modifier = Modifier.fillMaxSize()
@@ -285,7 +290,7 @@ fun DetallesDesplegables(
                         pokemonSpeciesUrl = pokemon.species.url,
                         pokemonApiService = pokemonApiService,
                         onFormClick = { onEvolutionPokemonClick(it) },
-                        cardColor = colorLight,
+                        cardColor = colorSoft,
                         itemCardColor = colorSoft,
                         colorTexto = colorTexto,
                         modifier = Modifier.fillMaxSize()
@@ -295,7 +300,7 @@ fun DetallesDesplegables(
                 SectionPage.MOVES -> {
                     PokemonMovesList(
                         moves = pokemon.moves,
-                        cardBackgroundColor = colorLight,
+                        cardBackgroundColor = colorSoft,
                         pokemonApiService = pokemonApiService,
                         moveDetailsMap = moveDetailsMap,
                         textColor = colorTexto,
@@ -306,7 +311,7 @@ fun DetallesDesplegables(
                 SectionPage.ABILITY -> {
                     PokemonAbilitiesList(
                         abilities = pokemon.abilities,
-                        backgroundColor = colorLight,
+                        backgroundColor = colorSoft,
                         textColor = colorTexto,
                         pokemonApiService = pokemonApiService,
                         modifier = Modifier.fillMaxSize()
@@ -317,7 +322,7 @@ fun DetallesDesplegables(
                     PokemonTypeInteractionsTable(
                         pokemonTypes = pokemon.types,
                         pokemonApiService = pokemonApiService,
-                        tableBackgroundColor = colorLight,
+                        tableBackgroundColor = colorSoft,
                         textColor = colorTexto
                     )
                 }
@@ -332,7 +337,7 @@ fun DetallesDesplegables(
                             basePokemonName = pokemon.name,
                             pokemonApiService = pokemonApiService,
                             onFormClick = { onEvolutionPokemonClick(it) },
-                            cardColor = colorLight,
+                            cardColor = colorSoft,
                             colorTexto = colorTexto,
                             itemCardColor = colorSoft,
                             modifier = Modifier.fillMaxWidth().weight(1f)
@@ -341,7 +346,7 @@ fun DetallesDesplegables(
                             pokemon = pokemon,
                             pokemonApiService = pokemonApiService,
                             onFormClick = { _, formApiName -> onEvolutionPokemonClick(formApiName) },
-                            cardColor = colorLight,
+                            cardColor = colorSoft,
                             itemCardColor = colorSoft,
                             colorTexto = colorTexto,
                             modifier = Modifier.fillMaxWidth().weight(1f)
@@ -353,7 +358,7 @@ fun DetallesDesplegables(
                     InfoPokemon(
                         pokemon = pokemon,
                         species = pokemonSpecies,
-                        colorFondo = colorLight,
+                        colorFondo = colorSoft,
                         colorTexto = colorTexto
                     )
                 }
@@ -361,8 +366,9 @@ fun DetallesDesplegables(
                 SectionPage.ENCOUNTERS -> {
                     PokemonEncountersView(
                         encounters = encounters,
+                        wikiDexLocations = wikiDexLocations,
                         isLoading = isLoadingEncounters,
-                        colorFondo = colorLight,
+                        colorFondo = colorSoft,
                         colorTexto = colorTexto,
                         colorDropdown = colorDropdown
                     )
@@ -377,7 +383,7 @@ fun DetallesDesplegables(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
-            val pillTextColor = if (isDark) Color.White else Color.Black
+            val pillTextColor = Color.White
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -413,8 +419,8 @@ fun DetallesDesplegables(
                                         .padding(4.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(
-                                            if (isSelected) colorLight
-                                            else colorCard.copy(alpha = 0.9f)
+                                            if (isSelected) colorSoft
+                                            else colorBase.copy(alpha = 0.9f)
                                         )
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)

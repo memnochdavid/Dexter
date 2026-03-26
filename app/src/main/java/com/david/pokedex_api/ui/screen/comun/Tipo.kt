@@ -312,6 +312,54 @@ fun getPokemonTypeColorTypeChip(typeName: String): Color {
 }
 
 
+fun getPokemonTypeColorDark(typeName: String): Color {
+    return when (typeName.lowercase()) {
+        "grass" -> color_planta_dark
+        "fire" -> color_fuego_dark
+        "water" -> color_agua_dark
+        "bug" -> color_bicho_dark
+        "normal" -> color_normal_dark
+        "poison" -> color_veneno_dark
+        "electric" -> color_electrico_dark
+        "ground" -> color_tierra_dark
+        "fairy" -> color_hada_dark
+        "fighting" -> color_lucha_dark
+        "psychic" -> color_psiquico_dark
+        "rock" -> color_roca_dark
+        "ghost" -> color_fantasma_dark
+        "ice" -> color_hielo_dark
+        "dragon" -> color_dragon_dark
+        "dark" -> color_siniestro_dark
+        "steel" -> color_acero_dark
+        "flying" -> color_volador_dark
+        else -> Color.DarkGray
+    }
+}
+
+fun getPokemonTypeColorSurface(typeName: String): Color {
+    return when (typeName.lowercase()) {
+        "grass" -> color_planta_surface
+        "fire" -> color_fuego_surface
+        "water" -> color_agua_surface
+        "bug" -> color_bicho_surface
+        "normal" -> color_normal_surface
+        "poison" -> color_veneno_surface
+        "electric" -> color_electrico_surface
+        "ground" -> color_tierra_surface
+        "fairy" -> color_hada_surface
+        "fighting" -> color_lucha_surface
+        "psychic" -> color_psiquico_surface
+        "rock" -> color_roca_surface
+        "ghost" -> color_fantasma_surface
+        "ice" -> color_hielo_surface
+        "dragon" -> color_dragon_surface
+        "dark" -> color_siniestro_surface
+        "steel" -> color_acero_surface
+        "flying" -> color_volador_surface
+        else -> Color(0xFFE8E8E8)
+    }
+}
+
 fun esTipoColorOscuro(nombreTipo:String): Boolean {
     return when (nombreTipo.lowercase()) {
         "dark", "fire", "ghost", "poison", "dragon", "ground" -> true

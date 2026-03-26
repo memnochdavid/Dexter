@@ -1,567 +1,379 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
-import android.content.Context
-import android.graphics.drawable.Animatable
-import android.graphics.drawable.Drawable
-import android.util.Log
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.ImageLoader
+import coil.compose.AsyncImage
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
-import coil.util.DebugLogger
-import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.PokemonDetailResponse
-import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
-import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-
-const val BASE_GIF_URL = "https://projectpokemon.org/images/normal-sprite/"
-const val SHINY_GIF_URL = "https://projectpokemon.org/images/shiny-sprite/"
-
-
-//https://projectpokemon.org/home/docs/spriteindex_148/3d-models-generation-1-pok%C3%A9mon-r90/
-
-
-suspend fun loadDrawableFromUrl(
-    context: Context,
-    url: String,
-    imageLoader: ImageLoader
-): Drawable? {
-    return try {
-        val request = ImageRequest.Builder(context)
-            .data(url)
-            // Para GIFs animados con Coil, el GifDecoder se encargará.
-            // Si el resultado es un Drawable animado (como AnimatedImageDrawable),
-            // accompanist-drawablepainter debería poder manejarlo.
-            .build()
-        imageLoader.execute(request).drawable
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
+private enum class SpriteOption(val label: String, val hasShiny: Boolean, val isVideo: Boolean, val isAnimatedImage: Boolean) {
+    ANIMATED_3D("3D Animado", false, true, false),
+    OFFICIAL_ART("Official Art", true, false, false),
+    HOME("Home", true, false, false),
+    GIF("GIF", true, false, true),
+    CLASSIC("Sprites clásicos", true, false, false),
+    GIGAMAX("Gigamax", false, false, true)
 }
 
+data class LabeledSprite(val label: String, val url: String)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveSprites(
     pokemon: PokemonDetailResponse,
     colorTexto: Color,
+    nombreSpanish: String = "",
     modifier: Modifier = Modifier
 ) {
-    // Adaptar el nombre del Pokémon para las mega evoluciones X/Y
-    val adaptedPokemonName = when {
-        pokemon.name.contains("-mega-x") -> pokemon.name.replace("-mega-x", "-megax")
-        pokemon.name.contains("-mega-y") -> pokemon.name.replace("-mega-y", "-megay")
-        pokemon.name.contains("-m") -> pokemon.name.replace("-m", "_m")
-        pokemon.name.contains("-f") -> pokemon.name.replace("-f", "_f")
-        else -> pokemon.name
+    val context = LocalContext.current
+    var selectedOption by rememberSaveable { mutableStateOf(SpriteOption.OFFICIAL_ART.name) }
+    var isShiny by rememberSaveable { mutableStateOf(false) }
+    val option = SpriteOption.valueOf(selectedOption)
+
+    // WebM local
+    val webmResourceName = remember(nombreSpanish) {
+        transformPokemonNameToResourceName(nombreSpanish.lowercase())
     }
-//    println("LiveSprites: NOMBRE ORIGINAL: - $pokemonName, NOMBRE ADAPTADO: - $adaptedPokemonName") // Para depuración
+    val hasWebm = remember(webmResourceName) {
+        context.resources.getIdentifier(webmResourceName, "raw", context.packageName) != 0
+    }
 
-    var showAnimatedSpriteDialog by remember { mutableStateOf(false) }
-    var isShinySpriteForDialog by remember { mutableStateOf(false) } // Para saber si es el shiny el que se clickeó
+    // Gigamax
+    val gigamaxSprite = remember(pokemon.id) {
+        dinamaxLiveSprites.find { it.pokeId == pokemon.id }
+    }
 
-    val haptic = LocalHapticFeedback.current
+    // Opciones disponibles
+    val availableOptions = remember(pokemon, gigamaxSprite, hasWebm) {
+        SpriteOption.entries.filter { opt ->
+            when (opt) {
+                SpriteOption.ANIMATED_3D -> hasWebm
+                SpriteOption.OFFICIAL_ART -> pokemon.sprites.other?.officialArtwork?.frontDefault != null
+                SpriteOption.HOME -> pokemon.sprites.other?.home?.frontDefault != null
+                SpriteOption.GIF -> pokemon.sprites.other?.showdown?.frontDefault != null
+                SpriteOption.CLASSIC -> pokemon.sprites.frontDefault != null
+                SpriteOption.GIGAMAX -> gigamaxSprite != null
+            }
+        }
+    }
+
+    val sprites = remember(option, isShiny, pokemon) {
+        buildSpriteList(pokemon, option, isShiny, gigamaxSprite)
+    }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 5.dp, start = 5.dp, end = 5.dp),
-        verticalArrangement = Arrangement.Center,
+        modifier = modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Fila: Dropdown + botón shiny
         Row(
-            modifier = modifier.weight(0.2f),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.Top
-        ) {
-            Text(
-                text = "Sprites animados",
-                textAlign = TextAlign.Center,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorTexto,
-                modifier = Modifier
-                    .padding(vertical = 10.dp, horizontal = 10.dp)
-            )
-        }
-        Row(
-            modifier = modifier.weight(0.6f),
-            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = modifier.weight(0.45f),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            // Dropdown
+            var dropdownExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = dropdownExpanded,
+                onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+                modifier = Modifier.weight(1f)
             ) {
-                Column(
-                    modifier = Modifier
-                        .weight(0.45f)
-                        .clickable { // <-- Añadir clickable aquí
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isShinySpriteForDialog = false
-                            showAnimatedSpriteDialog = true
-                        },
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    PokemonAnimatedSpriteWithAccompanist(
-                        pokemonName = adaptedPokemonName,
-                        pokemonId = pokemon.id,
-                        esShiny = false,
-                        modifier = Modifier.fillMaxSize(1f)
+                OutlinedTextField(
+                    value = option.label,
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dropdownExpanded) },
+                    shape = RoundedCornerShape(10.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                        focusedContainerColor = colorTexto.copy(alpha = 0.05f),
+                        unfocusedContainerColor = colorTexto.copy(alpha = 0.03f),
+                        focusedBorderColor = colorTexto.copy(alpha = 0.3f),
+                        unfocusedBorderColor = colorTexto.copy(alpha = 0.15f),
+                        focusedTextColor = colorTexto,
+                        unfocusedTextColor = colorTexto,
+                        focusedTrailingIconColor = colorTexto,
+                        unfocusedTrailingIconColor = colorTexto.copy(alpha = 0.6f)
                     )
-                }
-                if (!pokemon.name.lowercase().contains("-gmax")) {
-                    Column(
-                        modifier = Modifier
-                            .weight(0.45f)
-                            .clickable { // <-- Añadir clickable aquí
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                isShinySpriteForDialog = true
-                                showAnimatedSpriteDialog = true
+                )
+                ExposedDropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false },
+                    modifier = Modifier.background(Color.White)
+                ) {
+                    availableOptions.forEach { opt ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = opt.label,
+                                    fontWeight = if (opt == option) FontWeight.Bold else FontWeight.Normal
+                                )
                             },
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        PokemonAnimatedSpriteWithAccompanist(
-                            pokemonName = adaptedPokemonName,
-                            pokemonId = pokemon.id,
-                            esShiny = true,
-                            modifier = Modifier.fillMaxSize(1f)
+                            onClick = {
+                                selectedOption = opt.name
+                                dropdownExpanded = false
+                            }
                         )
                     }
                 }
             }
-        }
-    }
 
-    // Mostrar el Composable de diálogo si showAnimatedSpriteDialog es true
-    if (showAnimatedSpriteDialog) {
-        AnimatedSpriteDialogView(
-            pokemon = pokemon, // Pasamos el objeto Pokemon
-            pokemonName = adaptedPokemonName, // El nombre adaptado para la URL del GIF
-            pokemonId = pokemon.id,
-            isShiny = isShinySpriteForDialog,
-            onDismiss = { showAnimatedSpriteDialog = false }
-        )
-    }
-}
-
-@Composable
-fun PokemonAnimatedSpriteWithAccompanist(
-    pokemonName: String,
-    pokemonId: Int,
-    esShiny: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val imageLoader = remember {
-        ImageLoader.Builder(context)
-            .components {
-                add(ImageDecoderDecoder.Factory())
-            }
-            .logger(DebugLogger()) // Mantenlo para depurar al principio
-            .build()
-    }
-    var drawable by remember { mutableStateOf<Drawable?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    val formattedPokemonName =
-        pokemonName.lowercase() // Puede que necesites un formateo más complejo
-    // dependiendo de los nombres de archivo del servidor.
-//    val imageUrl = if(!esShiny) "$BASE_GIF_URL$formattedPokemonName.gif" else "$SHINY_GIF_URL$formattedPokemonName.gif"
-
-    val imageUrl = if (pokemonName.lowercase().contains("-gmax")) {
-        dinamaxLiveSprites.find { it.pokeId == pokemonId }!!.spriteUrl
-    } else if (pokemonName.lowercase().contains("mega") && !pokemonName.lowercase()
-            .contains("yanmega") && !pokemonName.lowercase().contains("meganium")
-    ) {
-        val megaName = pokemonName.replace("_", "-")
-        if (!esShiny) "$BASE_GIF_URL$megaName.gif" else "$SHINY_GIF_URL$megaName.gif"
-    } else {
-        if (!esShiny) "$BASE_GIF_URL$formattedPokemonName.gif" else "$SHINY_GIF_URL$formattedPokemonName.gif"
-    }
-
-    LaunchedEffect(imageUrl) { // Recargar si la URL cambia
-        isLoading = true
-        Log.d("PokemonGif", "Cargando Pokémon desde: $imageUrl")
-        drawable = withContext(Dispatchers.IO) {
-            loadDrawableFromUrl(context, imageUrl.toString(), imageLoader)
-        }
-        Log.d("PokemonGif", "Drawable para $pokemonName: ${drawable?.javaClass?.name}")
-        if (drawable is Animatable) {
-            Log.d("PokemonGif", "$pokemonName ES Animatable.")
-        } else {
-            Log.d(
-                "PokemonGif",
-                "$pokemonName NO es Animatable. URL podría ser incorrecta o no es un GIF animado."
-            )
-        }
-        isLoading = false
-    }
-
-    if (isLoading) {
-        Text("Cargando sprite de $pokemonName...")
-    } else if (drawable != null) {
-        Image(
-            painter = rememberDrawablePainter(drawable = drawable),
-            contentDescription = "Animated sprite for $pokemonName",
-            modifier = modifier
-                .size(200.dp) // Ajusta según necesites
-//                .border(1.dp, Color.Green) // Para ver el borde
-        )
-    } else {
-        Text("Error cargando sprite para $pokemonName desde $imageUrl")
-    }
-}
-
-@Composable
-fun AnimatedSpriteDialogView(
-    pokemon: PokemonDetailResponse, // Para los colores de fondo y potencialmente otra información
-    pokemonName: String, // Nombre adaptado para la URL del GIF
-    pokemonId: Int,      // ID para la URL del GIF
-    isShiny: Boolean,    // Para saber si mostrar el GIF shiny o normal
-    onDismiss: () -> Unit
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false) // Para controlar el ancho manualmente
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f) // Ocupa el 95% del ancho de la pantalla
-                .wrapContentHeight()   // La altura se ajusta al contenido
-                .padding(vertical = 16.dp), // Padding vertical para la Card
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Box( // Box principal para poder alinear el botón de cierre
-                modifier = Modifier
-                    // No es necesario fillMaxSize aquí si la Card se ajusta al contenido.
-                    .padding(0.dp) // Sin padding adicional aquí, el contenido lo maneja
-            ) {
-                Column { // Columna para apilar los fondos y el GIF
-                    // Lógica de fondos de tipo (similar a ExpandedImageView)
-                    if (pokemon.types.isNotEmpty()) {
-                        val color1 = getPokemonTypeColor(pokemon.types[0].type.name)
-                        val color2 = if (pokemon.types.size > 1) {
-                            getPokemonTypeColor(pokemon.types[1].type.name)
-                        } else {
-                            color1 // Si solo hay un tipo, ambos fondos son del mismo color
-                        }
-
-                        // Contenedor para los fondos y el GIF
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // Altura para la sección de fondos y GIF.
-                                // Podrías hacerla dinámica o fijarla como en ExpandedImageView.
-                                .height(350.dp) // Ajusta esta altura según necesites
-                        ) {
-                            // Fondos de tipo
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .background(color1),
-                                    contentAlignment = Alignment.BottomEnd
-                                ) {
-                                    // Icono del primer tipo (si hay dos tipos)
-                                    if (pokemon.types.size == 2) {
-                                        val iconResId =
-                                            getPokemonTypeToIcon(pokemon.types[0].type.name)
-                                        if (iconResId != 0) { // Asumiendo que 0 es un ID inválido
-                                            Image(
-                                                painter = painterResource(id = iconResId),
-                                                contentDescription = pokemon.types[0].type.name,
-                                                modifier = Modifier
-                                                    .padding(12.dp)
-                                                    .size(50.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .background(color2),
-                                    contentAlignment = Alignment.BottomStart // Alinea al inicio para el ícono de pokeball
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth()
-                                            .padding(
-                                                horizontal = 12.dp,
-                                                vertical = 8.dp
-                                            ), // Padding para los íconos
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.Bottom
-                                    ) {
-                                        Image(
-                                            painter = painterResource(id = R.drawable.pokeball_icon), // Reemplaza con tu drawable
-                                            contentDescription = "Pokeball icon",
-                                            modifier = Modifier.size(90.dp) // Tamaño ajustado del ícono
-                                        )
-                                        // Icono del segundo tipo (o del primero si solo hay uno)
-                                        val typeToShowIndex = if (pokemon.types.size == 1) 0 else 1
-                                        if (pokemon.types.isNotEmpty()) { // Siempre debería haber al menos un tipo
-                                            val iconResId =
-                                                getPokemonTypeToIcon(pokemon.types[typeToShowIndex].type.name)
-                                            if (iconResId != 0) {
-                                                Image(
-                                                    painter = painterResource(id = iconResId),
-                                                    contentDescription = pokemon.types[typeToShowIndex].type.name,
-                                                    modifier = Modifier
-                                                        .padding(start = 8.dp)
-                                                        .size(50.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // GIF Animado del Pokémon (superpuesto a los fondos)
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize() // Se ajusta al tamaño del Box de fondos
-                                    .padding(16.dp),   // Padding para que el GIF no toque los bordes del fondo
-                                contentAlignment = Alignment.Center
-                            ) {
-                                PokemonAnimatedSpriteWithAccompanist( // Reutilizamos el Composable que ya tienes
-                                    pokemonName = pokemonName,       // Nombre adaptado
-                                    pokemonId = pokemonId,           // ID del Pokémon
-                                    esShiny = isShiny,               // Si es shiny o no
-                                    modifier = Modifier.fillMaxSize()// El GIF llena este Box interno
-                                )
-                            }
-                        } // Fin del Box de fondos y GIF
-
-                    } else {
-                        // Fallback si el Pokémon no tiene tipos (raro, pero para ser exhaustivos)
-                        // Solo mostrar el GIF centrado
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(350.dp) // Altura consistente
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            PokemonAnimatedSpriteWithAccompanist(
-                                pokemonName = pokemonName,
-                                pokemonId = pokemonId,
-                                esShiny = isShiny,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                }
-                IconButton(
-                    onClick = onDismiss,
+            // Botón shiny (solo si la opción tiene shiny)
+            if (option.hasShiny) {
+                Spacer(Modifier.width(8.dp))
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd) // Se alinea respecto al Box que contiene la Column
-                        .padding(8.dp) // Un poco de padding para que no esté pegado al borde
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isShiny) Color(0xFFFFD700).copy(alpha = 0.4f)
+                            else colorTexto.copy(alpha = 0.08f)
+                        )
+                        .clickable { isShiny = !isShiny },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Cerrar vista expandida",
-                        tint = Color.Black // O el color que prefieras para el icono
+                    Text(
+                        text = "✦",
+                        fontSize = 18.sp,
+                        color = if (isShiny) Color(0xFFB8860B) else colorTexto.copy(alpha = 0.4f)
                     )
                 }
-            } // Fin del Box principal de la Card del Dialog
-        } // Fin de la Card del Dialog
-    } // Fin del Dialog
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Contenido
+        if (option.isVideo && hasWebm) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                ExoPlayerSimple(
+                    pokemonInputName = nombreSpanish.lowercase(),
+                    modifier = Modifier.size(250.dp)
+                )
+            }
+        } else if (sprites.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isShiny) "No hay sprites shiny disponibles" else "No hay sprites disponibles",
+                    color = colorTexto.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items(items = sprites, key = { it.url }) { sprite ->
+                    SpriteCard(sprite = sprite, colorTexto = colorTexto, isAnimated = option.isAnimatedImage)
+                }
+            }
+        }
+    }
 }
 
+@Composable
+private fun SpriteCard(
+    sprite: LabeledSprite,
+    colorTexto: Color,
+    isAnimated: Boolean
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(colorTexto.copy(alpha = 0.05f))
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = sprite.label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = colorTexto.copy(alpha = 0.7f),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        if (isAnimated) {
+            val imageLoader = remember {
+                ImageLoader.Builder(context)
+                    .components { add(ImageDecoderDecoder.Factory()) }
+                    .build()
+            }
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(sprite.url).crossfade(true).build(),
+                imageLoader = imageLoader,
+                contentDescription = sprite.label,
+                modifier = Modifier.size(160.dp),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(sprite.url).crossfade(true).build(),
+                contentDescription = sprite.label,
+                modifier = Modifier.size(200.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+    }
+}
+
+private fun buildSpriteList(
+    pokemon: PokemonDetailResponse,
+    option: SpriteOption,
+    isShiny: Boolean,
+    gigamaxSprite: DinamaxLiveSprite?
+): List<LabeledSprite> {
+    val list = mutableListOf<LabeledSprite>()
+    val sprites = pokemon.sprites
+    val other = sprites.other
+
+    when (option) {
+        SpriteOption.ANIMATED_3D -> { /* ExoPlayer, no genera sprites */ }
+
+        SpriteOption.OFFICIAL_ART -> {
+            val art = other?.officialArtwork
+            if (isShiny) {
+                art?.frontShiny?.let { list.add(LabeledSprite("Shiny", it)) }
+            } else {
+                art?.frontDefault?.let { list.add(LabeledSprite("Normal", it)) }
+            }
+        }
+
+        SpriteOption.HOME -> {
+            val home = other?.home
+            if (isShiny) {
+                home?.frontShiny?.let { list.add(LabeledSprite("Frontal shiny", it)) }
+                home?.frontShinyFemale?.let { list.add(LabeledSprite("Frontal shiny ♀", it)) }
+            } else {
+                home?.frontDefault?.let { list.add(LabeledSprite("Frontal", it)) }
+                home?.frontFemale?.let { list.add(LabeledSprite("Frontal ♀", it)) }
+            }
+        }
+
+        SpriteOption.GIF -> {
+            val sd = other?.showdown
+            if (isShiny) {
+                sd?.frontShiny?.let { list.add(LabeledSprite("Frontal shiny", it)) }
+                sd?.backShiny?.let { list.add(LabeledSprite("Trasero shiny", it)) }
+            } else {
+                sd?.frontDefault?.let { list.add(LabeledSprite("Frontal", it)) }
+                sd?.backDefault?.let { list.add(LabeledSprite("Trasero", it)) }
+                sd?.frontFemale?.let { list.add(LabeledSprite("Frontal ♀", it)) }
+                sd?.backFemale?.let { list.add(LabeledSprite("Trasero ♀", it)) }
+            }
+        }
+
+        SpriteOption.CLASSIC -> {
+            if (isShiny) {
+                sprites.frontShiny?.let { list.add(LabeledSprite("Frontal shiny", it)) }
+                sprites.backShiny?.let { list.add(LabeledSprite("Trasero shiny", it)) }
+                sprites.frontShinyFemale?.let { list.add(LabeledSprite("Frontal shiny ♀", it)) }
+                sprites.backShinyFemale?.let { list.add(LabeledSprite("Trasero shiny ♀", it)) }
+            } else {
+                sprites.frontDefault?.let { list.add(LabeledSprite("Frontal", it)) }
+                sprites.backDefault?.let { list.add(LabeledSprite("Trasero", it)) }
+                sprites.frontFemale?.let { list.add(LabeledSprite("Frontal ♀", it)) }
+                sprites.backFemale?.let { list.add(LabeledSprite("Trasero ♀", it)) }
+            }
+        }
+
+        SpriteOption.GIGAMAX -> {
+            gigamaxSprite?.let { list.add(LabeledSprite("Gigamax", it.spriteUrl)) }
+        }
+    }
+
+    return list
+}
+
+// --- Datos Gigamax ---
 
 data class DinamaxLiveSprite(
     val pokeId: Int,
     val spriteUrl: String,
 )
 
-val dinamaxLiveSprites = listOf<DinamaxLiveSprite>(
-    DinamaxLiveSprite(
-        10196,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/9/98/latest/20191206054551/Charizard_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10198,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/f/f2/latest/20191208035316/Butterfree_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10199,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/7/74/latest/20191207032343/Pikachu_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10200,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/5/5c/latest/20191204065122/Meowth_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10201,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/9/9e/latest/20191206055329/Machamp_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10202,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/b/ba/latest/20191205025526/Gengar_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10203,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/6/6b/latest/20191204064551/Kingler_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10204,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/3/30/latest/20191206055216/Lapras_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10205,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/8/81/latest/20191208180045/Eevee_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10206,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/7/7d/latest/20191205030221/Snorlax_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10207,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/3/3a/latest/20191206055024/Garbodor_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10208,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/5/50/latest/20191208030656/Melmetal_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10212,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/8/86/latest/20191207034018/Corviknight_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10213,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/4/4a/latest/20191208043316/Orbeetle_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10214,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/a/a7/latest/20191202213011/Drednaw_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10215,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/c/c9/latest/20191205024332/Coalossal_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10216,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/b/b0/latest/20191205025109/Flapple_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10218,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/5/5f/latest/20191208043317/Sandaconda_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10219,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10228,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10220,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/b/be/latest/20191205024034/Centiskorch_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10221,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/5/51/latest/20191205030031/Hatterene_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10222,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/b/bf/latest/20191205025806/Grimmsnarl_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10223,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/0/09/latest/20191205023619/Alcremie_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10224,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/e/ea/latest/20191205024732/Copperajah_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10225,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/2/28/latest/20191206054822/Duraludon_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10195,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/5/56/latest/20200621041242/Venusaur_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10197,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/1/10/latest/20200621041607/Blastoise_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10209,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/4/46/latest/20200621042120/Rillaboom_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10210,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/c/c2/latest/20200621042347/Cinderace_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10211,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/8/89/latest/20200928210111/Inteleon_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10226,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/3/31/latest/20200715053735/Urshifu_brusco_Gigamax_EpEc.gif"
-    ),
-    DinamaxLiveSprite(
-        10227,
-        "https://images.wikidexcdn.net/mwuploads/wikidex/8/85/latest/20200715054208/Urshifu_fluido_Gigamax_EpEc.gif"
-    ),
-
-
-    )
+val dinamaxLiveSprites = listOf(
+    DinamaxLiveSprite(10196, "https://images.wikidexcdn.net/mwuploads/wikidex/9/98/latest/20191206054551/Charizard_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10198, "https://images.wikidexcdn.net/mwuploads/wikidex/f/f2/latest/20191208035316/Butterfree_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10199, "https://images.wikidexcdn.net/mwuploads/wikidex/7/74/latest/20191207032343/Pikachu_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10200, "https://images.wikidexcdn.net/mwuploads/wikidex/5/5c/latest/20191204065122/Meowth_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10201, "https://images.wikidexcdn.net/mwuploads/wikidex/9/9e/latest/20191206055329/Machamp_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10202, "https://images.wikidexcdn.net/mwuploads/wikidex/b/ba/latest/20191205025526/Gengar_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10203, "https://images.wikidexcdn.net/mwuploads/wikidex/6/6b/latest/20191204064551/Kingler_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10204, "https://images.wikidexcdn.net/mwuploads/wikidex/3/30/latest/20191206055216/Lapras_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10205, "https://images.wikidexcdn.net/mwuploads/wikidex/8/81/latest/20191208180045/Eevee_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10206, "https://images.wikidexcdn.net/mwuploads/wikidex/7/7d/latest/20191205030221/Snorlax_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10207, "https://images.wikidexcdn.net/mwuploads/wikidex/3/3a/latest/20191206055024/Garbodor_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10208, "https://images.wikidexcdn.net/mwuploads/wikidex/5/50/latest/20191208030656/Melmetal_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10212, "https://images.wikidexcdn.net/mwuploads/wikidex/8/86/latest/20191207034018/Corviknight_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10213, "https://images.wikidexcdn.net/mwuploads/wikidex/4/4a/latest/20191208043316/Orbeetle_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10214, "https://images.wikidexcdn.net/mwuploads/wikidex/a/a7/latest/20191202213011/Drednaw_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10215, "https://images.wikidexcdn.net/mwuploads/wikidex/c/c9/latest/20191205024332/Coalossal_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10216, "https://images.wikidexcdn.net/mwuploads/wikidex/b/b0/latest/20191205025109/Flapple_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10218, "https://images.wikidexcdn.net/mwuploads/wikidex/5/5f/latest/20191208043317/Sandaconda_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10219, "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10228, "https://images.wikidexcdn.net/mwuploads/wikidex/1/14/latest/20191206055500/Toxtricity_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10220, "https://images.wikidexcdn.net/mwuploads/wikidex/b/be/latest/20191205024034/Centiskorch_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10221, "https://images.wikidexcdn.net/mwuploads/wikidex/5/51/latest/20191205030031/Hatterene_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10222, "https://images.wikidexcdn.net/mwuploads/wikidex/b/bf/latest/20191205025806/Grimmsnarl_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10223, "https://images.wikidexcdn.net/mwuploads/wikidex/0/09/latest/20191205023619/Alcremie_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10224, "https://images.wikidexcdn.net/mwuploads/wikidex/e/ea/latest/20191205024732/Copperajah_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10225, "https://images.wikidexcdn.net/mwuploads/wikidex/2/28/latest/20191206054822/Duraludon_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10195, "https://images.wikidexcdn.net/mwuploads/wikidex/5/56/latest/20200621041242/Venusaur_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10197, "https://images.wikidexcdn.net/mwuploads/wikidex/1/10/latest/20200621041607/Blastoise_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10209, "https://images.wikidexcdn.net/mwuploads/wikidex/4/46/latest/20200621042120/Rillaboom_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10210, "https://images.wikidexcdn.net/mwuploads/wikidex/c/c2/latest/20200621042347/Cinderace_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10211, "https://images.wikidexcdn.net/mwuploads/wikidex/8/89/latest/20200928210111/Inteleon_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10226, "https://images.wikidexcdn.net/mwuploads/wikidex/3/31/latest/20200715053735/Urshifu_brusco_Gigamax_EpEc.gif"),
+    DinamaxLiveSprite(10227, "https://images.wikidexcdn.net/mwuploads/wikidex/8/85/latest/20200715054208/Urshifu_fluido_Gigamax_EpEc.gif"),
+)

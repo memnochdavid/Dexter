@@ -56,6 +56,46 @@ class FlavorTextParser : WikiDexParser<List<Pair<String, String>>> {
 }
 
 /**
+ * Extrae las localizaciones/encuentros agrupados por edicion.
+ * Retorna lista de pares (nombreEdicionWikiDex, textoLocalizacion).
+ * Usa la tabla con class "localizacion" (primera de la pagina = juegos principales).
+ */
+class LocationParser : WikiDexParser<List<Pair<String, String>>> {
+
+    override fun parse(doc: Document): List<Pair<String, String>>? {
+        val table = doc.selectFirst("table.localizacion") ?: return null
+        val rows = table.select("tr")
+        val results = mutableListOf<Pair<String, String>>()
+
+        for (row in rows) {
+            val cells = row.select("th, td")
+            if (cells.size < 2) continue
+
+            val locationCell = cells.last() ?: continue
+            val editionCell = cells[cells.size - 2]
+
+            val locationText = locationCell.text().trim()
+            if (locationText.isBlank()) continue
+            if (locationText.contains("no aparece en", ignoreCase = true)) continue
+
+            val links = editionCell.select("a")
+            val editionNames = if (links.isNotEmpty()) {
+                links.map { it.text().trim() }.filter { it.isNotBlank() }
+            } else {
+                val text = editionCell.text().trim()
+                if (text.isNotBlank()) listOf(text) else emptyList()
+            }
+
+            for (edition in editionNames) {
+                results.add(edition to locationText)
+            }
+        }
+
+        return results.ifEmpty { null }
+    }
+}
+
+/**
  * Convierte nombres de edicion de WikiDex a identificadores de version de PokeAPI.
  */
 object WikiDexGameMapper {

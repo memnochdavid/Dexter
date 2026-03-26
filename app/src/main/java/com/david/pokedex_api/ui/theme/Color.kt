@@ -142,8 +142,7 @@ val yellow_api = Color(0xFFF6DE76)
 
 
 
-/*
-//tema dark
+//tema dark - para cabeceras, fondos profundos, hero areas
 val color_planta_dark = Color(0xFF3A863D)
 val color_agua_dark = Color(0xFF1E6AC4)
 val color_fuego_dark = Color(0xFF792020)
@@ -158,8 +157,27 @@ val color_hielo_dark = Color(0xFF30A5C2)
 val color_psiquico_dark = Color(0xFFB7305D)
 val color_roca_dark = Color(0xFF817C55)
 val color_tierra_dark = Color(0xFF703D19)
-val color_siniestro_dark = Color(0xFF463838)
+val color_siniestro_dark = Color(0xFF363030)
 val color_normal_dark = Color(0xFF7C7E7C)
 val color_volador_dark = Color(0xFF5C87AF)
 val color_fantasma_dark = Color(0xFF5E335E)
-*/
+
+//tema surface - tinte muy sutil para cards internas, overlays, listas
+val color_planta_surface = Color(0xFFD6EDCB)
+val color_agua_surface = Color(0xFFC8D8F8)
+val color_fuego_surface = Color(0xFFEBC8C8)
+val color_lucha_surface = Color(0xFFF5D9BF)
+val color_veneno_surface = Color(0xFFDCC8DC)
+val color_acero_surface = Color(0xFFC8D8DE)
+val color_bicho_surface = Color(0xFFD8DCA8)
+val color_dragon_surface = Color(0xFFC8CCEB)
+val color_electrico_surface = Color(0xFFF8EEC0)
+val color_hada_surface = Color(0xFFFADDE4)
+val color_hielo_surface = Color(0xFFCAF0FC)
+val color_psiquico_surface = Color(0xFFF8CCD8)
+val color_roca_surface = Color(0xFFD8D0BE)
+val color_tierra_surface = Color(0xFFD4C4B4)
+val color_siniestro_surface = Color(0xFFC0BABA)
+val color_normal_surface = Color(0xFFD4D4CB)
+val color_volador_surface = Color(0xFFDDD6F4)
+val color_fantasma_surface = Color(0xFFCFBECF)

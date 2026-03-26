@@ -80,6 +80,8 @@ Ambas ediciones comparten la misma descripcion.
 ## Arquitectura propuesta
 
 ### Prioridad de fallback
+
+**Descripciones:**
 ```
 Para cada version de juego:
   1. PokeAPI español     → si existe, usar
@@ -87,12 +89,23 @@ Para cada version de juego:
   3. PokeAPI ingles      → fallback final
 ```
 
+**Ubicaciones/Encuentros:**
+```
+Para cada version de juego:
+  1. WikiDex español     → texto de localizacion en español (fuente primaria)
+  2. PokeAPI encounters  → datos estructurados como fallback (nombres suelen estar en ingles)
+  WikiDex es la fuente primaria porque:
+  - Siempre en español (PokeAPI location-areas carecen de traducciones)
+  - Cubre TODOS los juegos (PokeAPI solo tiene encuentros salvajes)
+  - Incluye metodos no-salvajes: intercambios, regalos, eventos, transferencias
+```
+
 ### Componentes
 
 ```
 api/wikidex/
   WikiDexFetcher.kt      ← Descarga HTML via Jsoup (generico, cualquier pagina)
-  WikiDexParser.kt        ← Interface + FlavorTextParser + WikiDexGameMapper
+  WikiDexParser.kt        ← Interface + FlavorTextParser + LocationParser + WikiDexGameMapper
   WikiDexRepository.kt    ← Orquestador: cache Room → fetch → parse → guardar
 
 api/db/
@@ -121,12 +134,19 @@ interface WikiDexParser<T> {
 }
 ```
 
-**FlavorTextParser**: Primera implementacion concreta.
+**FlavorTextParser**: Extrae descripciones de la Pokedex.
 - Busca `table.pokedex` (primera tabla con esa clase)
 - Itera filas (`<tr>`), extrae penultima celda (edicion) y ultima celda (descripcion)
 - Para ediciones compartidas: extrae todos los `<a>` tags de la celda de edicion
 - Filtra descripciones que contienen "No hay entrada" o "no aparece en"
 - Retorna `List<Pair<String, String>>` (edicion WikiDex, descripcion)
+
+**LocationParser**: Extrae localizaciones/encuentros.
+- Busca `table.localizacion` (primera tabla con esa clase)
+- Misma logica de parsing que FlavorTextParser
+- Filtra entradas con "no aparece en"
+- Retorna `List<Pair<String, String>>` (edicion WikiDex, texto de localizacion)
+- El texto incluye metodo de obtencion (Salvaje, Especial, Intercambiar...) y ubicaciones
 
 **WikiDexGameMapper**: Convierte nombres de edicion WikiDex a identificadores PokeAPI.
 ```kotlin
@@ -143,15 +163,13 @@ Punto de entrada para el ViewModel. Coordina cache y scraping.
 ```kotlin
 class WikiDexRepository(private val dao: PokemonDao) {
     suspend fun getFlavorTexts(spanishName: String): Map<String, String>
-    // 1. Consulta Room: wikidex_cache WHERE pokemonName=X AND dataType="flavor_text"
-    // 2. Si hay cache → retorna Map<apiVersionName, descripcion>
-    // 3. Si no hay cache:
-    //    a. fetch wikidex.net/wiki/{spanishName}
-    //    b. parse con FlavorTextParser
-    //    c. mapear nombres con WikiDexGameMapper
-    //    d. guardar en Room
-    //    e. retornar resultado
-    // 4. Si falla fetch/parse → retorna emptyMap() (fallback graceful)
+    suspend fun getLocations(spanishName: String): Map<String, String>
+    // Ambos usan getMappedData() internamente:
+    // 1. Consulta Room cache (pokemonName + dataType)
+    // 2. Si hay cache → retorna Map<apiVersionName, texto>
+    // 3. Si no: fetch + parse + mapear + cachear en Room
+    // 4. Si falla → retorna emptyMap() (fallback graceful)
+    // El Document se cachea en memoria con Mutex para no descargar 2 veces la misma pagina
 }
 ```
 
@@ -222,7 +240,7 @@ Ejemplos de uso futuro:
 | Archivo | Descripcion |
 |---------|-------------|
 | `api/wikidex/WikiDexFetcher.kt` | Descarga HTML de WikiDex con Jsoup |
-| `api/wikidex/WikiDexParser.kt` | Interface generica + FlavorTextParser + WikiDexGameMapper |
+| `api/wikidex/WikiDexParser.kt` | Interface generica + FlavorTextParser + LocationParser + WikiDexGameMapper |
 | `api/wikidex/WikiDexRepository.kt` | Orquestador cache/fetch/parse |
 | `api/db/WikiDexCacheEntity.kt` | Entidad Room generica |
 
@@ -258,33 +276,41 @@ PokemonDetailScreen
   │   └─ viewModel.fetchPokemonDetailsByName(name, "es")
   │       ├─ Carga species de PokeAPI (paralelo)
   │       └─ Lanza coroutine WikiDex con nombre español (paralelo)
-  │           └─ WikiDexRepository.getFlavorTexts(spanishName)
-  │               ├─ Room cache hit → retorna datos inmediatamente
-  │               └─ Room cache miss → fetch + parse + cache + retorna
+  │           ├─ WikiDexRepository.getFlavorTexts(spanishName)
+  │           │   ├─ Room cache hit → retorna datos inmediatamente
+  │           │   └─ Room cache miss → fetch + parse + cache + retorna
+  │           └─ WikiDexRepository.getLocations(spanishName)
+  │               └─ Reutiliza el Document ya descargado (cache en memoria con Mutex)
   │
-  ├─ observeAsState: pokemonSpecies, wikiDexFlavorTexts
+  ├─ observeAsState: pokemonSpecies, wikiDexFlavorTexts, wikiDexLocations
   │
-  └─ DetallesDesplegables(pokemonSpecies, wikiDexFlavorTexts, ...)
-      └─ remember(pokemonSpecies, wikiDexFlavorTexts) {
-            // Merge 3 fuentes:
-            allVersions = pokeApiES.keys ∪ wikiDex.keys ∪ pokeApiEN.keys
-            para cada version:
-              texto = pokeApiES[v] ?: wikiDex[v] ?: pokeApiEN[v]
-         }
+  └─ DetallesDesplegables(pokemonSpecies, wikiDexFlavorTexts, wikiDexLocations, ...)
+      ├─ Descripcion: remember(pokemonSpecies, wikiDexFlavorTexts) {
+      │     allVersions = pokeApiES.keys ∪ wikiDex.keys ∪ pokeApiEN.keys
+      │     texto = pokeApiES[v] ?: wikiDex[v] ?: pokeApiEN[v]
+      │  }
+      └─ Ubicaciones: PokemonEncountersView(encounters, wikiDexLocations)
+            allVersions = pokeApiVersions + wikiDexExtraVersions
+            Si PokeAPI tiene datos → muestra LocationEncounterRow (estructurado)
+            Si solo WikiDex → muestra texto libre de localizacion
 ```
 
-La UI se renderiza primero con datos de PokeAPI (instantaneo si hay cache HTTP). Cuando WikiDex responde, el `remember` se recalcula y la UI se actualiza reactivamente con las versiones adicionales.
+La UI se renderiza primero con datos de PokeAPI (instantaneo si hay cache HTTP). Cuando WikiDex responde, los `remember` se recalculan y la UI se actualiza reactivamente con las versiones adicionales.
 
 ## Verificacion
 
 1. **Compilacion**: `./gradlew assembleDebug` sin errores tras cada fase
 2. **Migracion Room**: Instalar sobre version anterior, verificar que no crashea
-3. **Test funcional**:
+3. **Test funcional descripciones**:
    - Bulbasaur: Gen I-V en español (WikiDex), Gen VI+ en español (PokeAPI), BD/SP + Escarlata + Purpura + Z-A (WikiDex)
    - Pikachu: Legends Arceus en español (WikiDex), Scarlet/Violet en español (WikiDex)
-4. **Filtrado**: Verificar que "No hay entrada de..." no aparece
-5. **Cache**: Segunda visita al mismo Pokemon no genera peticion HTTP a WikiDex
-6. **Fallback graceful**: Desactivar red → la app funciona con datos de PokeAPI + cache Room existente
+4. **Test funcional ubicaciones**:
+   - Bulbasaur: BD/SP, Escarlata, Purpura, Z-A deben aparecer como opciones en el selector de juego
+   - Al seleccionar una version solo WikiDex, debe mostrarse el texto de localizacion
+   - Las versiones con datos de PokeAPI deben seguir mostrando el formato estructurado (niveles, probabilidad)
+5. **Filtrado**: Verificar que "No hay entrada de..." y "no aparece en..." no aparecen
+6. **Cache**: Segunda visita al mismo Pokemon no genera peticion HTTP a WikiDex
+7. **Fallback graceful**: Desactivar red → la app funciona con datos de PokeAPI + cache Room existente
 
 ## Extensibilidad futura
 

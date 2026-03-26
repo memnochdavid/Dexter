@@ -44,18 +44,26 @@ import com.david.pokedex_api.util.Lottie
 @Composable
 fun PokemonEncountersView(
     encounters: List<GameEncounterGroup>,
+    wikiDexLocations: Map<String, String> = emptyMap(),
     isLoading: Boolean,
     colorFondo: Color,
     colorTexto: Color,
     colorDropdown: Color = colorFondo,
     modifier: Modifier = Modifier
 ) {
+    // Merge: WikiDex (primario, español) + PokeAPI (fallback, puede tener inglés)
+    val allVersions = remember(encounters, wikiDexLocations) {
+        val wikiVersions = wikiDexLocations.keys.toList()
+        val pokeApiExtra = encounters.map { it.versionName }.filter { it !in wikiDexLocations }
+        wikiVersions + pokeApiExtra
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colorFondo)
     ) {
-        if (isLoading) {
+        if (isLoading && wikiDexLocations.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -63,7 +71,7 @@ fun PokemonEncountersView(
             ) {
                 Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
             }
-        } else if (encounters.isEmpty()) {
+        } else if (allVersions.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -77,9 +85,15 @@ fun PokemonEncountersView(
                 )
             }
         } else {
-            var selectedVersion by rememberSaveable { mutableStateOf(encounters.first().versionName) }
-            val currentLocations = remember(selectedVersion, encounters) {
-                encounters.find { it.versionName == selectedVersion }?.locations ?: emptyList()
+            var selectedVersion by rememberSaveable { mutableStateOf(allVersions.first()) }
+            val effectiveSelected = if (selectedVersion in allVersions) selectedVersion else allVersions.first()
+
+            // Prioridad: WikiDex español → PokeAPI (fallback)
+            val wikiDexText = remember(effectiveSelected, wikiDexLocations) {
+                wikiDexLocations[effectiveSelected]
+            }
+            val pokeApiLocations = remember(effectiveSelected, encounters) {
+                encounters.find { it.versionName == effectiveSelected }?.locations ?: emptyList()
             }
 
             Column(
@@ -101,8 +115,8 @@ fun PokemonEncountersView(
 
                 // Selector de juego
                 EncounterVersionSelector(
-                    versions = encounters.map { it.versionName },
-                    selectedVersion = selectedVersion,
+                    versions = allVersions,
+                    selectedVersion = effectiveSelected,
                     onVersionSelected = { selectedVersion = it },
                     colorDropdown = colorDropdown,
                     colorTexto = colorTexto
@@ -110,8 +124,41 @@ fun PokemonEncountersView(
 
                 Spacer(Modifier.height(10.dp))
 
-                // Ubicaciones del juego seleccionado
-                if (currentLocations.isEmpty()) {
+                // Prioridad: WikiDex español → PokeAPI estructurado → sin datos
+                if (wikiDexText != null) {
+                    // WikiDex: texto en español
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colorTexto.copy(alpha = 0.05f))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = wikiDexText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colorTexto,
+                                    lineHeight = 20.sp
+                                )
+                            }
+                        }
+                    }
+                } else if (pokeApiLocations.isNotEmpty()) {
+                    // Fallback: datos estructurados de PokeAPI
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(items = pokeApiLocations, key = { it.locationName }) { location ->
+                            LocationEncounterRow(location = location, colorTexto = colorTexto)
+                        }
+                    }
+                } else {
                     Box(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center
@@ -121,15 +168,6 @@ fun PokemonEncountersView(
                             color = colorTexto.copy(alpha = 0.6f),
                             textAlign = TextAlign.Center
                         )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        items(items = currentLocations, key = { it.locationName }) { location ->
-                            LocationEncounterRow(location = location, colorTexto = colorTexto)
-                        }
                     }
                 }
             }
