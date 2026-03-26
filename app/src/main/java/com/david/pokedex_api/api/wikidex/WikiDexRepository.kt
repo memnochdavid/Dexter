@@ -4,7 +4,10 @@ import android.util.Log
 import com.david.pokedex_api.api.db.PokemonDao
 import com.david.pokedex_api.api.db.WikiDexCacheEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.jsoup.nodes.Document
 
 class WikiDexRepository(private val dao: PokemonDao) {
 
@@ -12,60 +15,91 @@ class WikiDexRepository(private val dao: PokemonDao) {
         private const val TAG = "WikiDexRepository"
         private const val BASE_URL = "https://www.wikidex.net/wiki/"
         private const val DATA_TYPE_FLAVOR = "flavor_text"
+        private const val DATA_TYPE_LOCATION = "location"
     }
 
     private val fetcher = WikiDexFetcher()
     private val flavorParser = FlavorTextParser()
+    private val locationParser = LocationParser()
+
+    // Cache del Document por Pokemon para evitar descargar la misma pagina dos veces
+    private var cachedDocName: String? = null
+    private var cachedDoc: Document? = null
+    private val docMutex = Mutex()
+
+    private suspend fun getDocument(spanishName: String): Document? {
+        docMutex.withLock {
+            if (cachedDocName == spanishName && cachedDoc != null) return cachedDoc
+            val url = BASE_URL + spanishName.replace(" ", "_")
+            Log.d(TAG, "Scrapeando WikiDex: $url")
+            val doc = fetcher.fetchDocument(url)
+            cachedDocName = spanishName
+            cachedDoc = doc
+            return doc
+        }
+    }
 
     /**
-     * Obtiene las descripciones de Pokedex en español desde WikiDex.
-     * Primero consulta la cache Room; si no hay datos, scrapea y cachea.
-     *
-     * @param spanishName Nombre del Pokemon en español (para construir la URL)
-     * @return Map<apiVersionName, descripcion> o emptyMap si falla
+     * Logica generica: cache Room → fetch → parse → mapear → cachear.
      */
-    suspend fun getFlavorTexts(spanishName: String): Map<String, String> {
+    private suspend fun getMappedData(
+        spanishName: String,
+        dataType: String,
+        parser: WikiDexParser<List<Pair<String, String>>>
+    ): Map<String, String> {
         // 1. Consultar cache
         val cached = withContext(Dispatchers.IO) {
-            dao.getWikiDexCache(spanishName, DATA_TYPE_FLAVOR)
+            dao.getWikiDexCache(spanishName, dataType)
         }
         if (cached.isNotEmpty()) {
-            Log.d(TAG, "Cache hit para '$spanishName' (${cached.size} entradas)")
+            Log.d(TAG, "Cache hit '$dataType' para '$spanishName' (${cached.size} entradas)")
             return cached.associate { it.dataKey to it.value }
         }
 
-        // 2. Scrapear WikiDex
-        val url = BASE_URL + spanishName.replace(" ", "_")
-        Log.d(TAG, "Scrapeando WikiDex: $url")
-        val doc = fetcher.fetchDocument(url) ?: return emptyMap()
+        // 2. Obtener documento (reutiliza si ya se descargo)
+        val doc = getDocument(spanishName) ?: return emptyMap()
 
         // 3. Parsear
-        val wikiEntries = flavorParser.parse(doc) ?: return emptyMap()
+        val wikiEntries = parser.parse(doc) ?: return emptyMap()
 
         // 4. Mapear nombres de edicion WikiDex → identificadores PokeAPI
         val mapped = mutableMapOf<String, String>()
-        for ((edition, desc) in wikiEntries) {
+        for ((edition, value) in wikiEntries) {
             val apiVersion = WikiDexGameMapper.toApiVersionName(edition)
             if (apiVersion != null && !mapped.containsKey(apiVersion)) {
-                mapped[apiVersion] = desc
+                mapped[apiVersion] = value
             }
         }
 
         // 5. Cachear en Room
         if (mapped.isNotEmpty()) {
-            val entities = mapped.map { (version, desc) ->
+            val entities = mapped.map { (key, value) ->
                 WikiDexCacheEntity(
                     pokemonName = spanishName,
-                    dataType = DATA_TYPE_FLAVOR,
-                    dataKey = version,
-                    value = desc,
+                    dataType = dataType,
+                    dataKey = key,
+                    value = value,
                     fetchedAtMillis = System.currentTimeMillis()
                 )
             }
             withContext(Dispatchers.IO) { dao.insertWikiDexCache(entities) }
-            Log.d(TAG, "Cacheadas ${entities.size} descripciones para '$spanishName'")
+            Log.d(TAG, "Cacheadas ${entities.size} entradas '$dataType' para '$spanishName'")
         }
 
         return mapped
     }
+
+    /**
+     * Descripciones de Pokedex en español.
+     * @return Map<apiVersionName, descripcion>
+     */
+    suspend fun getFlavorTexts(spanishName: String): Map<String, String> =
+        getMappedData(spanishName, DATA_TYPE_FLAVOR, flavorParser)
+
+    /**
+     * Localizaciones/encuentros en español.
+     * @return Map<apiVersionName, textoLocalizacion>
+     */
+    suspend fun getLocations(spanishName: String): Map<String, String> =
+        getMappedData(spanishName, DATA_TYPE_LOCATION, locationParser)
 }

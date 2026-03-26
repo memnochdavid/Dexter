@@ -52,6 +52,7 @@ import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorSurface
 
 // Función auxiliar para formatear el nombre del método de aprendizaje (opcional)
 fun formatMoveLearnMethod(method: String): String {
@@ -446,7 +447,7 @@ fun MoveRow(
     }
 
     val backgroundColor = moveTypeName?.let { type ->
-        getPokemonTypeColorClear(type)
+        getPokemonTypeColorSurface(type)
     } ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
 
     // ***** ENVOLVER EL CONTENIDO EN UN COLUMN Y HACER CLICKEABLE EL BOX PRINCIPAL *****
@@ -723,7 +724,7 @@ fun MoveRow(
     }
 
     val backgroundColor = moveTypeName?.let { type ->
-        getPokemonTypeColorClear(type) // Asegúrate que getPokemonTypeColorClear está definida
+        getPokemonTypeColorSurface(type)
     } ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
 
 

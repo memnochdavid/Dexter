@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,10 +62,12 @@ import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorDark
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorSurface
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
-import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.WebmImageDialog
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.ExoPlayerSimple
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 import com.david.pokedex_api.ui.theme.background_app
@@ -96,6 +99,7 @@ fun PokemonDetailScreen(
     val encounters by pokemonViewModel.pokemonEncounters.collectAsState()
     val isLoadingEncounters by pokemonViewModel.isLoadingEncounters.collectAsState()
     val wikiDexFlavorTexts by pokemonViewModel.wikiDexFlavorTexts.observeAsState(emptyMap())
+    val wikiDexLocations by pokemonViewModel.wikiDexLocations.observeAsState(emptyMap())
 
     // Cargar los detalles del Pokémon cuando esta pantalla se compone o pokemonName cambia
     LaunchedEffect(pokemonName) {
@@ -169,6 +173,7 @@ fun PokemonDetailScreen(
                     pokemonViewModel = pokemonViewModel,
                     moveDetailsMap = moveDetailsMap,
                     wikiDexFlavorTexts = wikiDexFlavorTexts,
+                    wikiDexLocations = wikiDexLocations,
                     encounters = encounters,
                     isLoadingEncounters = isLoadingEncounters
                 )
@@ -210,6 +215,7 @@ fun PokemonDetailsView(
     pokemonViewModel: PokemonViewModel,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     wikiDexFlavorTexts: Map<String, String> = emptyMap(),
+    wikiDexLocations: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false
 ) {
@@ -222,17 +228,19 @@ fun PokemonDetailsView(
         localizedName ?: pokemonSpecies?.name ?: pokemon.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
     }
 
+    val type1 = pokemon.types[0].type.name
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = getPokemonTypeColorClear(pokemon.types[0].type.name).copy(alpha = 0.5f))
+            .background(color = getPokemonTypeColorSurface(type1))
     ) {
         // Header fijo: imagen + nombre
-        ComponenteImagen(pokemon = pokemon, nombreSpanish = spanishPokemonName)
+        ComponenteImagen(pokemon = pokemon)
 
         NombreNumAlturaPeso(
-            colorFondo = getPokemonTypeColor(pokemon.types[0].type.name),
-            colorTexto = if (esTipoColorOscuro(pokemon.types[0].type.name)) Color.White else Color.Black,
+            colorFondo = getPokemonTypeColorDark(type1),
+            colorTexto = Color.White,
             nombre = spanishPokemonName,
             numero = pokemon.id,
             genus = spanishGenus,
@@ -253,6 +261,7 @@ fun PokemonDetailsView(
             moveDetailsMap = moveDetailsMap,
             pokemonSpecies = pokemonSpecies,
             wikiDexFlavorTexts = wikiDexFlavorTexts,
+            wikiDexLocations = wikiDexLocations,
             encounters = encounters,
             isLoadingEncounters = isLoadingEncounters,
             modifier = Modifier
@@ -262,33 +271,17 @@ fun PokemonDetailsView(
     }
 }
 
-private const val TAG_COMP_IMG = "ComponenteImagen"
 @Composable
 fun ComponenteImagen(
-    pokemon: PokemonDetailResponse, // Asumimos que PokemonDetailResponse tiene al menos 'name'
-    nombreSpanish: String = "", // Asumimos que PokemonDetailResponse tiene al menos 'name'
+    pokemon: PokemonDetailResponse,
 ) {
     val context = LocalContext.current
-    var showWebmDialog by remember { mutableStateOf(false) }
-
-    // Deriva el nombre del recurso directamente del nombre del Pokémon.
-    // Asume que los archivos en res/raw son, por ejemplo, "pikachu.webm" para "Pikachu".
-    val pokemonResourceNameForDialog = remember(nombreSpanish) {
-        nombreSpanish.lowercase() // Convierte "Pikachu" a "pikachu"
-    }
+    val haptic = LocalHapticFeedback.current
 
     // Shiny toggle
     var isShiny by remember { mutableStateOf(false) }
-    val imageUrl = if (isShiny) {
-        pokemon.sprites.other?.officialArtwork?.frontShiny
-            ?: pokemon.sprites.frontShiny
-            ?: pokemon.sprites.other?.officialArtwork?.frontDefault
-            ?: pokemon.sprites.frontDefault
-    } else {
-        pokemon.sprites.other?.officialArtwork?.frontDefault
-            ?: pokemon.sprites.frontDefault
-    }
 
+    // Animacion de escala
     var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
     LaunchedEffect(pokemon) {
         internalScaleTarget = 0f
@@ -297,114 +290,77 @@ fun ComponenteImagen(
     }
     val actualScale by animateFloatAsState(
         targetValue = internalScaleTarget,
-        animationSpec = keyframes {
-            durationMillis = 500
-            0f at 0
-            1f at 500
-        },
+        animationSpec = keyframes { durationMillis = 500; 0f at 0; 1f at 500 },
         label = "PokemonImageAppearScale"
     )
-
     val showShimmerEffect = actualScale < 0.95f && actualScale > 0.01f
 
-    val haptic = LocalHapticFeedback.current
+    val type1Name = pokemon.types.getOrNull(0)?.type?.name
+    val type2Name = pokemon.types.getOrNull(1)?.type?.name
+    val color1 = type1Name?.let { getPokemonTypeColorDark(it) } ?: Color.Gray
+    val color2 = type2Name?.let { getPokemonTypeColorDark(it) } ?: color1
 
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
+        // Fondo dual-color por tipo
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
+            modifier = Modifier.fillMaxWidth().height(300.dp),
             shape = RoundedCornerShape(0.dp),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                val type1Name = pokemon.types.getOrNull(0)?.type?.name
-                val type2Name = pokemon.types.getOrNull(1)?.type?.name
 
-                val color1 = type1Name?.let { getPokemonTypeColor(it) } ?: Color.Gray
-                val color2 = type2Name?.let { getPokemonTypeColor(it) } ?: color1
-
+                // Banda superior — tipo 1
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(color1),
+                    modifier = Modifier.weight(1f).fillMaxWidth().background(color1),
                     contentAlignment = Alignment.BottomEnd
                 ) {
                     if (pokemon.types.size == 2 && type1Name != null) {
                         val iconResId = getPokemonTypeToIcon(type1Name)
-                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) { // Asume R.drawable.ic_type_normal existe o ajusta la lógica
+                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                             Image(
                                 painter = painterResource(id = iconResId),
                                 contentDescription = type1Name,
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .size(40.dp)
+                                modifier = Modifier.padding(8.dp).size(40.dp)
                             )
                         }
                     }
                 }
+
+                // Banda inferior — tipo 2 (o tipo 1 si mono-tipo)
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(color2),
+                    modifier = Modifier.weight(1f).fillMaxWidth().background(color2),
                     contentAlignment = Alignment.BottomStart
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        // Botones Shiny + Cry
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            // Shiny toggle
+                        // Pokeball = reproduce cry
+                        if (pokemon.cries?.latest != null) {
                             Image(
                                 painter = painterResource(id = R.drawable.pokeball_icon),
-                                contentDescription = "Toggle shiny",
+                                contentDescription = "Escuchar cry",
                                 modifier = Modifier
-                                    .size(if (isShiny) 55.dp else 45.dp)
+                                    .size(45.dp)
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        isShiny = !isShiny
-                                    },
-                                colorFilter = if (isShiny) ColorFilter.tint(
-                                    Color(0xFFFFD700),
-                                    BlendMode.SrcAtop
-                                ) else null
+                                        playCry(context, pokemon.cries.latest)
+                                    }
                             )
-                            // Botón cry
-                            if (pokemon.cries?.latest != null) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.cry_logo),
-                                    contentDescription = "Escuchar cry",
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            playCry(context, pokemon.cries.latest)
-                                        }
-                                )
-                            }
                         }
 
+                        // Icono de tipo
                         val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
                         if (typeToShowOnBottom != null) {
                             val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
-                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) { // Asume R.drawable.ic_type_normal existe o ajusta la lógica
+                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                                 Image(
                                     painter = painterResource(id = iconResId),
                                     contentDescription = typeToShowOnBottom,
-                                    modifier = Modifier
-                                        .padding(start = 8.dp)
-                                        .size(40.dp)
+                                    modifier = Modifier.padding(start = 8.dp).size(40.dp)
                                 )
                             }
                         }
@@ -413,80 +369,52 @@ fun ComponenteImagen(
             }
         }
 
+        // Contenido central: official artwork con toggle shiny al pulsar
+        val imageUrl = if (isShiny) {
+            pokemon.sprites.other?.officialArtwork?.frontShiny
+                ?: pokemon.sprites.frontShiny
+                ?: pokemon.sprites.other?.officialArtwork?.frontDefault
+                ?: pokemon.sprites.frontDefault
+        } else {
+            pokemon.sprites.other?.officialArtwork?.frontDefault
+                ?: pokemon.sprites.frontDefault
+        }
         if (imageUrl != null) {
             Box(
                 modifier = Modifier
                     .height(300.dp)
                     .fillMaxWidth()
-                    .padding(horizontal = 30.dp)//, vertical = 15.dp)
+                    .padding(horizontal = 30.dp)
                     .graphicsLayer { scaleX = actualScale; scaleY = actualScale }
                     .align(Alignment.Center)
                     .clickable {
-                        // pokemonResourceNameForDialog ahora es simplemente el nombre en minúsculas.
-                        // No necesitamos verificar si es nulo si siempre se deriva de pokemon.name,
-                        // a menos que pokemon.name pueda ser nulo/vacío.
-                        if (pokemonResourceNameForDialog.isNotBlank()) {
-                            // Antes de mostrar el diálogo, podrías verificar si el recurso realmente existe
-                            // para evitar errores en ExoPlayer si el archivo no está.
-                            val resourceId = context.resources.getIdentifier(
-                                transformPokemonNameToResourceName(pokemonResourceNameForDialog),
-                                "raw",
-                                context.packageName
-                            )
-                            if (resourceId != 0) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showWebmDialog = true
-                            } else {
-                                Log.w(TAG_COMP_IMG, "WebM resource '$pokemonResourceNameForDialog' not found in res/raw.")
-                                Toast.makeText(context, "Sprite no disponible para ${nombreSpanish}", Toast.LENGTH_SHORT).show()
-                                Toast.makeText(context, "Nombre convertido: ${transformPokemonNameToResourceName(pokemonResourceNameForDialog)}", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            Log.w(TAG_COMP_IMG, "Nombre del Pokémon vacío, no se puede mostrar el diálogo 3D.")
-                            Toast.makeText(context, "Nombre de Pokémon no válido", Toast.LENGTH_SHORT).show()
-                        }
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isShiny = !isShiny
                     },
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = "${pokemon.name} sprite",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape), // Opcional
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
                     contentScale = ContentScale.Fit,
                     colorFilter = if (showShimmerEffect) ColorFilter.tint(
                         color = Color.White.copy(alpha = 0.7f),
                         blendMode = BlendMode.SrcAtop
                     ) else null,
-                    error = painterResource(id = R.drawable.pokeball_icon), // Asume R.drawable.pokeball_icon existe
-                    placeholder = painterResource(id = R.drawable.pokeball_icon) // Asume R.drawable.pokeball_icon existe
+                    error = painterResource(id = R.drawable.pokeball_icon),
+                    placeholder = painterResource(id = R.drawable.pokeball_icon)
                 )
-
                 if (showShimmerEffect) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clip(CircleShape) // Opcional
-                            .background(shimmerBrush(showShimmer = true)) // Asume shimmerBrush existe
+                            .clip(CircleShape)
+                            .background(shimmerBrush(showShimmer = true))
                     )
                 }
             }
         }
-    }
-
-    // El diálogo WebM se muestra si showWebmDialog es true.
-    // pokemonResourceNameForDialog aquí será el nombre en minúsculas, ej: "pikachu"
-    if (showWebmDialog) {
-        WebmImageDialog(
-//            pokemonResourceName = pokemonResourceNameForDialog, // ej: "pikachu"
-            pokemonResourceName = transformPokemonNameToResourceName(nombreSpanish), // ej: "pikachu"
-            pokemonDisplayName = adaptaNombre(transformPokemonNameToResourceName(nombreSpanish)), // ej: "Pikachu"
-            onDismiss = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                showWebmDialog = false
-            }
-        )
     }
 }
 

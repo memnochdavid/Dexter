@@ -114,26 +114,22 @@ fun WebmImageDialog(
 @OptIn(UnstableApi::class)
 @Composable
 fun ExoPlayerSimple(
-    pokemonInputName: String, // Nombre como "blastoise-mega"
-    modifier: Modifier = Modifier
+    pokemonInputName: String,
+    modifier: Modifier = Modifier,
+    backgroundColor: Int = android.graphics.Color.WHITE
 ) {
     val context = LocalContext.current
 
     val resourceName = remember(pokemonInputName) {
-
-        transformPokemonNameToResourceName(pokemonInputName) // Ej: transforma "blastoise-mega" a "mega_blastoise"
-
+        transformPokemonNameToResourceName(pokemonInputName)
     }
 
-    Log.d("ExoPlayerSimple", "Input: '$pokemonInputName', Transformed resource name: '$resourceName'")
-
-    val resourceId = remember(resourceName) { // `remember` ahora depende del `resourceName` transformado
+    val resourceId = remember(resourceName) {
         context.resources.getIdentifier(resourceName, "raw", context.packageName)
     }
 
     if (resourceId == 0) {
-        Text("Video resource '$resourceName.webm' not found for $pokemonInputName", color = Color.Red, modifier = modifier)
-        Log.e("ExoPlayerSimple", "Resource ID is 0 for raw file: $resourceName.webm (from input $pokemonInputName)")
+        Text("Video '$resourceName.webm' no encontrado", color = Color.Red, modifier = modifier)
         return
     }
 
@@ -141,24 +137,19 @@ fun ExoPlayerSimple(
         Uri.parse("android.resource://${context.packageName}/$resourceId")
     }
 
-    val exoPlayer = remember(videoUri) { // `remember` el player basado en el URI, para que se recree si cambia
+    val exoPlayer = remember(videoUri) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(videoUri))
             repeatMode = Player.REPEAT_MODE_ONE
             playWhenReady = true
             prepare()
-            Log.d("ExoPlayerSimple", "ExoPlayer prepared for URI: $videoUri")
         }
     }
 
-    DisposableEffect(exoPlayer) { // El efecto debe depender de exoPlayer para la limpieza correcta
-        onDispose {
-            Log.d("ExoPlayerSimple", "Releasing ExoPlayer instance for $resourceName")
-            exoPlayer.release()
-        }
+    DisposableEffect(exoPlayer) {
+        onDispose { exoPlayer.release() }
     }
 
-    // --- Control del ciclo de vida (OPCIONAL PERO RECOMENDADO) ---
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, exoPlayer) {
         val observer = LifecycleEventObserver { _, event ->
@@ -169,37 +160,16 @@ fun ExoPlayerSimple(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    // --- Fin Control del ciclo de vida ---
-
 
     AndroidView(
         factory = { ctx ->
             PlayerView(ctx).apply {
                 player = exoPlayer
-                useController = false // No mostrar controles
-
-                // --- INICIO DE AJUSTES DE TRANSPARENCIA ---
-                // Para que el fondo de Compose se vea a través de las partes transparentes del WebM
-//                setBackgroundColor(android.graphics.Color.BLACK)
-
-                val surfaceView = this.videoSurfaceView
-                if (surfaceView is android.view.SurfaceView) {
-                    Log.d("ExoPlayerSimple", "Configuring SurfaceView for transparency.")
-                    surfaceView.setZOrderOnTop(true)
-                    surfaceView.holder.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-                } else if (surfaceView is TextureView) {
-                    Log.d("ExoPlayerSimple", "Video surface is TextureView. Setting Opaque to false.")
-                    surfaceView.isOpaque = false
-                }
-                // --- FIN DE AJUSTES DE TRANSPARENCIA ---
-
-                // Originalmente tenías esto, si el objetivo NO es transparencia sino un fondo negro para el video:
-//                 setShutterBackgroundColor(android.graphics.Color.BLACK) // Color mientras el video carga
-//                 setBackgroundColor(android.graphics.Color.BLACK) // Fondo del PlayerView
+                useController = false
+                setBackgroundColor(backgroundColor)
+                setShutterBackgroundColor(backgroundColor)
             }
         },
         modifier = modifier

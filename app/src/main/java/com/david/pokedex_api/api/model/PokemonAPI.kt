@@ -209,25 +209,48 @@ data class PokemonCries(
 )
 
 data class PokemonSprites(
-    @SerializedName("front_default")
-    val frontDefault: String?,
-    @SerializedName("front_shiny")
-    val frontShiny: String?,
-    // Puedes añadir 'back_default', 'back_shiny', etc.
+    @SerializedName("front_default") val frontDefault: String?,
+    @SerializedName("front_shiny") val frontShiny: String?,
+    @SerializedName("back_default") val backDefault: String?,
+    @SerializedName("back_shiny") val backShiny: String?,
+    @SerializedName("front_female") val frontFemale: String?,
+    @SerializedName("front_shiny_female") val frontShinyFemale: String?,
+    @SerializedName("back_female") val backFemale: String?,
+    @SerializedName("back_shiny_female") val backShinyFemale: String?,
     val other: OtherSprites?
 )
 
 data class OtherSprites(
-    @SerializedName("official-artwork")
-    val officialArtwork: OfficialArtwork?
-    // Puedes añadir 'dream_world', 'home', etc.
+    @SerializedName("official-artwork") val officialArtwork: OfficialArtwork?,
+    val home: HomeSprites?,
+    val showdown: ShowdownSprites?,
+    @SerializedName("dream_world") val dreamWorld: DreamWorldSprites?
 )
 
 data class OfficialArtwork(
-    @SerializedName("front_default")
-    val frontDefault: String?,
-    @SerializedName("front_shiny")
-    val frontShiny: String?
+    @SerializedName("front_default") val frontDefault: String?,
+    @SerializedName("front_shiny") val frontShiny: String?
+)
+
+data class HomeSprites(
+    @SerializedName("front_default") val frontDefault: String?,
+    @SerializedName("front_shiny") val frontShiny: String?,
+    @SerializedName("front_female") val frontFemale: String?,
+    @SerializedName("front_shiny_female") val frontShinyFemale: String?
+)
+
+data class ShowdownSprites(
+    @SerializedName("front_default") val frontDefault: String?,
+    @SerializedName("front_shiny") val frontShiny: String?,
+    @SerializedName("back_default") val backDefault: String?,
+    @SerializedName("back_shiny") val backShiny: String?,
+    @SerializedName("front_female") val frontFemale: String?,
+    @SerializedName("back_female") val backFemale: String?
+)
+
+data class DreamWorldSprites(
+    @SerializedName("front_default") val frontDefault: String?,
+    @SerializedName("front_female") val frontFemale: String?
 )
 
 data class TypeResponseSlot(

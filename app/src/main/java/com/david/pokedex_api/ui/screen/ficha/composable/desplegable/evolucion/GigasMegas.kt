@@ -205,21 +205,20 @@ fun PokemonSpecialFormsView(
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
-                // El contenido de LazyRow va aquí dentro para que se anime
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp), // Padding interno para los items
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.Top
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(specialForms) { form ->
+                    specialForms.forEach { form ->
                         SpecialFormItemView(
                             specialForm = form,
-                            backgroundColor = itemCardColor, // Color para las tarjetas individuales
+                            backgroundColor = itemCardColor,
                             colorTexto = colorTexto,
-                            onClick = { onFormClick(form.formName) }
-                            // El modifier de SpecialFormItemView se puede añadir aquí si es necesario
-                            // o dentro de su propia definición.
+                            onClick = { onFormClick(form.formName) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -240,42 +239,38 @@ fun SpecialFormItemView(
     val context = LocalContext.current
     ElevatedCard(
         onClick = onClick,
-        modifier = modifier
-            .wrapContentSize(),
-        shape = RoundedCornerShape(0.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = backgroundColor
         ),
-//        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .padding(vertical = 8.dp, horizontal = 4.dp)
                 .fillMaxWidth()
+                .padding(12.dp)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(specialForm.spriteUrl ?: "") // Usa una URL vacía o un placeholder si es null
+                    .data(specialForm.spriteUrl ?: "")
                     .crossfade(true)
-//                    .error(R.drawable.ic_pokeball_placeholder) // Reemplaza con tu placeholder
-//                    .placeholder(R.drawable.ic_pokeball_placeholder) // Reemplaza con tu placeholder
                     .build(),
                 contentDescription = specialForm.displayName,
-                modifier = Modifier
-                    .size(72.dp) // Tamaño del sprite
-                    .padding(bottom = 4.dp),
+                modifier = Modifier.size(120.dp),
                 contentScale = ContentScale.Fit
             )
             Text(
                 text = specialForm.displayName,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
                 textAlign = TextAlign.Center,
                 color = colorTexto,
-                maxLines = 2, // Para nombres largos
-                lineHeight = 13.sp
+                maxLines = 2,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
             )
         }
     }
