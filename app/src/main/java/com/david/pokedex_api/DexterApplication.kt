@@ -12,6 +12,7 @@ class DexterApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        appContext = applicationContext
         RetrofitClient.init(this)
         database = DexterDatabase.getInstance(this)
     }
@@ -37,6 +38,8 @@ class DexterApplication : Application(), ImageLoaderFactory {
 
     companion object {
         lateinit var database: DexterDatabase
+            private set
+        lateinit var appContext: android.content.Context
             private set
     }
 }

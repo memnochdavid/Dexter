@@ -27,18 +27,23 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import retrofit2.Response
+import com.david.pokedex_api.api.wikidex.WikiDexRepository
 import java.util.concurrent.ConcurrentHashMap
 
 class PokemonViewModel : ViewModel() {
 
     val pokemonApiService: PokeApiService = RetrofitClient.instance
     private val pokemonDao = DexterApplication.database.pokemonDao()
+    private val wikiDexRepository = WikiDexRepository(pokemonDao)
 
     private val _pokemonDetails = MutableLiveData<PokemonDetailResponse?>()
     val pokemonDetails: LiveData<PokemonDetailResponse?> = _pokemonDetails
 
     private val _pokemonDescription = MutableLiveData<String?>()
     val pokemonDescription: LiveData<String?> = _pokemonDescription
+
+    private val _wikiDexFlavorTexts = MutableLiveData<Map<String, String>>(emptyMap())
+    val wikiDexFlavorTexts: LiveData<Map<String, String>> = _wikiDexFlavorTexts
 
     private val _isLoadingDetails = MutableLiveData<Boolean>(false)
     val isLoadingDetails: LiveData<Boolean> = _isLoadingDetails
@@ -209,6 +214,7 @@ class PokemonViewModel : ViewModel() {
         _isLoadingDetails.value = true
         _pokemonDetails.value = null
         _pokemonDescription.value = null
+        _wikiDexFlavorTexts.value = emptyMap()
 
         viewModelScope.launch {
             try {
@@ -230,6 +236,16 @@ class PokemonViewModel : ViewModel() {
 
                         _pokemonDescription.value = desc?.replace("\n", " ")?.replace("\u000c", " ")?.replace("POKéMON", "Pokémon")
                         it.evolutionChain?.url?.let { url -> fetchEvolutionChainDetails(url) }
+
+                        // WikiDex: fetch en paralelo para descripciones en español que faltan
+                        val spanishName = it.localizedNames
+                            .firstOrNull { n -> n.language.name == "es" }?.name
+                        if (spanishName != null) {
+                            viewModelScope.launch {
+                                val wikiTexts = wikiDexRepository.getFlavorTexts(spanishName)
+                                _wikiDexFlavorTexts.value = wikiTexts
+                            }
+                        }
                     }
                 }
 

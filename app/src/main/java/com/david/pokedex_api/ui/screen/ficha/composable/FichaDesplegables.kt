@@ -105,6 +105,7 @@ fun DetallesDesplegables(
     pokemonApiService: PokeApiService,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
     pokemonSpecies: PokemonSpeciesResponse? = null,
+    wikiDexFlavorTexts: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
     modifier: Modifier = Modifier
@@ -157,7 +158,7 @@ fun DetallesDesplegables(
         ) {
             when (currentSection) {
                 SectionPage.DESC -> {
-                    val flavorEntries = remember(pokemonSpecies) {
+                    val flavorEntries = remember(pokemonSpecies, wikiDexFlavorTexts) {
                         val entries = pokemonSpecies?.flavorTextEntries ?: emptyList()
                         val spanishByVersion = entries
                             .filter { it.language.name == "es" && !it.flavorText.isNullOrBlank() }
@@ -165,9 +166,11 @@ fun DetallesDesplegables(
                         val englishByVersion = entries
                             .filter { it.language.name == "en" && !it.flavorText.isNullOrBlank() }
                             .associateBy { it.version.name }
-                        val allVersions = (spanishByVersion.keys + englishByVersion.keys).distinct()
+                        // Merge 3 fuentes: PokeAPI ES + WikiDex ES + PokeAPI EN
+                        val allVersions = (spanishByVersion.keys + wikiDexFlavorTexts.keys + englishByVersion.keys).distinct()
                         allVersions.mapNotNull { version ->
                             val text = spanishByVersion[version]?.flavorText
+                                ?: wikiDexFlavorTexts[version]
                                 ?: englishByVersion[version]?.flavorText
                                 ?: return@mapNotNull null
                             val cleaned = text.replace("\n", " ").replace("\u000c", " ").replace("POKéMON", "Pokémon")

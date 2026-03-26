@@ -95,6 +95,7 @@ fun PokemonDetailScreen(
     val moveDetailsMap by pokemonViewModel.moveDetailsMap.collectAsState()
     val encounters by pokemonViewModel.pokemonEncounters.collectAsState()
     val isLoadingEncounters by pokemonViewModel.isLoadingEncounters.collectAsState()
+    val wikiDexFlavorTexts by pokemonViewModel.wikiDexFlavorTexts.observeAsState(emptyMap())
 
     // Cargar los detalles del Pokémon cuando esta pantalla se compone o pokemonName cambia
     LaunchedEffect(pokemonName) {
@@ -167,6 +168,7 @@ fun PokemonDetailScreen(
                     },
                     pokemonViewModel = pokemonViewModel,
                     moveDetailsMap = moveDetailsMap,
+                    wikiDexFlavorTexts = wikiDexFlavorTexts,
                     encounters = encounters,
                     isLoadingEncounters = isLoadingEncounters
                 )
@@ -207,6 +209,7 @@ fun PokemonDetailsView(
     onEvolutionPokemonClick: (pokemonName: String) -> Unit,
     pokemonViewModel: PokemonViewModel,
     moveDetailsMap: Map<String, MoveDetailResponse> = emptyMap(),
+    wikiDexFlavorTexts: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false
 ) {
@@ -249,6 +252,7 @@ fun PokemonDetailsView(
             pokemonApiService = pokemonViewModel.pokemonApiService,
             moveDetailsMap = moveDetailsMap,
             pokemonSpecies = pokemonSpecies,
+            wikiDexFlavorTexts = wikiDexFlavorTexts,
             encounters = encounters,
             isLoadingEncounters = isLoadingEncounters,
             modifier = Modifier
