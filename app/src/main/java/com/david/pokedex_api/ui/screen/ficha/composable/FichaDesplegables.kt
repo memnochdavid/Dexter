@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -112,10 +113,11 @@ fun DetallesDesplegables(
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
     selectedSection: String = SectionPage.DESC.name,
+    onAvailableSectionsChanged: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
-    val colorTexto = CardBorder
+    val colorTexto = Color.Black
 
     // 5 variantes del color del tipo
     val colorDark = getPokemonTypeColorDark(typeName)          // profundo - cabeceras, hero
@@ -150,6 +152,10 @@ fun DetallesDesplegables(
         }
     }
 
+    LaunchedEffect(availableSections) {
+        onAvailableSectionsChanged(availableSections.map { it.name })
+    }
+
     Box(modifier = modifier) {
         // Contenido de la seccion activa - sin separacion ni border radius
         Box(
@@ -176,7 +182,7 @@ fun DetallesDesplegables(
                                 ?: return@mapNotNull null
                             val cleaned = text.replace("\n", " ").replace("\u000c", " ").replace("POKéMON", "Pokémon")
                             version to cleaned
-                        }
+                        }.sortedBy { translateGameVersion(it.first) }
                     }
 
                     if (flavorEntries.isEmpty()) {

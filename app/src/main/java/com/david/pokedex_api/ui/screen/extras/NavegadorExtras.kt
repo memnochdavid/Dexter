@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -12,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,12 +60,27 @@ fun ExtrasBrowserScreen(pokemonViewModel: PokemonViewModel) {
 private fun NaturesTab(pokemonViewModel: PokemonViewModel) {
     val natures by pokemonViewModel.natures.collectAsState()
     val isLoading by pokemonViewModel.isLoadingNatures.collectAsState()
+    val searchQuery by pokemonViewModel.extrasSearchQuery.collectAsState()
+    val statFilter by pokemonViewModel.natureStatFilter.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchNatures() }
+
+    val filteredNatures = remember(natures, searchQuery, statFilter) {
+        natures.filter { nature ->
+            (searchQuery.isBlank() || nature.localizedName.contains(searchQuery, true) || nature.name.contains(searchQuery, true)) &&
+            (statFilter == "Todos" ||
+                nature.increasedStat?.equals(statFilter, true) == true ||
+                nature.decreasedStat?.equals(statFilter, true) == true)
+        }
+    }
 
     if (isLoading && natures.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+        }
+    } else if (filteredNatures.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     } else {
         LazyColumn(
@@ -82,7 +103,7 @@ private fun NaturesTab(pokemonViewModel: PokemonViewModel) {
                 }
             }
 
-            items(items = natures, key = { it.id }) { nature ->
+            items(items = filteredNatures, key = { it.id }) { nature ->
                 NatureRow(nature)
             }
         }
@@ -133,23 +154,29 @@ private fun NatureRow(nature: DisplayableNature) {
 private fun ContestsTab(pokemonViewModel: PokemonViewModel) {
     val contestTypes by pokemonViewModel.contestTypes.collectAsState()
     val isLoading by pokemonViewModel.isLoadingContests.collectAsState()
+    val searchQuery by pokemonViewModel.extrasSearchQuery.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchContestTypes() }
+
+    val filteredContests = remember(contestTypes, searchQuery) {
+        if (searchQuery.isBlank()) contestTypes
+        else contestTypes.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
+    }
 
     if (isLoading && contestTypes.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
         }
-    } else if (contestTypes.isEmpty()) {
+    } else if (filteredContests.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No hay datos de concursos", color = CardBorder)
+            Text(if (searchQuery.isNotBlank()) "Sin resultados" else "No hay datos de concursos", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     } else {
         LazyColumn(
             contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(items = contestTypes, key = { it.id }) { contest ->
+            items(items = filteredContests, key = { it.id }) { contest ->
                 ContestTypeCard(contest)
             }
         }
@@ -200,6 +227,98 @@ private fun ContestTypeCard(contest: DisplayableContestType) {
                 color = CardBorder.copy(alpha = 0.8f),
                 modifier = Modifier.padding(top = 4.dp)
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExtrasSearchMenu(pokemonViewModel: PokemonViewModel) {
+    val haptic = LocalHapticFeedback.current
+    val searchQuery by pokemonViewModel.extrasSearchQuery.collectAsState()
+    val statFilter by pokemonViewModel.natureStatFilter.collectAsState()
+
+    val stats = listOf("Todos", "attack", "defense", "special-attack", "special-defense", "speed")
+    val statDisplayName = { stat: String ->
+        when (stat.lowercase()) {
+            "attack" -> "Ataque"
+            "defense" -> "Defensa"
+            "special-attack" -> "At. Especial"
+            "special-defense" -> "Def. Especial"
+            "speed" -> "Velocidad"
+            else -> "Stat"
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color_menu_busqueda1, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text("Filtrar Extras", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(.8f))
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        pokemonViewModel.extrasSearchQuery.value = ""
+                        pokemonViewModel.natureStatFilter.value = "Todos"
+                    },
+                    modifier = Modifier.size(35.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = color_fuego_card, contentColor = blanco80),
+                    contentPadding = PaddingValues(4.dp)
+                ) { Icon(Icons.Default.Delete, "Limpiar", Modifier.fillMaxSize()) }
+            }
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { pokemonViewModel.extrasSearchQuery.value = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Buscar por nombre") },
+                placeholder = { Text("Ej: Alegre, Firme...") },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar") },
+                trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { pokemonViewModel.extrasSearchQuery.value = "" }) { Icon(Icons.Filled.Clear, "Limpiar") } },
+                singleLine = true, shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.copy(alpha = 0.7f), unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.7f), unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                    focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
+                )
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Filtro por stat (para naturalezas)
+            var expanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = if (statFilter == "Todos") "Stat" else statDisplayName(statFilter),
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                        focusedContainerColor = Color.White.copy(alpha = 0.5f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+                        focusedBorderColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                    )
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    stats.forEach { stat ->
+                        DropdownMenuItem(
+                            text = { Text(if (stat == "Todos") "Todos los stats" else statDisplayName(stat), fontWeight = if (stat == statFilter) FontWeight.Bold else FontWeight.Normal) },
+                            onClick = { pokemonViewModel.natureStatFilter.value = stat; expanded = false }
+                        )
+                    }
+                }
+            }
         }
     }
 }
