@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -43,7 +44,7 @@ import com.david.pokedex_api.util.Lottie
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemBrowserScreen(pokemonViewModel: PokemonViewModel) {
-    var currentTab by rememberSaveable { mutableStateOf(0) }
+    val currentTab by pokemonViewModel.itemCurrentTab.collectAsState()
     val tabs = listOf("Items", "Bayas")
 
     Column(
@@ -57,7 +58,7 @@ fun ItemBrowserScreen(pokemonViewModel: PokemonViewModel) {
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = currentTab == index,
-                    onClick = { currentTab = index },
+                    onClick = { pokemonViewModel.itemCurrentTab.value = index },
                     text = { Text(title, fontWeight = if (currentTab == index) FontWeight.Bold else FontWeight.Normal) }
                 )
             }
@@ -77,13 +78,16 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
     val isLoading by pokemonViewModel.isLoadingItems.collectAsState()
 
     val searchQuery by pokemonViewModel.itemSearchQuery.collectAsState()
+    val selectedCategory by pokemonViewModel.itemSelectedCategory.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchItemList() }
 
     val allItems = remember(itemSummaries) { itemSummaries.values.sortedBy { it.id } }
-    val filteredItems = remember(allItems, searchQuery) {
-        if (searchQuery.isBlank()) allItems
-        else allItems.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
+    val filteredItems = remember(allItems, searchQuery, selectedCategory) {
+        allItems.filter { item ->
+            (searchQuery.isBlank() || item.localizedName.contains(searchQuery, true) || item.name.contains(searchQuery, true)) &&
+            (selectedCategory == "Todas" || item.category?.equals(selectedCategory, true) == true)
+        }
     }
 
     Box(Modifier.fillMaxSize().background(background_app)) {
@@ -125,13 +129,16 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
     val isLoading by pokemonViewModel.isLoadingBerries.collectAsState()
 
     val searchQuery by pokemonViewModel.berrySearchQuery.collectAsState()
+    val selectedType by pokemonViewModel.berrySelectedType.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchBerryList() }
 
     val allBerries = remember(berrySummaries) { berrySummaries.values.sortedBy { it.id } }
-    val filteredBerries = remember(allBerries, searchQuery) {
-        if (searchQuery.isBlank()) allBerries
-        else allBerries.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
+    val filteredBerries = remember(allBerries, searchQuery, selectedType) {
+        allBerries.filter { berry ->
+            (searchQuery.isBlank() || berry.localizedName.contains(searchQuery, true) || berry.name.contains(searchQuery, true)) &&
+            (selectedType == "Sin tipo" || berry.naturalGiftType?.equals(selectedType, true) == true)
+        }
     }
 
     Box(Modifier.fillMaxSize().background(background_app)) {
@@ -197,6 +204,178 @@ fun SearchMenu(title: String, query: String, onQueryChanged: (String) -> Unit, p
                     focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
                 )
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ItemSearchMenu(pokemonViewModel: PokemonViewModel) {
+    val haptic = LocalHapticFeedback.current
+    val currentTab by pokemonViewModel.itemCurrentTab.collectAsState()
+    val itemQuery by pokemonViewModel.itemSearchQuery.collectAsState()
+    val berryQuery by pokemonViewModel.berrySearchQuery.collectAsState()
+    val selectedCategory by pokemonViewModel.itemSelectedCategory.collectAsState()
+    val selectedType by pokemonViewModel.berrySelectedType.collectAsState()
+    val itemSummaries by pokemonViewModel.itemSummaries.collectAsState()
+
+    val query = if (currentTab == 0) itemQuery else berryQuery
+    val onQueryChanged: (String) -> Unit = { q ->
+        if (currentTab == 0) pokemonViewModel.itemSearchQuery.value = q
+        else pokemonViewModel.berrySearchQuery.value = q
+    }
+
+    val categories = remember(itemSummaries) {
+        listOf("Todas") + itemSummaries.values.mapNotNull { it.category }.distinct().sorted()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color_menu_busqueda1, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text(
+                    if (currentTab == 0) "Filtrar Items" else "Filtrar Bayas",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(.8f)
+                )
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onQueryChanged("")
+                        if (currentTab == 0) pokemonViewModel.itemSelectedCategory.value = "Todas"
+                        else pokemonViewModel.berrySelectedType.value = "Sin tipo"
+                    },
+                    modifier = Modifier.size(35.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = color_fuego_card, contentColor = blanco80),
+                    contentPadding = PaddingValues(4.dp)
+                ) { Icon(Icons.Default.Delete, "Limpiar", Modifier.fillMaxSize()) }
+            }
+            OutlinedTextField(
+                value = query, onValueChange = onQueryChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Buscar por nombre") },
+                placeholder = { Text(if (currentTab == 0) "Ej: Pocion, Piedra..." else "Ej: Aranja, Zreza...") },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar") },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQueryChanged("") }) { Icon(Icons.Filled.Clear, "Limpiar") } },
+                singleLine = true, shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.copy(alpha = 0.7f), unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.7f), unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                    focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
+                )
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            if (currentTab == 0) {
+                // Filtro de categoría para items
+                ItemCategoryFilter(
+                    categories = categories,
+                    selectedCategory = selectedCategory,
+                    onCategoryChanged = { pokemonViewModel.itemSelectedCategory.value = it }
+                )
+            } else {
+                // Filtro de tipo para bayas
+                BerryTypeFilter(
+                    selectedType = selectedType,
+                    onTypeChanged = { pokemonViewModel.berrySelectedType.value = it }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ItemCategoryFilter(
+    categories: List<String>,
+    selectedCategory: String,
+    onCategoryChanged: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = if (selectedCategory == "Todas") "Categoría" else selectedCategory,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            shape = RoundedCornerShape(8.dp),
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                focusedContainerColor = Color.White.copy(alpha = 0.5f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+                focusedBorderColor = Color.White.copy(alpha = 0.7f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            categories.forEach { cat ->
+                DropdownMenuItem(
+                    text = { Text(cat, fontWeight = if (cat == selectedCategory) FontWeight.Bold else FontWeight.Normal) },
+                    onClick = { onCategoryChanged(cat); expanded = false }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BerryTypeFilter(
+    selectedType: String,
+    onTypeChanged: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val bgColor = if (selectedType != "Sin tipo") {
+        getPokemonTypeColor(selectedType).copy(alpha = 0.7f)
+    } else {
+        Color.White.copy(alpha = 0.5f)
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = if (selectedType == "Sin tipo") "Tipo" else pokemonTypeNameTranslator(selectedType).replaceFirstChar { it.titlecase() },
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            shape = RoundedCornerShape(8.dp),
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                focusedContainerColor = bgColor,
+                unfocusedContainerColor = bgColor,
+                focusedBorderColor = if (selectedType != "Sin tipo") getPokemonTypeColor(selectedType) else Color.White.copy(0.7f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
+        ) {
+            DropdownMenuItem(
+                text = { Text("Todos los tipos") },
+                onClick = { onTypeChanged("Sin tipo"); expanded = false }
+            )
+            ALL_POKEMON_TYPES.forEach { type ->
+                DropdownMenuItem(
+                    text = { PokemonTypeChip(typeName = type, modifier = Modifier.fillMaxWidth()) },
+                    onClick = { onTypeChanged(type); expanded = false },
+                    modifier = Modifier.background(getPokemonTypeColor(type))
+                )
+            }
         }
     }
 }

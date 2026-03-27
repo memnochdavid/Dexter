@@ -8,12 +8,9 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,16 +58,18 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
-import androidx.compose.runtime.livedata.observeAsState
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
+import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
+import com.david.pokedex_api.ui.screen.extras.ExtrasBrowserScreen
+import com.david.pokedex_api.ui.screen.extras.ExtrasSearchMenu
 import com.david.pokedex_api.ui.screen.ficha.PokemonDetailScreen
 import com.david.pokedex_api.ui.screen.ficha.composable.SectionPage
+import com.david.pokedex_api.ui.screen.items.ItemBrowserScreen
+import com.david.pokedex_api.ui.screen.items.ItemSearchMenu
+import com.david.pokedex_api.ui.screen.items.SearchMenu
 import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
 import com.david.pokedex_api.ui.screen.lista.composable.PokemonSearchMenu
-import com.david.pokedex_api.ui.screen.extras.ExtrasBrowserScreen
-import com.david.pokedex_api.ui.screen.items.ItemBrowserScreen
-import com.david.pokedex_api.ui.screen.items.SearchMenu
 import com.david.pokedex_api.ui.screen.movimientos.MoveBrowserScreen
 import com.david.pokedex_api.ui.screen.movimientos.MoveSearchMenu
 import com.david.pokedex_api.ui.screen.regiones.RegionBrowserScreen
@@ -76,7 +77,6 @@ import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.color_boton_busqueda
 import com.david.pokedex_api.ui.theme.color_menu_busqueda2
-import com.david.pokedex_api.util.Lottie
 
 
 object Routes {
@@ -151,7 +151,12 @@ fun PokedexApp(
                         tint = Color.White
                     )
                 } else {
-                    Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize())
+                    Icon(
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = "Menú",
+                        modifier = Modifier.size(28.dp),
+                        tint = Color.White
+                    )
                 }
             }
         },
@@ -218,8 +223,12 @@ fun PokedexApp(
         ) {
             if (isDetailRoute) {
                 // --- Ficha: categorías + volver ---
+                val pokemonDetail by pokemonViewModel.pokemonDetails.observeAsState()
+                val typeName = pokemonDetail?.types?.getOrNull(0)?.type?.name
+                val isDarkType = typeName?.let { esTipoColorOscuro(it) } ?: false
                 DetailSectionSheet(
                     pokemonViewModel = pokemonViewModel,
+                    isDarkType = isDarkType,
                     onSectionSelected = { showBottomSheet = false },
                     onNavigateBack = {
                         showBottomSheet = false
@@ -233,7 +242,6 @@ fun PokedexApp(
                     NavigationRow(
                         currentRoute = currentRoute,
                         onNavigate = { route ->
-                            showBottomSheet = false
                             if (currentRoute != route) {
                                 navController.navigate(route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -280,19 +288,19 @@ fun PokedexApp(
                             )
                         }
                         Routes.ITEM_BROWSER -> {
-                            val sq by pokemonViewModel.itemSearchQuery.collectAsState()
+                            ItemSearchMenu(pokemonViewModel = pokemonViewModel)
+                        }
+                        Routes.REGION_BROWSER -> {
+                            val sq by pokemonViewModel.regionSearchQuery.collectAsState()
                             SearchMenu(
-                                title = "Filtrar Items / Bayas",
+                                title = "Filtrar Regiones",
                                 query = sq,
-                                onQueryChanged = { pokemonViewModel.itemSearchQuery.value = it; pokemonViewModel.berrySearchQuery.value = it },
-                                placeholder = "Ej: Pocion, Aranja..."
+                                onQueryChanged = { pokemonViewModel.regionSearchQuery.value = it },
+                                placeholder = "Ej: Kanto, Johto..."
                             )
                         }
-                        // Regiones y Extras no tienen búsqueda
-                        else -> {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Text("No hay filtros para esta sección", color = CardBorder.copy(alpha = 0.5f))
-                            }
+                        Routes.EXTRAS_BROWSER -> {
+                            ExtrasSearchMenu(pokemonViewModel = pokemonViewModel)
                         }
                     }
                 }
@@ -345,11 +353,14 @@ private fun NavigationRow(
 @Composable
 private fun DetailSectionSheet(
     pokemonViewModel: PokemonViewModel,
+    isDarkType: Boolean,
     onSectionSelected: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val selectedSection by pokemonViewModel.selectedDetailSection.collectAsState()
+    val availableSectionNames by pokemonViewModel.availableDetailSections.collectAsState()
     val haptic = LocalHapticFeedback.current
+    val contentColor = if (isDarkType) Color.White else CardBorder
 
     Column(
         modifier = Modifier
@@ -368,17 +379,21 @@ private fun DetailSectionSheet(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Volver",
-                tint = CardBorder,
+                tint = contentColor,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(8.dp))
-            Text("Volver a la lista", color = CardBorder, fontWeight = FontWeight.Medium)
+            Text("Volver a la lista", color = contentColor, fontWeight = FontWeight.Medium)
         }
 
         Spacer(Modifier.height(4.dp))
 
-        // Grid de categorías (3 columnas)
-        val sections = SectionPage.entries
+        // Grid de categorías (3 columnas) - solo secciones con contenido
+        val sections = if (availableSectionNames.isNotEmpty()) {
+            SectionPage.entries.filter { it.name in availableSectionNames }
+        } else {
+            SectionPage.entries
+        }
         val columns = 3
         val rows = sections.chunked(columns)
 
@@ -410,14 +425,14 @@ private fun DetailSectionSheet(
                             imageVector = ImageVector.vectorResource(id = section.iconRes),
                             contentDescription = section.label,
                             modifier = Modifier.size(24.dp),
-                            tint = CardBorder
+                            tint = contentColor
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = section.label,
                             fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                            color = CardBorder,
+                            color = contentColor,
                             textAlign = TextAlign.Center,
                             maxLines = 1
                         )

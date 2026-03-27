@@ -7,8 +7,8 @@ import androidx.compose.ui.graphics.Color
 val background_app = Color(0xFFD3C8B6)
 val color_boton_busqueda2 = Color(0xFF2D82DC)
 val color_boton_busqueda = Color(0xFF2D82DC)
-val color_menu_busqueda1 = Color(0xC88269DA)
-val color_menu_busqueda2 = Color(0xC46650A4)
+val color_menu_busqueda1 = Color(0xFF8269DA)
+val color_menu_busqueda2 = Color(0xFF6650A4)
 val color_progress_bar = Color(0xFF247FEB)
 
 //stats

@@ -48,10 +48,20 @@ class PokemonViewModel : ViewModel() {
     var moveSelectedDamageClass = MutableStateFlow("Todos")
     // Items
     var itemSearchQuery = MutableStateFlow("")
+    var itemSelectedCategory = MutableStateFlow("Todas")
+    var itemCurrentTab = MutableStateFlow(0)
     // Bayas
     var berrySearchQuery = MutableStateFlow("")
+    var berrySelectedType = MutableStateFlow("Sin tipo")
+    // Regiones
+    var regionSearchQuery = MutableStateFlow("")
+    // Extras
+    var extrasSearchQuery = MutableStateFlow("")
+    var natureStatFilter = MutableStateFlow("Todos")
     // Ficha - seccion seleccionada
     var selectedDetailSection = MutableStateFlow("DESC")
+    // Ficha - secciones disponibles (calculadas por DetallesDesplegables)
+    var availableDetailSections = MutableStateFlow<List<String>>(emptyList())
     // IDs de Pokemon cuya animacion de entrada ya se ejecuto
     val animatedPokemonIds = mutableSetOf<Int>()
 

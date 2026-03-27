@@ -322,6 +322,7 @@ fun PokemonDetailsView(
             encounters = encounters,
             isLoadingEncounters = isLoadingEncounters,
             selectedSection = selectedSection,
+            onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)

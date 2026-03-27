@@ -48,7 +48,25 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
     var selectedLocationDisplay by rememberSaveable { mutableStateOf("") }
     var selectedRegionDisplay by rememberSaveable { mutableStateOf("") }
 
+    val searchQuery by pokemonViewModel.regionSearchQuery.collectAsState()
+
     LaunchedEffect(Unit) { pokemonViewModel.fetchRegions() }
+
+    val filteredRegions = remember(regions, searchQuery) {
+        if (searchQuery.isBlank()) regions
+        else regions.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
+    }
+    val filteredLocations = remember(locations, searchQuery) {
+        if (searchQuery.isBlank()) locations
+        else locations.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
+    }
+    val filteredAreas = remember(areas, searchQuery) {
+        if (searchQuery.isBlank()) areas
+        else areas.filter { area ->
+            area.localizedName.contains(searchQuery, true) || area.name.contains(searchQuery, true) ||
+            area.pokemonEncounters.any { it.pokemonName.contains(searchQuery, true) }
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(background_app)) {
         // Top bar con navegacion
@@ -93,12 +111,16 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
                     }
+                } else if (filteredRegions.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(items = regions, key = { it.id }) { region ->
+                        items(items = filteredRegions, key = { it.id }) { region ->
                             RegionCard(region) {
                                 selectedRegionName = region.name
                                 selectedRegionDisplay = region.localizedName
@@ -115,16 +137,16 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp))
                     }
-                } else if (locations.isEmpty()) {
+                } else if (filteredLocations.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No hay ubicaciones", color = CardBorder)
+                        Text(if (searchQuery.isNotBlank()) "Sin resultados" else "No hay ubicaciones", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(items = locations, key = { it.id }) { location ->
+                        items(items = filteredLocations, key = { it.id }) { location ->
                             LocationCard(location) {
                                 selectedLocationName = location.name
                                 selectedLocationDisplay = location.localizedName
@@ -141,16 +163,16 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp))
                     }
-                } else if (areas.isEmpty()) {
+                } else if (filteredAreas.isEmpty() || filteredAreas.all { it.pokemonEncounters.isEmpty() }) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Sin datos de encuentros", color = CardBorder)
+                        Text(if (searchQuery.isNotBlank()) "Sin resultados" else "Sin datos de encuentros", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        areas.forEach { area ->
+                        filteredAreas.forEach { area ->
                             if (area.pokemonEncounters.isNotEmpty()) {
                                 item(key = area.name) {
                                     AreaCard(area)
