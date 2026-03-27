@@ -76,9 +76,7 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
     val itemSummaries by pokemonViewModel.itemSummaries.collectAsState()
     val isLoading by pokemonViewModel.isLoadingItems.collectAsState()
 
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showBottomSheet by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
+    val searchQuery by pokemonViewModel.itemSearchQuery.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchItemList() }
 
@@ -88,50 +86,33 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
         else allItems.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); showBottomSheet = true },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier.size(65.dp).clip(RoundedCornerShape(50.dp))
-            ) { Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize()) }
-        },
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { padding ->
-        Box(Modifier.fillMaxSize().background(background_app).padding(padding)) {
-            if (isLoading && allItems.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+    Box(Modifier.fillMaxSize().background(background_app)) {
+        if (isLoading && allItems.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+            }
+        } else if (filteredItems.isEmpty()) {
+            Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(items = filteredItems, key = { it.id }) { item ->
+                    ItemCard(item)
                 }
-            } else if (filteredItems.isEmpty()) {
-                Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(items = filteredItems, key = { it.id }) { item ->
-                        ItemCard(item)
-                    }
-                    if (isLoading) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
-                                    Text("Cargando items...", color = CardBorder)
-                                }
+                if (isLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
+                                Text("Cargando items...", color = CardBorder)
                             }
                         }
                     }
                 }
-            }
-        }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(onDismissRequest = { showBottomSheet = false }, containerColor = color_menu_busqueda2, dragHandle = null) {
-                SearchMenu(title = "Filtrar Items", query = searchQuery, onQueryChanged = { searchQuery = it }, placeholder = "Ej: Pocion")
             }
         }
     }
@@ -143,9 +124,7 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
     val berrySummaries by pokemonViewModel.berrySummaries.collectAsState()
     val isLoading by pokemonViewModel.isLoadingBerries.collectAsState()
 
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showBottomSheet by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
+    val searchQuery by pokemonViewModel.berrySearchQuery.collectAsState()
 
     LaunchedEffect(Unit) { pokemonViewModel.fetchBerryList() }
 
@@ -155,57 +134,40 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
         else allBerries.filter { it.localizedName.contains(searchQuery, true) || it.name.contains(searchQuery, true) }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); showBottomSheet = true },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier.size(65.dp).clip(RoundedCornerShape(50.dp))
-            ) { Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize()) }
-        },
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { padding ->
-        Box(Modifier.fillMaxSize().background(background_app).padding(padding)) {
-            if (isLoading && allBerries.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+    Box(Modifier.fillMaxSize().background(background_app)) {
+        if (isLoading && allBerries.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+            }
+        } else if (filteredBerries.isEmpty()) {
+            Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(items = filteredBerries, key = { it.id }) { berry ->
+                    BerryCard(berry)
                 }
-            } else if (filteredBerries.isEmpty()) {
-                Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(items = filteredBerries, key = { it.id }) { berry ->
-                        BerryCard(berry)
-                    }
-                    if (isLoading) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
-                                    Text("Cargando bayas...", color = CardBorder)
-                                }
+                if (isLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
+                                Text("Cargando bayas...", color = CardBorder)
                             }
                         }
                     }
                 }
             }
         }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(onDismissRequest = { showBottomSheet = false }, containerColor = color_menu_busqueda2, dragHandle = null) {
-                SearchMenu(title = "Filtrar Bayas", query = searchQuery, onQueryChanged = { searchQuery = it }, placeholder = "Ej: Aranja")
-            }
-        }
     }
 }
 
 @Composable
-private fun SearchMenu(title: String, query: String, onQueryChanged: (String) -> Unit, placeholder: String) {
+fun SearchMenu(title: String, query: String, onQueryChanged: (String) -> Unit, placeholder: String) {
     val haptic = LocalHapticFeedback.current
     Box(
         modifier = Modifier

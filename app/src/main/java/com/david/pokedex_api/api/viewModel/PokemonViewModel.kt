@@ -37,6 +37,24 @@ class PokemonViewModel : ViewModel() {
     private val pokemonDao = DexterApplication.database.pokemonDao()
     private val wikiDexRepository = WikiDexRepository(pokemonDao)
 
+    // --- Estados de búsqueda/filtro (compartidos con el BottomSheet de MainActivity) ---
+    // Pokemon
+    var pokemonSearchQuery = MutableStateFlow("")
+    var pokemonSelectedType1 = MutableStateFlow("Sin tipo")
+    var pokemonSelectedType2 = MutableStateFlow("Sin tipo")
+    // Movimientos
+    var moveSearchQuery = MutableStateFlow("")
+    var moveSelectedType = MutableStateFlow("Sin tipo")
+    var moveSelectedDamageClass = MutableStateFlow("Todos")
+    // Items
+    var itemSearchQuery = MutableStateFlow("")
+    // Bayas
+    var berrySearchQuery = MutableStateFlow("")
+    // Ficha - seccion seleccionada
+    var selectedDetailSection = MutableStateFlow("DESC")
+    // IDs de Pokemon cuya animacion de entrada ya se ejecuto
+    val animatedPokemonIds = mutableSetOf<Int>()
+
     private val _pokemonDetails = MutableLiveData<PokemonDetailResponse?>()
     val pokemonDetails: LiveData<PokemonDetailResponse?> = _pokemonDetails
 
@@ -51,6 +69,7 @@ class PokemonViewModel : ViewModel() {
 
     private val _isLoadingDetails = MutableLiveData<Boolean>(false)
     val isLoadingDetails: LiveData<Boolean> = _isLoadingDetails
+    private var detailFetchJob: kotlinx.coroutines.Job? = null
 
     // --- OPTIMIZACIÓN DE MOVIMIENTOS ---
     private val _moveDetailsMap = MutableStateFlow<Map<String, MoveDetailResponse>>(emptyMap())
@@ -287,13 +306,14 @@ class PokemonViewModel : ViewModel() {
 
     fun fetchPokemonDetailsByName(name: String, lang: String) {
         if (_isLoadingDetails.value == true && _pokemonDetails.value?.name?.equals(name, true) == true) return
+        detailFetchJob?.cancel()
         _isLoadingDetails.value = true
         _pokemonDetails.value = null
         _pokemonDescription.value = null
         _wikiDexFlavorTexts.value = emptyMap()
         _wikiDexLocations.value = emptyMap()
 
-        viewModelScope.launch {
+        detailFetchJob = viewModelScope.launch {
             try {
                 // Paralelismo en las llamadas de detalle
                 val dDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(name.lowercase().trim()) }
@@ -339,6 +359,8 @@ class PokemonViewModel : ViewModel() {
                     // Carga masiva y reactiva de movimientos
                     details?.let { fetchMovesDetailsParallel(it.moves) }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) { handleError(e.message ?: "Error") }
             finally { _isLoadingDetails.value = false }
         }
@@ -517,6 +539,30 @@ class PokemonViewModel : ViewModel() {
     private fun NamedApiResource.getGenerationIdFromUrl(): Int? = url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
     private fun handleError(msg: String) { if (!errorShownThisFetch) { _error.postValue(msg); errorShownThisFetch = true } }
     fun clearError() { _error.value = null }
+    fun clearPokemonDetails() {
+        _pokemonDetails.value = null
+        _pokemonDescription.value = null
+        _pokemonSpeciesDetails.value = null
+        animatedPokemonIds.clear()
+    }
+
+    /** Resetea TODO el estado de la ficha al estado inicial (como si la app acabara de abrir) */
+    fun resetDetailState() {
+        detailFetchJob?.cancel()
+        _pokemonDetails.value = null
+        _pokemonDescription.value = null
+        _pokemonSpeciesDetails.value = null
+        _evolutionChainDetails.value = null
+        _isLoadingDetails.value = false
+        _isLoadingEvolutionChain.value = false
+        _wikiDexFlavorTexts.value = emptyMap()
+        _wikiDexLocations.value = emptyMap()
+        _pokemonEncounters.value = emptyList()
+        _navigationList.value = emptyList()
+        _evoChainPokemonMap.value = emptyMap()
+        animatedPokemonIds.clear()
+        selectedDetailSection.value = "DESC"
+    }
     fun isFetchingForGenerationId(id: Int?): Boolean = _isLoadingPokemonForCurrentGeneration.value == true && _currentlyFetchingGenerationId.value == id
 
     // ====================== ENCUENTROS ======================

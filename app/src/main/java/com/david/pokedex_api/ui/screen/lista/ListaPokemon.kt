@@ -49,12 +49,9 @@ fun GenerationPagerScreen(
     val pokemonByGenerationCache by pokemonViewModel.pokemonByGenerationCache.observeAsState(emptyMap())
     val isLoadingAnyPokemon by pokemonViewModel.isLoadingPokemonForCurrentGeneration.observeAsState(false)
 
-    var selectedType1 by rememberSaveable { mutableStateOf(NO_TYPE_SELECTED) }
-    var selectedType2 by rememberSaveable { mutableStateOf(NO_TYPE_SELECTED) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showBottomSheet by remember { mutableStateOf(false) }
-
-    val haptic = LocalHapticFeedback.current
+    val searchQuery by pokemonViewModel.pokemonSearchQuery.collectAsState()
+    val selectedType1 by pokemonViewModel.pokemonSelectedType1.collectAsState()
+    val selectedType2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
 
     LaunchedEffect(Unit) {
         if (generations.isEmpty()) pokemonViewModel.fetchGenerations()
@@ -81,63 +78,30 @@ fun GenerationPagerScreen(
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); showBottomSheet = true },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier.size(65.dp).clip(RoundedCornerShape(50.dp))
-            ) {
-                Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize())
-            }
-        },
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().background(background_app).padding(padding)) {
-            if (isSearching) {
-                if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
-                    NoResultsView()
-                } else {
-                    PokemonLazyList(filteredList, onNavigateToDetails)
-                }
-            } else if (generations.isEmpty()) {
-                // Carga inicial: las generaciones aún no se han descargado
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
-                }
+    Box(modifier = Modifier.fillMaxSize().background(background_app)) {
+        if (isSearching) {
+            if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
+                NoResultsView()
             } else {
-                val pagerState = rememberPagerState(pageCount = { generations.size })
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                    // Se elimina beyondBoundsPageCount para compatibilidad con versiones anteriores
-                ) { page ->
-                    val genId = generations.getOrNull(page)?.getGenerationIdFromUrl()
-                    val list = pokemonByGenerationCache[genId]
-                    if (list == null) {
-                        Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
-                    } else {
-                        PokemonLazyList(list, onNavigateToDetails)
-                    }
-                }
+                PokemonLazyList(filteredList, onNavigateToDetails)
             }
-        }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
-                containerColor = color_menu_busqueda2,
-                dragHandle = null
-            ) {
-                PokemonSearchMenu(
-                    searchQuery = searchQuery,
-                    selectedType1 = selectedType1,
-                    selectedType2 = selectedType2,
-                    availableTypes = ALL_POKEMON_TYPES,
-                    onSearchQueryChanged = { searchQuery = it },
-                    onType1Changed = { selectedType1 = it },
-                    onType2Changed = { selectedType2 = it }
-                )
+        } else if (generations.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+            }
+        } else {
+            val pagerState = rememberPagerState(pageCount = { generations.size })
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val genId = generations.getOrNull(page)?.getGenerationIdFromUrl()
+                val list = pokemonByGenerationCache[genId]
+                if (list == null) {
+                    Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
+                } else {
+                    PokemonLazyList(list, onNavigateToDetails)
+                }
             }
         }
     }
