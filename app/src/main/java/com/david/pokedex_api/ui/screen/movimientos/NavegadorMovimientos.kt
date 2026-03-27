@@ -47,12 +47,9 @@ fun MoveBrowserScreen(
     val isLoadingList by pokemonViewModel.isLoadingMoveList.collectAsState()
     val isLoadingSummaries by pokemonViewModel.isLoadingMoveSummaries.collectAsState()
 
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedType by rememberSaveable { mutableStateOf(NO_TYPE_SELECTED) }
-    var selectedDamageClass by rememberSaveable { mutableStateOf("Todos") }
-    var showBottomSheet by remember { mutableStateOf(false) }
-
-    val haptic = LocalHapticFeedback.current
+    val searchQuery by pokemonViewModel.moveSearchQuery.collectAsState()
+    val selectedType by pokemonViewModel.moveSelectedType.collectAsState()
+    val selectedDamageClass by pokemonViewModel.moveSelectedDamageClass.collectAsState()
 
     LaunchedEffect(Unit) {
         pokemonViewModel.fetchMoveList()
@@ -73,73 +70,40 @@ fun MoveBrowserScreen(
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); showBottomSheet = true },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier.size(65.dp).clip(RoundedCornerShape(50.dp))
-            ) {
-                Lottie(rawResId = R.raw.search, modifier = Modifier.fillMaxSize())
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(background_app)
+    ) {
+        if (isLoadingList && allMoves.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
             }
-        },
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(background_app)
-                .padding(padding)
-        ) {
-            if (isLoadingList && allMoves.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
+        } else if (filteredMoves.isEmpty() && !isLoadingSummaries) {
+            Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(items = filteredMoves, key = { it.id }) { move ->
+                    MoveBrowserCard(move = move)
                 }
-            } else if (filteredMoves.isEmpty() && !isLoadingSummaries) {
-                Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
-                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Sin resultados", color = CardBorder, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(items = filteredMoves, key = { it.id }) { move ->
-                        MoveBrowserCard(move = move)
-                    }
-                    if (isLoadingSummaries) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
-                                    Text("Cargando movimientos...", color = CardBorder, style = MaterialTheme.typography.bodyMedium)
-                                }
+                if (isLoadingSummaries) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(32.dp))
+                                Text("Cargando movimientos...", color = CardBorder, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
                 }
-            }
-        }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
-                containerColor = color_menu_busqueda2,
-                dragHandle = null
-            ) {
-                MoveSearchMenu(
-                    searchQuery = searchQuery,
-                    onSearchQueryChanged = { searchQuery = it },
-                    selectedType = selectedType,
-                    onTypeChanged = { selectedType = it },
-                    selectedDamageClass = selectedDamageClass,
-                    onDamageClassChanged = { selectedDamageClass = it },
-                    loadedCount = allMoves.size,
-                    isLoading = isLoadingSummaries
-                )
             }
         }
     }
@@ -147,7 +111,7 @@ fun MoveBrowserScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MoveSearchMenu(
+fun MoveSearchMenu(
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     selectedType: String,

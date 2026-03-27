@@ -108,8 +108,6 @@ fun PokemonDetailScreen(
 
     // Cargar detalles del Pokemon
     LaunchedEffect(pokemonName) {
-        pokemonViewModel.clearEvoChainPreload()
-        Log.d("PokemonDetailScreen", "Fetching details for $pokemonName")
         pokemonViewModel.fetchPokemonDetailsByName(pokemonName, "es")
     }
 
@@ -133,12 +131,10 @@ fun PokemonDetailScreen(
         }
     }
 
-    // Limpiar detalles cuando la pantalla se va
+    // Al salir de la ficha, volver al estado inicial limpio
     DisposableEffect(Unit) {
         onDispose {
-            // Descomenta si quieres limpiar los detalles al salir de esta pantalla
-            // pokemonViewModel.clearPokemonDetails()
-            // pokemonViewModel.clearError() // También podrías limpiar errores específicos de detalles
+            pokemonViewModel.resetDetailState()
         }
     }
 
@@ -168,7 +164,7 @@ fun PokemonDetailScreen(
             val evoMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
             val allPreloaded = navList.size > 1 && evoMap.size >= navList.size
 
-            if (isLoadingDetails && pokemonDetail == null) {
+            if (pokemonDetail == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -180,7 +176,7 @@ fun PokemonDetailScreen(
                         modifier = Modifier.size(200.dp),
                     )
                 }
-            } else if (pokemonDetail != null && allPreloaded) {
+            } else if (allPreloaded && navList.contains(pokemonDetail!!.id)) {
                 // Pager por linea evolutiva: cada pagina con sus propios datos
                 val initialPage = navList.indexOf(pokemonDetail!!.id).coerceAtLeast(0)
                 val pagerState = rememberPagerState(
@@ -232,11 +228,12 @@ fun PokemonDetailScreen(
                             wikiDexLocations = wikiDexLocations,
                             encounters = encounters,
                             isLoadingEncounters = isLoadingEncounters,
-                            isActivePage = page == pagerState.settledPage
+                            isActivePage = page == pagerState.settledPage,
+                            selectedSection = pokemonViewModel.selectedDetailSection.collectAsState().value
                         )
                     }
                 }
-            } else if (pokemonDetail != null) {
+            } else {
                 // Vista simple antes de que la cadena evolutiva este pre-cargada
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
@@ -252,28 +249,9 @@ fun PokemonDetailScreen(
                     wikiDexFlavorTexts = wikiDexFlavorTexts,
                     wikiDexLocations = wikiDexLocations,
                     encounters = encounters,
-                    isLoadingEncounters = isLoadingEncounters
+                    isLoadingEncounters = isLoadingEncounters,
+                    selectedSection = pokemonViewModel.selectedDetailSection.collectAsState().value
                 )
-            }
-            else if (error != null && !isLoadingDetails) {
-                // Si hubo un error y no está cargando, muestra el mensaje de error.
-//                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                    Text(
-//                        text = "Could not load Pokémon details.",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        textAlign = TextAlign.Center
-//                    )
-////                    Spacer(modifier = Modifier.height(8.dp))
-//                    Button(onClick = {
-//                        // Reintentar cargar
-//                        pokemonViewModel.fetchPokemonDetailsByName(pokemonName, "es")
-//                    }) {
-//                        Text("Retry")
-//                    }
-//                }
-            } else {
-                // Estado inicial o si algo más sale mal
-//                Text("Select a Pokémon from the list.", textAlign = TextAlign.Center)
             }
         }
     }
@@ -295,7 +273,8 @@ fun PokemonDetailsView(
     wikiDexLocations: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
-    isActivePage: Boolean = true
+    isActivePage: Boolean = true,
+    selectedSection: String = "DESC"
 ) {
     val spanishGenus = remember(pokemonSpecies) {
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
@@ -314,7 +293,7 @@ fun PokemonDetailsView(
             .background(color = getPokemonTypeColorSurface(type1))
     ) {
         // Header fijo: imagen + nombre
-        ComponenteImagen(pokemon = pokemon, isActivePage = isActivePage)
+        ComponenteImagen(pokemon = pokemon, isActivePage = isActivePage, pokemonViewModel = pokemonViewModel)
 
         NombreNumAlturaPeso(
             colorFondo = getPokemonTypeColorDark(type1),
@@ -342,6 +321,7 @@ fun PokemonDetailsView(
             wikiDexLocations = wikiDexLocations,
             encounters = encounters,
             isLoadingEncounters = isLoadingEncounters,
+            selectedSection = selectedSection,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -352,7 +332,8 @@ fun PokemonDetailsView(
 @Composable
 fun ComponenteImagen(
     pokemon: PokemonDetailResponse,
-    isActivePage: Boolean = true
+    isActivePage: Boolean = true,
+    pokemonViewModel: PokemonViewModel? = null
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -360,12 +341,16 @@ fun ComponenteImagen(
     // Shiny toggle
     var isShiny by remember { mutableStateOf(false) }
 
-    // Animacion de escala: solo se dispara cuando la pagina se activa
-    var internalScaleTarget by remember { mutableStateOf(0f) }
+    // Animacion de escala: solo se dispara una vez por Pokemon
+    val alreadyAnimated = pokemonViewModel?.animatedPokemonIds?.contains(pokemon.id) == true
+    var internalScaleTarget by remember { mutableStateOf(if (alreadyAnimated) 1f else 0f) }
     LaunchedEffect(pokemon.id, isActivePage) {
-        if (isActivePage) {
+        if (isActivePage && pokemonViewModel?.animatedPokemonIds?.contains(pokemon.id) != true) {
             internalScaleTarget = 0f
             delay(50)
+            internalScaleTarget = 1f
+            pokemonViewModel?.animatedPokemonIds?.add(pokemon.id)
+        } else if (isActivePage) {
             internalScaleTarget = 1f
         }
     }

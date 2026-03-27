@@ -83,7 +83,7 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonEncou
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonFormsView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegasGigas
 
-private enum class SectionPage(val label: String, val iconRes: Int) {
+enum class SectionPage(val label: String, val iconRes: Int) {
     DESC("Descripción", R.drawable.ic_description),
     SPRITES("Sprites", R.drawable.ic_sprites),
     STATS("Stats", R.drawable.ic_stats),
@@ -111,6 +111,7 @@ fun DetallesDesplegables(
     wikiDexLocations: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
+    selectedSection: String = SectionPage.DESC.name,
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
@@ -130,11 +131,7 @@ fun DetallesDesplegables(
     // Fondo del contenedor general de secciones
     val colorComponentBg = colorSurface
 
-    var selectedSection by rememberSaveable { mutableStateOf(SectionPage.DESC.name) }
-    var menuExpanded by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-
-    val currentSection = SectionPage.valueOf(selectedSection)
+    val currentSection = try { SectionPage.valueOf(selectedSection) } catch (_: Exception) { SectionPage.DESC }
 
     // Filtrar secciones que tienen contenido (sin remember para reaccionar a cambios async)
     val availableSections = SectionPage.entries.filter { section ->
@@ -380,110 +377,6 @@ fun DetallesDesplegables(
             }
         }
 
-        // Menu a pantalla completa con pills distribuidas
-        AnimatedVisibility(
-            visible = menuExpanded,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            val pillTextColor = Color.White
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { menuExpanded = false },
-                contentAlignment = Alignment.Center
-            ) {
-                // Grid de pills distribuido equitativamente
-                val columns = 3
-                val rows = availableSections.chunked(columns)
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    rows.forEach { rowSections ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            rowSections.forEach { section ->
-                                val isSelected = section.name == selectedSection
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            if (isSelected) colorSoft
-                                            else colorBase.copy(alpha = 0.9f)
-                                        )
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            selectedSection = section.name
-                                            menuExpanded = false
-                                        }
-                                        .padding(vertical = 12.dp, horizontal = 8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = ImageVector.vectorResource(id = section.iconRes),
-                                        contentDescription = section.label,
-                                        modifier = Modifier.size(26.dp),
-                                        tint = pillTextColor
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = section.label,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        color = pillTextColor,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            // Rellenar celdas vacías en la última fila
-                            repeat(columns - rowSections.size) {
-                                Spacer(Modifier.weight(1f).padding(4.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // FAB - mismo estilo que el de busqueda de las listas
-        if (!menuExpanded) {
-            FloatingActionButton(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    menuExpanded = true
-                },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
-                    .size(65.dp)
-                    .clip(RoundedCornerShape(50.dp))
-            ) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(
-                        id = SectionPage.valueOf(selectedSection).iconRes
-                    ),
-                    contentDescription = "Menu secciones",
-                    modifier = Modifier.size(28.dp),
-                    tint = Color.White
-                )
-            }
-        }
     }
 }
 
