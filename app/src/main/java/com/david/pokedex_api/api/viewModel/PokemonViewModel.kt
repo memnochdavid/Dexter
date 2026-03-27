@@ -19,6 +19,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -96,6 +97,78 @@ class PokemonViewModel : ViewModel() {
 
     private val _pokemonFormsAndVarieties = MutableLiveData<List<DisplayablePokemonVariety>>()
     val pokemonFormsAndVarieties: LiveData<List<DisplayablePokemonVariety>> = _pokemonFormsAndVarieties
+
+    // Navegacion por linea evolutiva: lista ordenada de IDs + datos pre-cargados
+    private val _navigationList = MutableLiveData<List<Int>>(emptyList())
+    val navigationList: LiveData<List<Int>> = _navigationList
+
+    fun setNavigationList(list: List<Int>) {
+        _navigationList.value = list
+    }
+
+    data class PreloadedPokemonData(
+        val detail: PokemonDetailResponse,
+        val species: PokemonSpeciesResponse?
+    )
+
+    private val _evoChainPokemonMap = MutableStateFlow<Map<Int, PreloadedPokemonData>>(emptyMap())
+    val evoChainPokemonMap: StateFlow<Map<Int, PreloadedPokemonData>> = _evoChainPokemonMap.asStateFlow()
+
+    fun preloadEvolutionChain(pokemonIds: List<Int>) {
+        viewModelScope.launch {
+            pokemonIds.map { id ->
+                async(Dispatchers.IO) {
+                    try {
+                        val detailResp = pokemonApiService.getPokemonDetailsById(id)
+                        val speciesResp = pokemonApiService.getPokemonSpeciesDetailsById(id)
+                        val detail = detailResp.body() ?: return@async
+                        _evoChainPokemonMap.update { it + (id to PreloadedPokemonData(detail, speciesResp.body())) }
+                    } catch (_: Exception) { }
+                }
+            }.awaitAll()
+        }
+    }
+
+    fun switchToPreloadedPokemon(pokemonId: Int) {
+        val preloaded = _evoChainPokemonMap.value[pokemonId] ?: return
+        _pokemonDetails.value = preloaded.detail
+        _pokemonSpeciesDetails.value = preloaded.species
+        _isLoadingDetails.value = false
+
+        val species = preloaded.species
+        val desc = species?.let {
+            val preferred = listOf("sword", "shield", "scarlet", "violet", "legends-arceus")
+            it.flavorTextEntries.filter { f -> f.language.name == "es" }
+                .firstOrNull { f -> preferred.any { p -> f.version.name.contains(p, true) } }?.flavorText
+                ?: it.flavorTextEntries.firstOrNull { f -> f.language.name == "es" }?.flavorText
+                ?: it.flavorTextEntries.firstOrNull { f -> f.language.name == "en" }?.flavorText
+        }
+        _pokemonDescription.value = desc?.replace("\n", " ")?.replace("\u000c", " ")?.replace("POKéMON", "Pokémon")
+
+        // Cargar movimientos y encuentros async
+        fetchMovesDetailsParallel(preloaded.detail.moves)
+        preloaded.detail.id.let { fetchPokemonEncounters(it) }
+
+        // WikiDex async
+        _wikiDexFlavorTexts.value = emptyMap()
+        _wikiDexLocations.value = emptyMap()
+        val spanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
+        if (spanishName != null) {
+            viewModelScope.launch {
+                _wikiDexFlavorTexts.value = wikiDexRepository.getFlavorTexts(spanishName)
+            }
+            viewModelScope.launch {
+                _wikiDexLocations.value = wikiDexRepository.getLocations(spanishName).mapKeys { (apiName, _) ->
+                    translateVersionName(apiName)
+                }
+            }
+        }
+    }
+
+    fun clearEvoChainPreload() {
+        _evoChainPokemonMap.value = emptyMap()
+        _navigationList.value = emptyList()
+    }
 
     private val _isLoadingForms = MutableLiveData<Boolean>(false)
     val isLoadingForms: LiveData<Boolean> = _isLoadingForms

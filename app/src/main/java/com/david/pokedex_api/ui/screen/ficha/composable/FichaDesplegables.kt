@@ -192,11 +192,6 @@ fun DetallesDesplegables(
                             Text(text = fallback, style = MaterialTheme.typography.bodyLarge, color = colorTexto, textAlign = TextAlign.Center, modifier = Modifier.padding(20.dp))
                         }
                     } else {
-                        var selectedVersion by rememberSaveable { mutableStateOf(flavorEntries.first().first) }
-                        val currentText = remember(selectedVersion, flavorEntries) {
-                            flavorEntries.find { it.first == selectedVersion }?.second ?: ""
-                        }
-
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -204,7 +199,6 @@ fun DetallesDesplegables(
                                 .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Titulo
                             Text(
                                 text = "Descripción",
                                 style = MaterialTheme.typography.titleMedium,
@@ -213,39 +207,39 @@ fun DetallesDesplegables(
                                 modifier = Modifier.padding(bottom = 10.dp)
                             )
 
-                            // Selector de juego
-                            GameVersionSelector(
-                                versions = flavorEntries.map { it.first },
-                                selectedVersion = selectedVersion,
-                                onVersionSelected = { selectedVersion = it },
-                                colorFondo = colorDropdown,
-                                colorTexto = colorTexto
-                            )
-
-                            // Descripcion que escala el texto al espacio disponible
-                            Box(
+                            // Todas las descripciones con scroll vertical
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                val fontSize = remember(currentText) {
-                                    when {
-                                        currentText.length < 60 -> 24.sp
-                                        currentText.length < 100 -> 20.sp
-                                        currentText.length < 160 -> 18.sp
-                                        currentText.length < 250 -> 16.sp
-                                        else -> 14.sp
+                                flavorEntries.forEach { (version, text) ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                colorDropdown.copy(alpha = 0.5f),
+                                                RoundedCornerShape(10.dp)
+                                            )
+                                            .padding(12.dp)
+                                    ) {
+                                        Text(
+                                            text = translateGameVersion(version),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colorTexto.copy(alpha = 0.7f),
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                        Text(
+                                            text = text,
+                                            fontSize = 15.sp,
+                                            lineHeight = 20.sp,
+                                            color = colorTexto
+                                        )
                                     }
                                 }
-                                Text(
-                                    text = currentText,
-                                    fontSize = fontSize,
-                                    lineHeight = fontSize * 1.4f,
-                                    color = colorTexto,
-                                    textAlign = TextAlign.Center
-                                )
+                                Spacer(Modifier.height(60.dp))
                             }
                         }
                     }
@@ -284,7 +278,7 @@ fun DetallesDesplegables(
                             evolutionChainResponse = evolutionChainDetailResponse,
                             onPokemonClick = onEvolutionPokemonClick,
                             color1 = colorSoft,
-                            color2 = colorSoft,
+                            color2 = colorSurface,
                             colorTexto = colorTexto,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -301,7 +295,7 @@ fun DetallesDesplegables(
                         pokemonApiService = pokemonApiService,
                         onFormClick = { onEvolutionPokemonClick(it) },
                         cardColor = colorSoft,
-                        itemCardColor = colorSoft,
+                        itemCardColor = colorSurface,
                         colorTexto = colorTexto,
                         modifier = Modifier.fillMaxSize()
                     )

@@ -10,7 +10,10 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,6 +41,8 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,7 +85,7 @@ import kotlinx.coroutines.delay
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PokemonDetailScreen(
     pokemonViewModel: PokemonViewModel,
@@ -101,8 +106,9 @@ fun PokemonDetailScreen(
     val wikiDexFlavorTexts by pokemonViewModel.wikiDexFlavorTexts.observeAsState(emptyMap())
     val wikiDexLocations by pokemonViewModel.wikiDexLocations.observeAsState(emptyMap())
 
-    // Cargar los detalles del Pokémon cuando esta pantalla se compone o pokemonName cambia
+    // Cargar detalles del Pokemon
     LaunchedEffect(pokemonName) {
+        pokemonViewModel.clearEvoChainPreload()
         Log.d("PokemonDetailScreen", "Fetching details for $pokemonName")
         pokemonViewModel.fetchPokemonDetailsByName(pokemonName, "es")
     }
@@ -110,6 +116,21 @@ fun PokemonDetailScreen(
     // Cargar encuentros cuando tengamos el ID del pokemon
     LaunchedEffect(pokemonDetail?.id) {
         pokemonDetail?.id?.let { pokemonViewModel.fetchPokemonEncounters(it) }
+    }
+
+    // Cuando llega la cadena evolutiva, pre-cargar TODOS los Pokemon de la cadena
+    LaunchedEffect(evolutionChain) {
+        evolutionChain?.chain?.let { chain ->
+            val ids = mutableListOf<Int>()
+            fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
+                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { ids.add(it) }
+                link.evolvesTo.forEach { traverse(it) }
+            }
+            traverse(chain)
+            ids.sort()
+            pokemonViewModel.setNavigationList(ids)
+            pokemonViewModel.preloadEvolutionChain(ids)
+        }
     }
 
     // Limpiar detalles cuando la pantalla se va
@@ -143,24 +164,80 @@ fun PokemonDetailScreen(
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            val navList by pokemonViewModel.navigationList.observeAsState(emptyList())
+            val evoMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
+            val allPreloaded = navList.size > 1 && evoMap.size >= navList.size
+
             if (isLoadingDetails && pokemonDetail == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(background_app),
-                    contentAlignment = Alignment.Center // El Box centrará su contenido
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column( // Usamos una Column para apilar el Lottie y el Texto verticalmente
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Lottie(
-                            rawResId = R.raw.pokeball, // <--- CAMBIA ESTO AL ID DE TU ARCHIVO LOTTIE
-                            modifier = Modifier.size(200.dp),
+                    Lottie(
+                        rawResId = R.raw.pokeball,
+                        modifier = Modifier.size(200.dp),
+                    )
+                }
+            } else if (pokemonDetail != null && allPreloaded) {
+                // Pager por linea evolutiva: cada pagina con sus propios datos
+                val initialPage = navList.indexOf(pokemonDetail!!.id).coerceAtLeast(0)
+                val pagerState = rememberPagerState(
+                    initialPage = initialPage,
+                    pageCount = { navList.size }
+                )
+
+                // Cuando cambia la pagina, cargar extras (encuentros, wikidex, movimientos)
+                LaunchedEffect(pagerState) {
+                    snapshotFlow { pagerState.settledPage }
+                        .distinctUntilChanged()
+                        .collect { page ->
+                            pokemonViewModel.switchToPreloadedPokemon(navList[page])
+                        }
+                }
+
+                // Pre-cachear imagenes de artwork para swipe fluido
+                LaunchedEffect(allPreloaded) {
+                    navList.forEach { id ->
+                        evoMap[id]?.detail?.sprites?.other?.officialArtwork?.frontDefault?.let { url ->
+                            val request = coil.request.ImageRequest.Builder(context)
+                                .data(url)
+                                .size(coil.size.Size.ORIGINAL)
+                                .build()
+                            coil.ImageLoader(context).enqueue(request)
+                        }
+                    }
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    val preloaded = evoMap[navList[page]]
+                    if (preloaded != null) {
+                        PokemonDetailsView(
+                            pokemon = preloaded.detail,
+                            pokemonSpecies = preloaded.species,
+                            description = null,
+                            evolutionChainDetailResponse = evolutionChain,
+                            isLoadingEvolutionChain = isLoadingEvolutionChain,
+                            onEvolutionPokemonClick = { clickedName ->
+                                pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                            },
+                            pokemonViewModel = pokemonViewModel,
+                            moveDetailsMap = moveDetailsMap,
+                            wikiDexFlavorTexts = wikiDexFlavorTexts,
+                            wikiDexLocations = wikiDexLocations,
+                            encounters = encounters,
+                            isLoadingEncounters = isLoadingEncounters,
+                            isActivePage = page == pagerState.settledPage
                         )
                     }
                 }
             } else if (pokemonDetail != null) {
+                // Vista simple antes de que la cadena evolutiva este pre-cargada
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,
@@ -217,7 +294,8 @@ fun PokemonDetailsView(
     wikiDexFlavorTexts: Map<String, String> = emptyMap(),
     wikiDexLocations: Map<String, String> = emptyMap(),
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
-    isLoadingEncounters: Boolean = false
+    isLoadingEncounters: Boolean = false,
+    isActivePage: Boolean = true
 ) {
     val spanishGenus = remember(pokemonSpecies) {
         pokemonSpecies?.genera?.find { it.language.name == "es" }?.genus
@@ -236,7 +314,7 @@ fun PokemonDetailsView(
             .background(color = getPokemonTypeColorSurface(type1))
     ) {
         // Header fijo: imagen + nombre
-        ComponenteImagen(pokemon = pokemon)
+        ComponenteImagen(pokemon = pokemon, isActivePage = isActivePage)
 
         NombreNumAlturaPeso(
             colorFondo = getPokemonTypeColorDark(type1),
@@ -274,6 +352,7 @@ fun PokemonDetailsView(
 @Composable
 fun ComponenteImagen(
     pokemon: PokemonDetailResponse,
+    isActivePage: Boolean = true
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -281,12 +360,14 @@ fun ComponenteImagen(
     // Shiny toggle
     var isShiny by remember { mutableStateOf(false) }
 
-    // Animacion de escala
-    var internalScaleTarget by remember(pokemon) { mutableStateOf(0f) }
-    LaunchedEffect(pokemon) {
-        internalScaleTarget = 0f
-        delay(50)
-        internalScaleTarget = 1f
+    // Animacion de escala: solo se dispara cuando la pagina se activa
+    var internalScaleTarget by remember { mutableStateOf(0f) }
+    LaunchedEffect(pokemon.id, isActivePage) {
+        if (isActivePage) {
+            internalScaleTarget = 0f
+            delay(50)
+            internalScaleTarget = 1f
+        }
     }
     val actualScale by animateFloatAsState(
         targetValue = internalScaleTarget,
@@ -396,7 +477,9 @@ fun ComponenteImagen(
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = "${pokemon.name} sprite",
-                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (showShimmerEffect) Modifier.clip(CircleShape) else Modifier),
                     contentScale = ContentScale.Fit,
                     colorFilter = if (showShimmerEffect) ColorFilter.tint(
                         color = Color.White.copy(alpha = 0.7f),
@@ -415,6 +498,7 @@ fun ComponenteImagen(
                 }
             }
         }
+
     }
 }
 

@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
@@ -97,11 +98,8 @@ fun PokedexApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf(Routes.POKEMON_LIST, Routes.MOVE_BROWSER, Routes.ITEM_BROWSER, Routes.REGION_BROWSER, Routes.EXTRAS_BROWSER)
-
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
                 NavigationBar(
                     containerColor = color_menu_busqueda2,
                     contentColor = CardBorder,
@@ -147,7 +145,6 @@ fun PokedexApp(
                         )
                     }
                 }
-            }
         }
     ) { padding ->
         NavHost(
