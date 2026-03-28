@@ -318,7 +318,7 @@ fun PokemonDetailsView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = getPokemonTypeColorSurface(type1))
+            .background(color = background_app)
     ) {
         // Header fijo: imagen + nombre
         ComponenteImagen(

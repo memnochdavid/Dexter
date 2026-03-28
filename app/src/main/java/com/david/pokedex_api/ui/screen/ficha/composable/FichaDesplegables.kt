@@ -52,6 +52,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -69,6 +73,7 @@ import com.david.pokedex_api.api.model.PokemonDetailResponse
 import com.david.pokedex_api.api.model.PokemonSpeciesResponse
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.theme.CardBorder
+import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.color_boton_busqueda
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.LiveSprites
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.MuestraDesc
@@ -124,21 +129,20 @@ fun DetallesDesplegables(
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
-    val colorTexto = Color.Black
 
-    // 5 variantes del color del tipo
-    val colorDark = getPokemonTypeColorDark(typeName)          // profundo - cabeceras, hero
-    val colorBase = getPokemonTypeColor(typeName)              // medio - secciones principales
-    val colorSoft = getPokemonTypeColorClear(typeName)         // pastel - fondos de secciones
-    val colorAccent = getPokemonTypeColorTypeChip(typeName)    // intenso - chips, badges, acentos
-    val colorSurface = getPokemonTypeColorSurface(typeName)    // tinte sutil - cards internas, listas
+    // Paleta neutra + acentos del tipo
+    val colorTexto = Color(0xFF1A1A1A)                                  // texto principal
+    val colorTextoSecundario = Color(0xFF5A5A5A)                        // texto secundario
+    val colorDark = getPokemonTypeColorDark(typeName)                   // acento fuerte (barra secciones, headers)
+    val colorAccent = getPokemonTypeColorTypeChip(typeName)             // acento (bordes seleccion, chips)
+    val colorCard = Color.White.copy(alpha = 0.65f)                     // cards principales
+    val colorCardInner = Color.White.copy(alpha = 0.40f)                // cards internas / dropdowns
+    val colorComponentBg = background_app                               // fondo general secciones
 
-    // Color para dropdowns: segundo tipo surface, o colorBase si mono-tipo
-    val type2Name = pokemon.types.getOrNull(1)?.type?.name
-    val colorDropdown = if (type2Name != null) getPokemonTypeColorSurface(type2Name) else colorSurface
-
-    // Fondo del contenedor general de secciones
-    val colorComponentBg = colorSurface
+    // Aliases para compatibilidad con secciones existentes
+    val colorSoft = colorCard
+    val colorSurface = colorCardInner
+    val colorDropdown = colorCardInner
 
     val currentSection = try { SectionPage.valueOf(selectedSection) } catch (_: Exception) { SectionPage.DESC }
 
@@ -165,11 +169,21 @@ fun DetallesDesplegables(
 
     val haptic = LocalHapticFeedback.current
 
+    // Consume scroll horizontal sobrante para que no pase al HorizontalPager padre
+    val consumeHorizontalScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                return Offset(available.x, 0f)
+            }
+        }
+    }
+
     Column(modifier = modifier) {
         // Barra horizontal de secciones
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(consumeHorizontalScroll)
                 .background(colorDark)
                 .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -360,6 +374,7 @@ fun DetallesDesplegables(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(colorDropdown.copy(alpha = 0.4f))
+                                        .verticalScroll(rememberScrollState())
                                         .padding(16.dp)
                                 ) {
                                     Text(
@@ -394,18 +409,12 @@ fun DetallesDesplegables(
                 }
 
                 SectionPage.SPRITES -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(colorSoft)
-                    ) {
-                        LiveSprites(
-                            pokemon = pokemon,
-                            colorTexto = colorTexto,
-                            nombreSpanish = pokemon.name,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    LiveSprites(
+                        pokemon = pokemon,
+                        colorTexto = colorTexto,
+                        nombreSpanish = pokemon.name,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
 
                 SectionPage.STATS -> {
