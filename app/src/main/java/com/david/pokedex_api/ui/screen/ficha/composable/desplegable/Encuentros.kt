@@ -1,9 +1,13 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,12 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.GameEncounterGroup
 import com.david.pokedex_api.api.model.GameEncounterLocation
+import com.david.pokedex_api.ui.screen.ficha.composable.getGameCoverResId
+import com.david.pokedex_api.ui.screen.ficha.composable.translateGameVersion
 import com.david.pokedex_api.util.Lottie
 
 @Composable
@@ -49,6 +54,7 @@ fun PokemonEncountersView(
     colorFondo: Color,
     colorTexto: Color,
     colorDropdown: Color = colorFondo,
+    colorAccent: Color = colorFondo,
     modifier: Modifier = Modifier
 ) {
     // Merge: WikiDex (primario, español) + PokeAPI (fallback, puede tener inglés)
@@ -65,8 +71,7 @@ fun PokemonEncountersView(
     ) {
         if (isLoading && wikiDexLocations.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
@@ -99,7 +104,7 @@ fun PokemonEncountersView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp)
             ) {
                 // Titulo
                 Text(
@@ -110,125 +115,131 @@ fun PokemonEncountersView(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 10.dp)
+                        .padding(bottom = 8.dp)
                 )
 
-                // Selector de juego
-                EncounterVersionSelector(
-                    versions = allVersions,
-                    selectedVersion = effectiveSelected,
-                    onVersionSelected = { selectedVersion = it },
-                    colorDropdown = colorDropdown,
-                    colorTexto = colorTexto
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                // Prioridad: WikiDex español → PokeAPI estructurado → sin datos
-                if (wikiDexText != null) {
-                    // WikiDex: texto en español
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Columna izquierda: selector de juego con caratulas
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .weight(0.38f)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(4.dp)
                     ) {
-                        item {
+                        items(allVersions, key = { it }) { version ->
+                            val isSelected = version == effectiveSelected
+                            val coverRes = getGameCoverResId(version)
+                            val haptic = LocalHapticFeedback.current
+
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(colorTexto.copy(alpha = 0.05f))
-                                    .padding(10.dp)
+                                    .then(
+                                        if (isSelected) Modifier.border(
+                                            2.dp,
+                                            colorAccent,
+                                            RoundedCornerShape(8.dp)
+                                        ) else Modifier
+                                    )
+                                    .background(
+                                        if (isSelected) colorDropdown.copy(alpha = 0.6f)
+                                        else Color.Transparent
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        selectedVersion = version
+                                    }
+                                    .padding(4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                if (coverRes != 0) {
+                                    Image(
+                                        painter = painterResource(id = coverRes),
+                                        contentDescription = translateGameVersion(version),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.FillWidth
+                                    )
+                                }
                                 Text(
-                                    text = wikiDexText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = colorTexto,
-                                    lineHeight = 20.sp
+                                    text = translateGameVersion(version),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorTexto.copy(alpha = if (isSelected) 1f else 0.7f),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
                         }
                     }
-                } else if (pokeApiLocations.isNotEmpty()) {
-                    // Fallback: datos estructurados de PokeAPI
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // Columna derecha: contenido de ubicaciones
+                    Column(
+                        modifier = Modifier
+                            .weight(0.62f)
+                            .fillMaxSize()
+                            .padding(top = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        items(items = pokeApiLocations, key = { it.locationName }) { location ->
-                            LocationEncounterRow(location = location, colorTexto = colorTexto)
+                        Text(
+                            text = translateGameVersion(effectiveSelected),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colorTexto,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        if (wikiDexText != null) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                item {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(colorTexto.copy(alpha = 0.05f))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = wikiDexText,
+                                            fontSize = 15.sp,
+                                            lineHeight = 22.sp,
+                                            color = colorTexto
+                                        )
+                                    }
+                                }
+                            }
+                        } else if (pokeApiLocations.isNotEmpty()) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(items = pokeApiLocations, key = { it.locationName }) { location ->
+                                    LocationEncounterRow(location = location, colorTexto = colorTexto)
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Sin ubicaciones para este juego",
+                                    color = colorTexto.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Sin ubicaciones para este juego",
-                            color = colorTexto.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EncounterVersionSelector(
-    versions: List<String>,
-    selectedVersion: String,
-    onVersionSelected: (String) -> Unit,
-    colorDropdown: Color,
-    colorTexto: Color
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        OutlinedTextField(
-            value = selectedVersion,
-            onValueChange = {},
-            readOnly = true,
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(10.dp),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                focusedContainerColor = colorDropdown.copy(alpha = 0.5f),
-                unfocusedContainerColor = colorDropdown.copy(alpha = 0.3f),
-                focusedBorderColor = colorTexto.copy(alpha = 0.3f),
-                unfocusedBorderColor = colorTexto.copy(alpha = 0.15f),
-                focusedTextColor = colorTexto,
-                unfocusedTextColor = colorTexto,
-                focusedTrailingIconColor = colorTexto,
-                unfocusedTrailingIconColor = colorTexto.copy(alpha = 0.6f)
-            )
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(colorDropdown)
-        ) {
-            versions.forEach { version ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = version,
-                            fontWeight = if (version == selectedVersion) FontWeight.Bold else FontWeight.Normal,
-                            color = colorTexto
-                        )
-                    },
-                    onClick = {
-                        onVersionSelected(version)
-                        expanded = false
-                    }
-                )
             }
         }
     }
