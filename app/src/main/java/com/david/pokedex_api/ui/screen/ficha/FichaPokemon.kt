@@ -5,8 +5,15 @@ import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import android.content.Context
@@ -25,13 +32,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -56,6 +66,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.AsyncImage
 import com.david.pokedex_api.R
@@ -287,46 +299,81 @@ fun PokemonDetailsView(
 
     val type1 = pokemon.types[0].type.name
 
+    // Estado de imagen expandida
+    var isImageExpanded by remember { mutableStateOf(false) }
+
+    // Peso animado: imagen ocupa 0.35f normal, 1f expandida
+    val imageWeight by animateFloatAsState(
+        targetValue = if (isImageExpanded) 1f else 0f,
+        animationSpec = tween(450),
+        label = "imageWeight"
+    )
+    // Opacidad de las secciones inferiores
+    val bottomAlpha by animateFloatAsState(
+        targetValue = if (isImageExpanded) 0f else 1f,
+        animationSpec = tween(350),
+        label = "bottomAlpha"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(color = getPokemonTypeColorSurface(type1))
     ) {
         // Header fijo: imagen + nombre
-        ComponenteImagen(pokemon = pokemon, isActivePage = isActivePage, pokemonViewModel = pokemonViewModel)
-
-        NombreNumAlturaPeso(
-            colorFondo = getPokemonTypeColorDark(type1),
-            colorTexto = Color.White,
-            nombre = spanishPokemonName,
-            numero = pokemon.id,
-            genus = spanishGenus,
-            altura = pokemon.height.toDouble(),
-            peso = pokemon.weight.toDouble(),
-            modifier = Modifier.fillMaxWidth(),
-            tipo = pokemon.types[0].type.name
-        )
-
-        // Contenido con FAB de secciones - sin separacion
-        DetallesDesplegables(
+        ComponenteImagen(
             pokemon = pokemon,
-            evolutionChainDetailResponse = evolutionChainDetailResponse,
-            isLoadingEvolutionChain = isLoadingEvolutionChain,
-            onEvolutionPokemonClick = onEvolutionPokemonClick,
-            description = description,
-            pokemonApiService = pokemonViewModel.pokemonApiService,
-            moveDetailsMap = moveDetailsMap,
-            pokemonSpecies = pokemonSpecies,
-            wikiDexFlavorTexts = wikiDexFlavorTexts,
-            wikiDexLocations = wikiDexLocations,
-            encounters = encounters,
-            isLoadingEncounters = isLoadingEncounters,
-            selectedSection = selectedSection,
-            onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
+            isActivePage = isActivePage,
+            pokemonViewModel = pokemonViewModel,
+            isExpanded = isImageExpanded,
+            onToggleExpand = { isImageExpanded = !isImageExpanded },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .weight(0.35f + imageWeight * 0.65f)
         )
+
+        // Secciones inferiores: nombre + desplegables — se encogen con peso animado
+        if (imageWeight < 0.99f) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.65f - imageWeight * 0.65f)
+                    .graphicsLayer { alpha = bottomAlpha }
+            ) {
+                NombreNumAlturaPeso(
+                    colorFondo = getPokemonTypeColorDark(type1),
+                    colorTexto = Color.White,
+                    nombre = spanishPokemonName,
+                    numero = pokemon.id,
+                    genus = spanishGenus,
+                    altura = pokemon.height.toDouble(),
+                    peso = pokemon.weight.toDouble(),
+                    modifier = Modifier.fillMaxWidth(),
+                    tipo = pokemon.types[0].type.name
+                )
+
+                // Contenido con FAB de secciones
+                DetallesDesplegables(
+                    pokemon = pokemon,
+                    evolutionChainDetailResponse = evolutionChainDetailResponse,
+                    isLoadingEvolutionChain = isLoadingEvolutionChain,
+                    onEvolutionPokemonClick = onEvolutionPokemonClick,
+                    description = description,
+                    pokemonApiService = pokemonViewModel.pokemonApiService,
+                    moveDetailsMap = moveDetailsMap,
+                    pokemonSpecies = pokemonSpecies,
+                    wikiDexFlavorTexts = wikiDexFlavorTexts,
+                    wikiDexLocations = wikiDexLocations,
+                    encounters = encounters,
+                    isLoadingEncounters = isLoadingEncounters,
+                    selectedSection = selectedSection,
+                    onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                )
+            }
+        }
     }
 }
 
@@ -334,7 +381,10 @@ fun PokemonDetailsView(
 fun ComponenteImagen(
     pokemon: PokemonDetailResponse,
     isActivePage: Boolean = true,
-    pokemonViewModel: PokemonViewModel? = null
+    pokemonViewModel: PokemonViewModel? = null,
+    isExpanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -368,12 +418,12 @@ fun ComponenteImagen(
     val color2 = type2Name?.let { getPokemonTypeColorDark(it) } ?: color1
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         // Fondo dual-color por tipo
         Card(
-            modifier = Modifier.fillMaxWidth().height(300.dp),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(0.dp),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -398,45 +448,72 @@ fun ComponenteImagen(
                 // Banda inferior — tipo 2 (o tipo 1 si mono-tipo)
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth().background(color2),
-                    contentAlignment = Alignment.BottomStart
+                    contentAlignment = Alignment.BottomEnd
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        // Pokeball = reproduce cry
-                        if (pokemon.cries?.latest != null) {
+                    // Icono de tipo
+                    val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
+                    if (typeToShowOnBottom != null) {
+                        val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
+                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                             Image(
-                                painter = painterResource(id = R.drawable.pokeball_icon),
-                                contentDescription = "Escuchar cry",
-                                modifier = Modifier
-                                    .size(45.dp)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        playCry(context, pokemon.cries.latest)
-                                    }
+                                painter = painterResource(id = iconResId),
+                                contentDescription = typeToShowOnBottom,
+                                modifier = Modifier.padding(8.dp).size(40.dp)
                             )
-                        }
-
-                        // Icono de tipo
-                        val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
-                        if (typeToShowOnBottom != null) {
-                            val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
-                            if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
-                                Image(
-                                    painter = painterResource(id = iconResId),
-                                    contentDescription = typeToShowOnBottom,
-                                    modifier = Modifier.padding(start = 8.dp).size(40.dp)
-                                )
-                            }
                         }
                     }
                 }
             }
         }
 
-        // Contenido central: official artwork con toggle shiny al pulsar
+        // Botones Pokeball + Shiny — apilados verticalmente, sobre la imagen (zIndex superior)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 8.dp)
+                .zIndex(2f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Boton shiny — mismo estilo que LiveSprites
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isShiny) Color(0xFFFFD700).copy(alpha = 0.4f)
+                        else Color.White.copy(alpha = 0.15f)
+                    )
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isShiny = !isShiny
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "\u2726",
+                    fontSize = 18.sp,
+                    color = if (isShiny) Color(0xFFB8860B) else Color.White.copy(alpha = 0.6f)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Pokeball = reproduce cry
+            if (pokemon.cries?.latest != null) {
+                Image(
+                    painter = painterResource(id = R.drawable.pokeball_icon),
+                    contentDescription = "Escuchar cry",
+                    modifier = Modifier
+                        .size(45.dp)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            playCry(context, pokemon.cries.latest)
+                        }
+                )
+            }
+        }
+
+        // Contenido central: official artwork — pulsar expande/contrae
         val imageUrl = if (isShiny) {
             pokemon.sprites.other?.officialArtwork?.frontShiny
                 ?: pokemon.sprites.frontShiny
@@ -449,14 +526,13 @@ fun ComponenteImagen(
         if (imageUrl != null) {
             Box(
                 modifier = Modifier
-                    .height(300.dp)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(horizontal = 30.dp)
                     .graphicsLayer { scaleX = actualScale; scaleY = actualScale }
-                    .align(Alignment.Center)
+                    .zIndex(1f)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isShiny = !isShiny
+                        onToggleExpand()
                     },
                 contentAlignment = Alignment.Center
             ) {
