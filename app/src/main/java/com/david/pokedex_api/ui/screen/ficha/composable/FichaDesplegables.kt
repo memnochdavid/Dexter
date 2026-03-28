@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.david.pokedex_api.R
@@ -118,6 +119,7 @@ fun DetallesDesplegables(
     encounters: List<com.david.pokedex_api.api.model.GameEncounterGroup> = emptyList(),
     isLoadingEncounters: Boolean = false,
     selectedSection: String = SectionPage.DESC.name,
+    onSectionSelected: (String) -> Unit = {},
     onAvailableSectionsChanged: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -161,8 +163,55 @@ fun DetallesDesplegables(
         onAvailableSectionsChanged(availableSections.map { it.name })
     }
 
-    Box(modifier = modifier) {
-        // Contenido de la seccion activa - sin separacion ni border radius
+    val haptic = LocalHapticFeedback.current
+
+    Column(modifier = modifier) {
+        // Barra horizontal de secciones
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colorDark)
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp)
+        ) {
+            items(availableSections.size) { index ->
+                val section = availableSections[index]
+                val isSelected = section == currentSection
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (isSelected) Color.White.copy(alpha = 0.2f)
+                            else Color.Transparent
+                        )
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSectionSelected(section.name)
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = section.iconRes),
+                        contentDescription = section.label,
+                        modifier = Modifier.size(20.dp),
+                        tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = section.label,
+                        fontSize = 9.sp,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        // Contenido de la seccion activa
         Box(
             modifier = Modifier
                 .fillMaxSize()

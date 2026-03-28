@@ -131,26 +131,17 @@ fun PokedexApp(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showBottomSheet = true
-                },
-                containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                modifier = Modifier
-                    .size(65.dp)
-                    .clip(RoundedCornerShape(50.dp))
-            ) {
-                if (isDetailRoute) {
-                    val selectedSection by pokemonViewModel.selectedDetailSection.collectAsState()
-                    val iconRes = try { SectionPage.valueOf(selectedSection).iconRes } catch (_: Exception) { R.drawable.ic_description }
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = iconRes),
-                        contentDescription = "Menu",
-                        modifier = Modifier.size(28.dp),
-                        tint = Color.White
-                    )
-                } else {
+            if (!isDetailRoute) {
+                FloatingActionButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showBottomSheet = true
+                    },
+                    containerColor = color_boton_busqueda.copy(alpha = 0.85f),
+                    modifier = Modifier
+                        .size(65.dp)
+                        .clip(RoundedCornerShape(50.dp))
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Menu,
                         contentDescription = "Menú",
@@ -206,36 +197,15 @@ fun PokedexApp(
         }
     }
 
-    // BottomSheet contextual
-    if (showBottomSheet) {
-        val sheetColor = if (isDetailRoute) {
-            val pokemonDetail by pokemonViewModel.pokemonDetails.observeAsState()
-            val typeName = pokemonDetail?.types?.getOrNull(0)?.type?.name
-            typeName?.let { getPokemonTypeColor(it) } ?: color_menu_busqueda2
-        } else color_menu_busqueda2
-
+    // BottomSheet contextual (solo fuera de la ficha)
+    if (showBottomSheet && !isDetailRoute) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
-            containerColor = sheetColor,
+            containerColor = color_menu_busqueda2,
             dragHandle = null,
-            shape = if (isDetailRoute) RoundedCornerShape(0.dp) else RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            scrimColor = if (isDetailRoute) Color.Transparent else Color.Black.copy(alpha = 0.32f)
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            scrimColor = Color.Black.copy(alpha = 0.32f)
         ) {
-            if (isDetailRoute) {
-                // --- Ficha: categorías + volver ---
-                val pokemonDetail by pokemonViewModel.pokemonDetails.observeAsState()
-                val typeName = pokemonDetail?.types?.getOrNull(0)?.type?.name
-                val isDarkType = typeName?.let { esTipoColorOscuro(it) } ?: false
-                DetailSectionSheet(
-                    pokemonViewModel = pokemonViewModel,
-                    isDarkType = isDarkType,
-                    onSectionSelected = { showBottomSheet = false },
-                    onNavigateBack = {
-                        showBottomSheet = false
-                        navController.popBackStack()
-                    }
-                )
-            } else {
                 // --- Listas: navegación + búsqueda ---
                 Column {
                     // Navegación entre secciones
@@ -304,7 +274,6 @@ fun PokedexApp(
                         }
                     }
                 }
-            }
         }
     }
 }
