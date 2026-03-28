@@ -352,7 +352,7 @@ fun PokemonDetailsView(
                     tipo = pokemon.types[0].type.name
                 )
 
-                // Contenido con FAB de secciones
+                // Contenido con barra de secciones integrada
                 DetallesDesplegables(
                     pokemon = pokemon,
                     evolutionChainDetailResponse = evolutionChainDetailResponse,
@@ -367,6 +367,7 @@ fun PokemonDetailsView(
                     encounters = encounters,
                     isLoadingEncounters = isLoadingEncounters,
                     selectedSection = selectedSection,
+                    onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
                     onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
                     modifier = Modifier
                         .fillMaxWidth()
