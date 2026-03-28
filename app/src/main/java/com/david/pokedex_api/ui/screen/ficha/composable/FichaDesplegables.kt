@@ -5,13 +5,18 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -195,55 +200,146 @@ fun DetallesDesplegables(
                             Text(text = fallback, style = MaterialTheme.typography.bodyLarge, color = colorTexto, textAlign = TextAlign.Center, modifier = Modifier.padding(20.dp))
                         }
                     } else {
+                        var selectedVersion by rememberSaveable { mutableStateOf(flavorEntries.first().first) }
+                        val selectedText = flavorEntries.firstOrNull { it.first == selectedVersion }?.second ?: ""
+
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(colorSoft)
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(start = 10.dp, end = 10.dp, top = 10.dp)
                         ) {
-                            Text(
-                                text = "Descripción",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = colorTexto,
-                                modifier = Modifier.padding(bottom = 10.dp)
-                            )
-
-                            // Todas las descripciones con scroll vertical
-                            Column(
+                            // Titulo: Descripcion + nombre del juego
+                            Row(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    .fillMaxWidth()
+                                    .padding(bottom = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                flavorEntries.forEach { (version, text) ->
+                                Text(
+                                    text = "Descripción",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorTexto
+                                )
+                                Text(
+                                    text = "  \u2022  ",
+                                    fontSize = 14.sp,
+                                    color = colorTexto.copy(alpha = 0.3f)
+                                )
+                                Text(
+                                    text = translateGameVersion(selectedVersion),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorAccent
+                                )
+                            }
+
+                        Row(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Columna izquierda: caratulas de juego (selector)
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(0.35f)
+                                    .fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(4.dp)
+                            ) {
+                                items(flavorEntries, key = { it.first }) { (version, _) ->
+                                    val isSelected = version == selectedVersion
+                                    val coverRes = getGameCoverResId(version)
+                                    val haptic = LocalHapticFeedback.current
+
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
                                             .background(
-                                                colorDropdown.copy(alpha = 0.5f),
-                                                RoundedCornerShape(10.dp)
+                                                if (isSelected) colorDropdown.copy(alpha = 0.7f)
+                                                else colorDropdown.copy(alpha = 0.15f)
                                             )
-                                            .padding(12.dp)
+                                            .then(
+                                                if (isSelected) Modifier.border(
+                                                    2.dp,
+                                                    colorAccent,
+                                                    RoundedCornerShape(10.dp)
+                                                ) else Modifier
+                                            )
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                selectedVersion = version
+                                            }
+                                            .padding(6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
+                                        if (coverRes != 0) {
+                                            Image(
+                                                painter = painterResource(id = coverRes),
+                                                contentDescription = translateGameVersion(version),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(6.dp)),
+                                                contentScale = ContentScale.FillWidth
+                                            )
+                                        }
                                         Text(
                                             text = translateGameVersion(version),
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = colorTexto.copy(alpha = 0.7f),
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                        Text(
-                                            text = text,
-                                            fontSize = 15.sp,
-                                            lineHeight = 20.sp,
-                                            color = colorTexto
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                            color = colorTexto.copy(alpha = if (isSelected) 1f else 0.55f),
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            modifier = Modifier.padding(top = 4.dp)
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(60.dp))
                             }
+
+                            Spacer(Modifier.width(10.dp))
+
+                            // Columna derecha: descripcion del juego seleccionado
+                            Column(
+                                modifier = Modifier
+                                    .weight(0.65f)
+                                    .fillMaxSize(),
+                                verticalArrangement = Arrangement.Top
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(colorDropdown.copy(alpha = 0.4f))
+                                        .padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "\u201C",
+                                        fontSize = 28.sp,
+                                        lineHeight = 28.sp,
+                                        color = colorAccent.copy(alpha = 0.5f),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = selectedText,
+                                        fontSize = 18.sp,
+                                        lineHeight = 27.sp,
+                                        color = colorTexto,
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                    Text(
+                                        text = "\u201D",
+                                        fontSize = 28.sp,
+                                        lineHeight = 28.sp,
+                                        color = colorAccent.copy(alpha = 0.5f),
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.End,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
                         }
                     }
                 }
@@ -377,7 +473,8 @@ fun DetallesDesplegables(
                         isLoading = isLoadingEncounters,
                         colorFondo = colorSoft,
                         colorTexto = colorTexto,
-                        colorDropdown = colorDropdown
+                        colorDropdown = colorDropdown,
+                        colorAccent = colorAccent
                     )
                 }
             }
@@ -445,7 +542,7 @@ private fun GameVersionSelector(
     }
 }
 
-private fun translateGameVersion(version: String): String = when (version.lowercase()) {
+internal fun translateGameVersion(version: String): String = when (version.lowercase()) {
     "red" -> "Rojo"
     "blue" -> "Azul"
     "yellow" -> "Amarillo"
@@ -484,4 +581,86 @@ private fun translateGameVersion(version: String): String = when (version.lowerc
     "scarlet" -> "Escarlata"
     "violet" -> "Violeta"
     else -> version.split("-").joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+}
+
+internal fun getGameCoverResId(version: String): Int {
+    // Quitar sufijo "japan" si lo tiene (ej: "red japan" → "red")
+    val cleaned = version.lowercase().replace(" japan", "").replace("-japan", "").trim()
+    return when (cleaned) {
+        // Nombres API (inglés)
+        "red" -> R.drawable.game_red
+        "blue" -> R.drawable.game_blue
+        "yellow" -> R.drawable.game_yellow
+        "gold" -> R.drawable.game_gold
+        "silver" -> R.drawable.game_silver
+        "crystal" -> R.drawable.game_crystal
+        "ruby" -> R.drawable.game_ruby
+        "sapphire" -> R.drawable.game_sapphire
+        "emerald" -> R.drawable.game_emerald
+        "firered" -> R.drawable.game_red_fire
+        "leafgreen" -> R.drawable.game_green_leaf
+        "diamond" -> R.drawable.game_diamond
+        "pearl" -> R.drawable.game_pearl
+        "platinum" -> R.drawable.game_platinum
+        "heartgold" -> R.drawable.game_heart_gold
+        "soulsilver" -> R.drawable.game_soul_silver
+        "black" -> R.drawable.game_black
+        "white" -> R.drawable.game_white
+        "black-2" -> R.drawable.game_black_2
+        "white-2" -> R.drawable.game_white_2
+        "x" -> R.drawable.game_x
+        "y" -> R.drawable.game_y
+        "omega-ruby" -> R.drawable.game_ruby_omega
+        "alpha-sapphire" -> R.drawable.game_sapphire_alpha
+        "sun" -> R.drawable.game_sun
+        "moon" -> R.drawable.game_moon
+        "ultra-sun" -> R.drawable.game_ultra_sun
+        "ultra-moon" -> R.drawable.game_ultra_moon
+        "lets-go-pikachu" -> R.drawable.game_letsgo_pikachu
+        "lets-go-eevee" -> R.drawable.game_letsgo_eevee
+        "sword" -> R.drawable.game_sword
+        "shield" -> R.drawable.game_shield
+        "legends-arceus" -> R.drawable.game_arceus
+        "scarlet" -> R.drawable.game_scarlet
+        "violet" -> R.drawable.game_violet
+        "legends-za" -> R.drawable.game_za
+        // Nombres traducidos (español)
+        "rojo" -> R.drawable.game_red
+        "azul" -> R.drawable.game_blue
+        "amarillo" -> R.drawable.game_yellow
+        "oro" -> R.drawable.game_gold
+        "plata" -> R.drawable.game_silver
+        "cristal" -> R.drawable.game_crystal
+        "rubí", "rubi" -> R.drawable.game_ruby
+        "zafiro" -> R.drawable.game_sapphire
+        "esmeralda" -> R.drawable.game_emerald
+        "rojo fuego" -> R.drawable.game_red_fire
+        "verde hoja" -> R.drawable.game_green_leaf
+        "diamante" -> R.drawable.game_diamond
+        "perla" -> R.drawable.game_pearl
+        "platino" -> R.drawable.game_platinum
+        "oro heartgold" -> R.drawable.game_heart_gold
+        "plata soulsilver" -> R.drawable.game_soul_silver
+        "negro" -> R.drawable.game_black
+        "blanco" -> R.drawable.game_white
+        "negro 2" -> R.drawable.game_black_2
+        "blanco 2" -> R.drawable.game_white_2
+        "rubí omega", "rubi omega" -> R.drawable.game_ruby_omega
+        "zafiro alfa" -> R.drawable.game_sapphire_alpha
+        "sol" -> R.drawable.game_sun
+        "luna" -> R.drawable.game_moon
+        "ultra sol" -> R.drawable.game_ultra_sun
+        "ultra luna" -> R.drawable.game_ultra_moon
+        "let's go pikachu" -> R.drawable.game_letsgo_pikachu
+        "let's go eevee" -> R.drawable.game_letsgo_eevee
+        "espada" -> R.drawable.game_sword
+        "escudo" -> R.drawable.game_shield
+        "diamante brillante" -> R.drawable.game_diamond
+        "perla reluciente" -> R.drawable.game_pearl
+        "leyendas arceus" -> R.drawable.game_arceus
+        "escarlata" -> R.drawable.game_scarlet
+        "púrpura", "purpura", "violeta" -> R.drawable.game_violet
+        "leyendas z-a" -> R.drawable.game_za
+        else -> 0
+    }
 }

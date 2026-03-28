@@ -523,11 +523,16 @@ fun ComponenteImagen(
             pokemon.sprites.other?.officialArtwork?.frontDefault
                 ?: pokemon.sprites.frontDefault
         }
+        val imagePadding by animateDpAsState(
+            targetValue = if (isExpanded) 4.dp else 30.dp,
+            animationSpec = tween(450),
+            label = "imagePadding"
+        )
         if (imageUrl != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 30.dp)
+                    .padding(horizontal = imagePadding)
                     .graphicsLayer { scaleX = actualScale; scaleY = actualScale }
                     .zIndex(1f)
                     .clickable {
