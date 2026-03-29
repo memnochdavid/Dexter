@@ -43,6 +43,7 @@ import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.GameEncounterGroup
 import com.david.pokedex_api.api.model.GameEncounterLocation
 import com.david.pokedex_api.ui.screen.ficha.composable.getGameCoverResId
+import com.david.pokedex_api.ui.screen.ficha.composable.getGameReleaseOrder
 import com.david.pokedex_api.ui.screen.ficha.composable.translateGameVersion
 import com.david.pokedex_api.util.Lottie
 
@@ -61,7 +62,7 @@ fun PokemonEncountersView(
     val allVersions = remember(encounters, wikiDexLocations) {
         val wikiVersions = wikiDexLocations.keys.toList()
         val pokeApiExtra = encounters.map { it.versionName }.filter { it !in wikiDexLocations }
-        wikiVersions + pokeApiExtra
+        (wikiVersions + pokeApiExtra).sortedBy { getGameReleaseOrder(it) }
     }
 
     Column(
