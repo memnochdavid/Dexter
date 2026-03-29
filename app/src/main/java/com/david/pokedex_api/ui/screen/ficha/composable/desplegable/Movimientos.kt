@@ -362,9 +362,11 @@ fun MoveRow(
 
     var isExpanded by rememberSaveable(key = moveSlot.move.name) { mutableStateOf(false) }
 
-    val actualColorTexto = moveTypeName?.let { type ->
-        if (esTipoColorOscuro(type)) Color.White else Color.Black
-    } ?: MaterialTheme.colorScheme.onSurface
+//    val actualColorTexto = moveTypeName?.let { type ->
+//        if (esTipoColorOscuro(type)) Color.White else Color.Black
+//    } ?: MaterialTheme.colorScheme.onSurface
+
+    val actualColorTexto = Color.Black
 
     // Función para aplicar los datos de un MoveDetailResponse a los estados locales
     fun applyMoveDetails(moveDetails: MoveDetailResponse?) {

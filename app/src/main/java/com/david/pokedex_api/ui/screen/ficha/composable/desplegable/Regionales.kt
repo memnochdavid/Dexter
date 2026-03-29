@@ -223,19 +223,20 @@ fun PokemonRegionalFormsView(
                 )
             }
 
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.Top
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(regionalForms) { form ->
-                    // Reutilizamos SpecialFormItemView, ya que la estructura es similar
-                    SpecialFormItemView( // Asegúrate de que SpecialFormItemView esté disponible/importado
+                regionalForms.forEach { form ->
+                    SpecialFormItemView(
                         specialForm = form,
                         backgroundColor = itemCardColor,
                         onClick = { onFormClick(form.formName) },
-                        colorTexto = colorTexto
+                        colorTexto = colorTexto,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -759,21 +760,22 @@ fun PokemonFormsView(
                 )
             }
 
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.Top
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(formsList) { form ->
+                formsList.forEach { form ->
                     SpecialFormItemView(
                         specialForm = form,
                         backgroundColor = itemCardColor,
                         onClick = {
-                            // Use the fetchedBasePokemonName which was updated with the actual name from API
                             onFormClick(fetchedBasePokemonName, form.formName)
                         },
-                        colorTexto = colorTexto
+                        colorTexto = colorTexto,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }

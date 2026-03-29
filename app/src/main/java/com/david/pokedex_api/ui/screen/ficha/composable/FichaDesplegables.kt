@@ -153,11 +153,18 @@ fun DetallesDesplegables(
             SectionPage.SPRITES -> true
             SectionPage.STATS -> pokemon.stats.isNotEmpty()
             SectionPage.EVOS -> evolutionChainDetailResponse != null || isLoadingEvolutionChain
-            SectionPage.SPECIAL_FORMS -> true
+            SectionPage.SPECIAL_FORMS -> pokemonSpecies?.varieties?.any { v ->
+                val name = v.pokemon.name
+                !v.isDefault && (name.contains("-mega") || name.contains("-gmax"))
+            } == true
             SectionPage.MOVES -> pokemon.moves.isNotEmpty()
             SectionPage.ABILITY -> pokemon.abilities.isNotEmpty()
             SectionPage.INTER -> pokemon.types.isNotEmpty()
-            SectionPage.FORM -> true
+            SectionPage.FORM -> pokemonSpecies?.varieties?.any { v ->
+                val name = v.pokemon.name
+                val knownRegions = listOf("-alola", "-galar", "-hisui", "-paldea")
+                !v.isDefault && knownRegions.any { region -> name.contains(region) }
+            } == true || pokemon.forms.size > 1
             SectionPage.INFO -> pokemonSpecies != null
             SectionPage.ENCOUNTERS -> true // se carga async, mostrar siempre
         }
@@ -250,7 +257,7 @@ fun DetallesDesplegables(
                                 ?: return@mapNotNull null
                             val cleaned = text.replace("\n", " ").replace("\u000c", " ").replace("POKéMON", "Pokémon")
                             version to cleaned
-                        }.sortedBy { translateGameVersion(it.first) }
+                        }.sortedBy { getGameReleaseOrder(it.first) }
                     }
 
                     if (flavorEntries.isEmpty()) {
@@ -490,7 +497,7 @@ fun DetallesDesplegables(
 
                 SectionPage.FORM -> {
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         PokemonRegionalFormsView(
@@ -501,7 +508,7 @@ fun DetallesDesplegables(
                             cardColor = colorSoft,
                             colorTexto = colorTexto,
                             itemCardColor = colorSoft,
-                            modifier = Modifier.fillMaxWidth().weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                         PokemonFormsView(
                             pokemon = pokemon,
@@ -510,7 +517,7 @@ fun DetallesDesplegables(
                             cardColor = colorSoft,
                             itemCardColor = colorSoft,
                             colorTexto = colorTexto,
-                            modifier = Modifier.fillMaxWidth().weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -600,6 +607,48 @@ private fun GameVersionSelector(
     }
 }
 
+internal fun getGameReleaseOrder(version: String): Int = when (version.lowercase()) {
+    "red" -> 1
+    "blue" -> 2
+    "yellow" -> 3
+    "gold" -> 4
+    "silver" -> 5
+    "crystal" -> 6
+    "ruby" -> 7
+    "sapphire" -> 8
+    "firered" -> 9
+    "leafgreen" -> 10
+    "emerald" -> 11
+    "diamond" -> 12
+    "pearl" -> 13
+    "platinum" -> 14
+    "heartgold" -> 15
+    "soulsilver" -> 16
+    "black" -> 17
+    "white" -> 18
+    "black-2" -> 19
+    "white-2" -> 20
+    "x" -> 21
+    "y" -> 22
+    "omega-ruby" -> 23
+    "alpha-sapphire" -> 24
+    "sun" -> 25
+    "moon" -> 26
+    "ultra-sun" -> 27
+    "ultra-moon" -> 28
+    "lets-go-pikachu" -> 29
+    "lets-go-eevee" -> 30
+    "sword" -> 31
+    "shield" -> 32
+    "brilliant-diamond" -> 33
+    "shining-pearl" -> 34
+    "legends-arceus" -> 35
+    "scarlet" -> 36
+    "violet" -> 37
+    "legends-za" -> 38
+    else -> 999
+}
+
 internal fun translateGameVersion(version: String): String = when (version.lowercase()) {
     "red" -> "Rojo"
     "blue" -> "Azul"
@@ -678,6 +727,8 @@ internal fun getGameCoverResId(version: String): Int {
         "lets-go-eevee" -> R.drawable.game_letsgo_eevee
         "sword" -> R.drawable.game_sword
         "shield" -> R.drawable.game_shield
+        "brilliant-diamond" -> R.drawable.game_brilliant_diamond
+        "shining-pearl" -> R.drawable.game_shining_pearl
         "legends-arceus" -> R.drawable.game_arceus
         "scarlet" -> R.drawable.game_scarlet
         "violet" -> R.drawable.game_violet
@@ -713,8 +764,8 @@ internal fun getGameCoverResId(version: String): Int {
         "let's go eevee" -> R.drawable.game_letsgo_eevee
         "espada" -> R.drawable.game_sword
         "escudo" -> R.drawable.game_shield
-        "diamante brillante" -> R.drawable.game_diamond
-        "perla reluciente" -> R.drawable.game_pearl
+        "diamante brillante" -> R.drawable.game_brilliant_diamond
+        "perla reluciente" -> R.drawable.game_shining_pearl
         "leyendas arceus" -> R.drawable.game_arceus
         "escarlata" -> R.drawable.game_scarlet
         "púrpura", "purpura", "violeta" -> R.drawable.game_violet

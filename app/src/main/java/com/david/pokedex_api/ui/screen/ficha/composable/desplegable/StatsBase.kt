@@ -142,12 +142,12 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
     // false = radar grande, true = barras grandes
     var showBars by remember { mutableStateOf(false) }
     val radarWeight by animateFloatAsState(
-        targetValue = if (showBars) 0.25f else 0.75f,
+        targetValue = if (showBars) 0.15f else 0.85f,
         animationSpec = tween(400),
         label = "radarWeight"
     )
     val barsWeight by animateFloatAsState(
-        targetValue = if (showBars) 0.75f else 0.25f,
+        targetValue = if (showBars) 0.85f else 0.15f,
         animationSpec = tween(400),
         label = "barsWeight"
     )

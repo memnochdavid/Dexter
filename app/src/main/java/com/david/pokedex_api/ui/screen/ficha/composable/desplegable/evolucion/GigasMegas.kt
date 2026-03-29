@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -253,7 +255,7 @@ fun SpecialFormItemView(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -261,19 +263,17 @@ fun SpecialFormItemView(
                     .crossfade(true)
                     .build(),
                 contentDescription = specialForm.displayName,
-                modifier = Modifier.size(120.dp),
+                modifier = Modifier.size(90.dp),
                 contentScale = ContentScale.Fit
             )
+            Spacer(Modifier.width(10.dp))
             Text(
                 text = specialForm.displayName,
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                textAlign = TextAlign.Center,
+                fontSize = 15.sp,
                 color = colorTexto,
                 maxLines = 2,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp)
+                modifier = Modifier.weight(1f)
             )
         }
     }
