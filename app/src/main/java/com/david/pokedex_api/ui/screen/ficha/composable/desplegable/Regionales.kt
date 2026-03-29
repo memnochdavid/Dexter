@@ -97,8 +97,12 @@ fun PokemonRegionalFormsView(
 
                     // Filtrar variedades regionales y cargarlas en PARALELO
                     val regionalVarieties = speciesDetail.varieties.filter { variety ->
-                        !variety.isDefault && knownRegions.any { region ->
-                            variety.pokemon.name.contains("-$region")
+                        if (variety.isDefault) return@filter false
+                        val name = variety.pokemon.name
+                        knownRegions.any { region ->
+                            // Exacto: "baseName-region" o con sufijo breed para paldea
+                            name == "$basePokemonName-$region" ||
+                                (region == "paldea" && name.startsWith("$basePokemonName-$region-"))
                         }
                     }
 
@@ -545,137 +549,161 @@ fun PokemonFormsView(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonFormsView(
-    pokemon : PokemonDetailResponse,
+    pokemon: PokemonDetailResponse,
+    pokemonSpeciesUrl: String,
     pokemonApiService: PokeApiService,
     cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
-    onFormClick: (pokemonName: String, formApiName: String) -> Unit, // Base name of clicked Pokemon, API name of the form
+    onFormClick: (pokemonName: String, formApiName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val knownRegions = listOf("alola", "galar", "hisui", "paldea")
+
     var formsList by remember { mutableStateOf<List<SpecialForm>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    // Store the fetched base Pokemon name to be accessible by onClick
-    var fetchedBasePokemonName by remember { mutableStateOf(pokemon.id.toString())}
-
-    LaunchedEffect(pokemon.id.toString()) {
-        if (pokemon.id.toString().isBlank()) {
-            isLoading = false
-            error = "Pokémon ID or name is required."
-            formsList = emptyList()
-            return@LaunchedEffect
-        }
-
+    LaunchedEffect(pokemon.id) {
         isLoading = true
         error = null
-        formsList = emptyList() // Clear previous forms
+        formsList = emptyList()
 
         coroutineScope.launch {
             try {
-                // 1. Fetch the base Pokémon details to get the list of form URLs/names
-                val pokemonDetailsResponse: Response<PokemonDetailResponse> =
-                    pokemonApiService.getPokemonDetails(pokemon.id.toString().lowercase(java.util.Locale.ROOT))
+                val allForms = mutableListOf<SpecialForm>()
+                val addedNames = mutableSetOf<String>()
+                val baseName = pokemon.name
 
-                if (pokemonDetailsResponse.isSuccessful && pokemonDetailsResponse.body() != null) {
-                    val pokemonDetail = pokemonDetailsResponse.body()!!
-                    fetchedBasePokemonName = pokemonDetail.name // Update with the actual name from API response
-                    val apiForms = pokemonDetail.forms
-
-                    if (apiForms.isNullOrEmpty()) {
-                        isLoading = false
-                        return@launch
+                // === Fuente 1: Varieties de la species (pikachu con gorras, etc.) ===
+                val speciesResponse = pokemonApiService.getPokemonSpeciesDetailsByUrl(pokemonSpeciesUrl)
+                if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
+                    val species = speciesResponse.body()!!
+                    val otherVarieties = species.varieties.filter { variety ->
+                        if (variety.isDefault) return@filter false
+                        val name = variety.pokemon.name
+                        // Excluir megas y gigas
+                        if (name.contains("-mega") || name.contains("-gmax")) return@filter false
+                        // Excluir regionales exactos (base-region o base-region-breed para paldea)
+                        val isRegional = knownRegions.any { region ->
+                            name == "$baseName-$region" ||
+                                (region == "paldea" && name.startsWith("$baseName-$region-"))
+                        }
+                        !isRegional
                     }
 
-                    // 2. Fetch details for each form
-                    val detailedFormsDeferred = apiForms.map { formResource ->
+                    val varietyDeferred = otherVarieties.map { variety ->
                         async {
                             try {
-                                val formDetailResponse: Response<PokemonFormDetailResponse> =
-                                    pokemonApiService.getPokemonFormDetailsByUrl(formResource.url)
+                                val pokeName = variety.pokemon.name
+                                val detailResp = pokemonApiService.getPokemonDetails(pokeName)
+                                val detail = detailResp.body()
+                                val spriteUrl = detail?.sprites?.other?.officialArtwork?.frontDefault
+                                    ?: detail?.sprites?.frontDefault
+                                    ?: variety.pokemon.url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
+                                        ?.let { "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$it.png" }
 
-                                if (formDetailResponse.isSuccessful && formDetailResponse.body() != null) {
-                                    val formDetail = formDetailResponse.body()!!
-                                    val lang = java.util.Locale.getDefault().language
-                                    var displayName = ""
-
-                                    val localizedFormVariantName = formDetail.localizedFormNames
-                                        .firstOrNull { it.language.name == lang }?.name?.takeIf { it.isNotBlank() }
-                                        ?: formDetail.localizedFormNames
-                                            .firstOrNull { it.language.name == "en" }?.name?.takeIf { it.isNotBlank() }
-
-                                    val localizedPokemonNameInForm = formDetail.localizedPokemonNames
-                                        .firstOrNull { it.language.name == lang }?.name
-                                        ?: formDetail.localizedPokemonNames
-                                            .firstOrNull { it.language.name == "en" }?.name
-                                        ?: pokemon.name // Fallback to base display name parameter
-
-                                    if (!localizedFormVariantName.isNullOrBlank()) {
-                                        displayName = "$localizedPokemonNameInForm ($localizedFormVariantName)"
-                                    } else {
-                                        val formSuffix = formDetail.name.removePrefix(formDetail.pokemon.name + "-").takeIf { it != formDetail.name }
-                                        displayName = if (!formSuffix.isNullOrBlank()) {
-                                            "$localizedPokemonNameInForm (${formSuffix.replaceFirstChar { if (it.isLowerCase()) it.titlecase(
-                                                java.util.Locale.getDefault()) else it.toString() }})"
-                                        } else {
-                                            // If the form name is the same as the pokemon name (e.g. "pikachu" for form "pikachu")
-                                            // and it's the default form, just use the localized pokemon name.
-                                            // Otherwise, it might be something like "Arceus (Normal)" where formDetail.name is "arceus-normal"
-                                            if (formDetail.name.equals(formDetail.pokemon.name, ignoreCase = true) && formDetail.isDefault) {
-                                                localizedPokemonNameInForm
-                                            } else {
-                                                // Construct a name if it's different but not a standard suffix like "-mega"
-                                                // For example, if formDetail.name is "deoxys-attack" and pokemon.name is "deoxys"
-                                                val autoSuffix = formDetail.name.removePrefix(pokemonDetail.name + "-")
-                                                if (autoSuffix.isNotEmpty() && autoSuffix != formDetail.name) {
-                                                    "$localizedPokemonNameInForm (${autoSuffix.replaceFirstChar { it.titlecase(
-                                                        java.util.Locale.getDefault()) }})"
-                                                } else {
-                                                    localizedPokemonNameInForm // Fallback
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    val spriteUrl = pokemonDetail.sprites.other?.officialArtwork?.frontDefault
-                                        ?: formDetail.sprites.frontDefault
-                                        ?: pokemonDetail.sprites.frontDefault
-
-                                    SpecialForm(
-                                        formName = formDetail.name, // API name of the form itself e.g. "arceus-fire"
-                                        displayName = displayName.trim().capitalize(Locale.ROOT),
-                                        spriteUrl = spriteUrl
-                                    )
-                                } else {
-                                    null // Error fetching this specific form detail
+                                // Intentar obtener nombre localizado
+                                val lang = Locale.getDefault().language
+                                val localizedName = detail?.let {
+                                    // Buscar en forms del pokemon para nombre localizado
+                                    if (it.forms.isNotEmpty()) {
+                                        val formResp = pokemonApiService.getPokemonFormDetailsByUrl(it.forms[0].url)
+                                        val formDetail = formResp.body()
+                                        val locFormName = formDetail?.localizedFormNames
+                                            ?.firstOrNull { n -> n.language.name == lang }?.name?.takeIf { n -> n.isNotBlank() }
+                                            ?: formDetail?.localizedFormNames
+                                                ?.firstOrNull { n -> n.language.name == "en" }?.name?.takeIf { n -> n.isNotBlank() }
+                                        val locPokeName = formDetail?.localizedPokemonNames
+                                            ?.firstOrNull { n -> n.language.name == lang }?.name
+                                            ?: formDetail?.localizedPokemonNames
+                                                ?.firstOrNull { n -> n.language.name == "en" }?.name
+                                        if (locFormName != null && locPokeName != null) {
+                                            "$locPokeName ($locFormName)"
+                                        } else if (locFormName != null) {
+                                            "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($locFormName)"
+                                        } else null
+                                    } else null
                                 }
-                            } catch (e: Exception) {
-                                null // Error during individual form processing
-                            }
+
+                                val displayName = localizedName
+                                    ?: pokeName.removePrefix(pokemon.name + "-")
+                                        .split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
+                                        .let { suffix -> "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($suffix)" }
+
+                                SpecialForm(
+                                    formName = pokeName,
+                                    displayName = displayName,
+                                    spriteUrl = spriteUrl
+                                )
+                            } catch (_: Exception) { null }
                         }
                     }
-
-                    val results = detailedFormsDeferred.awaitAll().filterNotNull()
-                    formsList = results
-
-                } else {
-                    error = "Failed to load base Pokémon details for forms: ${pokemonDetailsResponse.message()}"
+                    varietyDeferred.awaitAll().filterNotNull().forEach { form ->
+                        if (addedNames.add(form.formName)) allForms.add(form)
+                    }
                 }
+
+                // === Fuente 2: Forms del pokemon (formas de Arceus por tipo, Deoxys, Unown, etc.) ===
+                if (pokemon.forms.size > 1) {
+                    val formDeferred = pokemon.forms.map { formResource ->
+                        async {
+                            try {
+                                val formResp = pokemonApiService.getPokemonFormDetailsByUrl(formResource.url)
+                                val formDetail = formResp.body() ?: return@async null
+                                if (formDetail.isDefault) return@async null
+
+                                val lang = Locale.getDefault().language
+                                val locFormName = formDetail.localizedFormNames
+                                    .firstOrNull { it.language.name == lang }?.name?.takeIf { it.isNotBlank() }
+                                    ?: formDetail.localizedFormNames
+                                        .firstOrNull { it.language.name == "en" }?.name?.takeIf { it.isNotBlank() }
+                                val locPokeName = formDetail.localizedPokemonNames
+                                    .firstOrNull { it.language.name == lang }?.name
+                                    ?: formDetail.localizedPokemonNames
+                                        .firstOrNull { it.language.name == "en" }?.name
+                                    ?: pokemon.name.replaceFirstChar { it.titlecase() }
+
+                                val displayName = if (!locFormName.isNullOrBlank()) {
+                                    "$locPokeName ($locFormName)"
+                                } else {
+                                    val suffix = formDetail.name.removePrefix(pokemon.name + "-")
+                                    if (suffix != formDetail.name && suffix.isNotBlank()) {
+                                        "$locPokeName (${suffix.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }})"
+                                    } else locPokeName
+                                }
+
+                                val spriteUrl = formDetail.sprites.frontDefault
+                                    ?: pokemon.sprites.other?.officialArtwork?.frontDefault
+                                    ?: pokemon.sprites.frontDefault
+
+                                SpecialForm(
+                                    formName = formDetail.name,
+                                    displayName = displayName,
+                                    spriteUrl = spriteUrl
+                                )
+                            } catch (_: Exception) { null }
+                        }
+                    }
+                    formDeferred.awaitAll().filterNotNull().forEach { form ->
+                        if (addedNames.add(form.formName)) allForms.add(form)
+                    }
+                }
+
+                formsList = allForms
             } catch (e: Exception) {
-                error = "Error fetching Pokémon forms: ${e.localizedMessage}"
-                // e.printStackTrace() // Consider logging instead of printStackTrace in production
+                error = "Error cargando formas: ${e.localizedMessage}"
             } finally {
                 isLoading = false
             }
         }
     }
+
     if (isLoading) {
         Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(16.dp), contentAlignment = Alignment.Center
+            modifier = modifier.fillMaxWidth().padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
             Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
         }
@@ -684,66 +712,30 @@ fun PokemonFormsView(
 
     if (error != null) {
         Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(16.dp), contentAlignment = Alignment.Center
+            modifier = modifier.fillMaxWidth().padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                "Error: $error",
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center
-            )
+            Text("Error: $error", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         }
         return
     }
 
-    // Heuristic: If there's only one form and its name matches the original fetched name/ID,
-    // and its display name is the same as the base display name, it's likely redundant.
-    if (formsList.size == 1) {
-        val singleForm = formsList.first()
-        // Check if the form's API name matches the originally fetched name/ID (could be numeric ID or name)
-        val formNameMatchesFetched = singleForm.formName.equals(pokemon.name, ignoreCase = true)
-        // Check if the form's display name is the same as the base display name for the Pokémon
-        val displayNameMatchesBase = singleForm.displayName.equals(pokemon.name, ignoreCase = true)
-
-        if (formNameMatchesFetched && displayNameMatchesBase) {
-            // This is likely the default form, identical to what's already shown.
-            return
-        }
-        // Additional check for cases like "arceus" and its default form "arceus-normal"
-        // which has a display name like "Arceus (Normal)" or "Arceus"
-        // If formName is pokemonIdOrNameToFetch + "-normal" and it's the only one, still potentially hide
-        // This logic can get complex depending on desired behavior for all edge cases
-        if (singleForm.formName.equals("${pokemon.name}-normal", ignoreCase = true) && displayNameMatchesBase) {
-            // e.g. fetched "arceus", form is "arceus-normal", display name became "Arceus"
-            // This is still essentially the default, hide the "Other Forms" card.
-            return
-        }
-    }
-
-
-    if (formsList.isEmpty()) {
-        // No forms to display, or all were filtered out.
-        // Optionally, display a message if no forms were found.
-        // Text("No additional forms found for $basePokemonNameForDisplay.", textAlign = TextAlign.Center, modifier = modifier.padding(16.dp))
-        return
-    }
-
+    if (formsList.isEmpty()) return
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .background(Color.Transparent), // Background color provided by the inner Column
+            .background(Color.Transparent),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(cardColor) // Main background color for the card's content
+                .background(cardColor)
         ) {
-            Row( // Header
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 10.dp, horizontal = 16.dp),
@@ -751,12 +743,12 @@ fun PokemonFormsView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Otras Formas", // Title: "Other Forms"
+                    text = "Otras Formas",
                     textAlign = TextAlign.Center,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface // Or use your colorTexto
+                    color = colorTexto
                 )
             }
 
@@ -771,9 +763,7 @@ fun PokemonFormsView(
                     SpecialFormItemView(
                         specialForm = form,
                         backgroundColor = itemCardColor,
-                        onClick = {
-                            onFormClick(fetchedBasePokemonName, form.formName)
-                        },
+                        onClick = { onFormClick(pokemon.name, form.formName) },
                         colorTexto = colorTexto,
                         modifier = Modifier.fillMaxWidth()
                     )

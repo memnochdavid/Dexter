@@ -160,11 +160,29 @@ fun DetallesDesplegables(
             SectionPage.MOVES -> pokemon.moves.isNotEmpty()
             SectionPage.ABILITY -> pokemon.abilities.isNotEmpty()
             SectionPage.INTER -> pokemon.types.isNotEmpty()
-            SectionPage.FORM -> pokemonSpecies?.varieties?.any { v ->
-                val name = v.pokemon.name
-                val knownRegions = listOf("-alola", "-galar", "-hisui", "-paldea")
-                !v.isDefault && knownRegions.any { region -> name.contains(region) }
-            } == true || pokemon.forms.size > 1
+            SectionPage.FORM -> {
+                val baseName = pokemon.name
+                val knownRegions = listOf("alola", "galar", "hisui", "paldea")
+                val hasRegionals = pokemonSpecies?.varieties?.any { v ->
+                    if (v.isDefault) return@any false
+                    val name = v.pokemon.name
+                    knownRegions.any { region ->
+                        name == "$baseName-$region" ||
+                            (region == "paldea" && name.startsWith("$baseName-$region-"))
+                    }
+                } == true
+                val hasOtherVarieties = pokemonSpecies?.varieties?.any { v ->
+                    if (v.isDefault) return@any false
+                    val name = v.pokemon.name
+                    if (name.contains("-mega") || name.contains("-gmax")) return@any false
+                    val isRegional = knownRegions.any { region ->
+                        name == "$baseName-$region" ||
+                            (region == "paldea" && name.startsWith("$baseName-$region-"))
+                    }
+                    !isRegional
+                } == true
+                hasRegionals || hasOtherVarieties || pokemon.forms.size > 1
+            }
             SectionPage.INFO -> pokemonSpecies != null
             SectionPage.ENCOUNTERS -> true // se carga async, mostrar siempre
         }
@@ -497,7 +515,10 @@ fun DetallesDesplegables(
 
                 SectionPage.FORM -> {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         PokemonRegionalFormsView(
@@ -512,6 +533,7 @@ fun DetallesDesplegables(
                         )
                         PokemonFormsView(
                             pokemon = pokemon,
+                            pokemonSpeciesUrl = pokemon.species.url,
                             pokemonApiService = pokemonApiService,
                             onFormClick = { _, formApiName -> onEvolutionPokemonClick(formApiName) },
                             cardColor = colorSoft,
