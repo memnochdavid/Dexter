@@ -608,44 +608,44 @@ private fun GameVersionSelector(
 }
 
 internal fun getGameReleaseOrder(version: String): Int = when (version.lowercase()) {
-    "red" -> 1
-    "blue" -> 2
-    "yellow" -> 3
-    "gold" -> 4
-    "silver" -> 5
-    "crystal" -> 6
-    "ruby" -> 7
-    "sapphire" -> 8
-    "firered" -> 9
-    "leafgreen" -> 10
-    "emerald" -> 11
-    "diamond" -> 12
-    "pearl" -> 13
-    "platinum" -> 14
-    "heartgold" -> 15
-    "soulsilver" -> 16
-    "black" -> 17
-    "white" -> 18
-    "black-2" -> 19
-    "white-2" -> 20
+    "red", "rojo" -> 1
+    "blue", "azul" -> 2
+    "yellow", "amarillo" -> 3
+    "gold", "oro" -> 4
+    "silver", "plata" -> 5
+    "crystal", "cristal" -> 6
+    "ruby", "rubí", "rubi" -> 7
+    "sapphire", "zafiro" -> 8
+    "firered", "rojo fuego" -> 9
+    "leafgreen", "verde hoja" -> 10
+    "emerald", "esmeralda" -> 11
+    "diamond", "diamante" -> 12
+    "pearl", "perla" -> 13
+    "platinum", "platino" -> 14
+    "heartgold", "oro heartgold" -> 15
+    "soulsilver", "plata soulsilver" -> 16
+    "black", "negro" -> 17
+    "white", "blanco" -> 18
+    "black-2", "negro 2" -> 19
+    "white-2", "blanco 2" -> 20
     "x" -> 21
     "y" -> 22
-    "omega-ruby" -> 23
-    "alpha-sapphire" -> 24
-    "sun" -> 25
-    "moon" -> 26
-    "ultra-sun" -> 27
-    "ultra-moon" -> 28
-    "lets-go-pikachu" -> 29
-    "lets-go-eevee" -> 30
-    "sword" -> 31
-    "shield" -> 32
-    "brilliant-diamond" -> 33
-    "shining-pearl" -> 34
-    "legends-arceus" -> 35
-    "scarlet" -> 36
-    "violet" -> 37
-    "legends-za" -> 38
+    "omega-ruby", "rubí omega", "rubi omega" -> 23
+    "alpha-sapphire", "zafiro alfa" -> 24
+    "sun", "sol" -> 25
+    "moon", "luna" -> 26
+    "ultra-sun", "ultra sol" -> 27
+    "ultra-moon", "ultra luna" -> 28
+    "lets-go-pikachu", "let's go pikachu" -> 29
+    "lets-go-eevee", "let's go eevee" -> 30
+    "sword", "espada" -> 31
+    "shield", "escudo" -> 32
+    "brilliant-diamond", "diamante brillante" -> 33
+    "shining-pearl", "perla reluciente" -> 34
+    "legends-arceus", "leyendas arceus" -> 35
+    "scarlet", "escarlata" -> 36
+    "violet", "violeta", "púrpura", "purpura" -> 37
+    "legends-za", "leyendas z-a" -> 38
     else -> 999
 }
 
