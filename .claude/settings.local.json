@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.kt$\")",
+      "Bash(grep -r \"WebM\\\\|webm\\\\|video\" /c/Users/davdu/Desktop/Pokedex_API/app/src/main/res --include=*.xml)",
+      "Bash(wc -l /c/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/*.webm)",
+      "Bash(grep \".webm$\")",
+      "Bash(python:*)",
+      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw -name *.webm)",
+      "WebFetch(domain:www.wikidex.net)",
+      "Bash(grep \"\\\\.webm$\")",
+      "Bash(SRC=\"C:/Users/davdu/Desktop/raw/webm_original/Rabsca HOME.webm\")",
+      "Bash(ffmpeg -y -c:v libvpx-vp9 -i \"$SRC\" -vcodec libwebp_anim -lossless 0 -quality 50 -loop 0 -an -vf \"format=yuva420p,scale=250:-1\" /tmp/rabsca_q50_250.webp)",
+      "Bash(ffmpeg -y -c:v libvpx-vp9 -i \"$SRC\" -vcodec libwebp_anim -lossless 0 -quality 40 -loop 0 -an -vf \"format=yuva420p,scale=250:-1\" /tmp/rabsca_q40_250.webp)",
+      "Bash(ffmpeg -y -c:v libvpx-vp9 -i \"$SRC\" -vcodec libwebp_anim -lossless 0 -quality 50 -loop 0 -an -vf \"format=yuva420p,scale=300:-1\" /tmp/rabsca_q50_300.webp)",
+      "Bash(ls -lh /tmp/rabsca_q*.webp)",
+      "Bash(find C:UsersdavduDesktopPokedex_API -name *.webp -o -name *.webm)",
+      "WebFetch(domain:resource.pokemon-home.com)",
+      "WebFetch(domain:pokeapi.co)"
+    ]
+  }
+}
