@@ -34,7 +34,7 @@ fun ExtrasBrowserScreen(pokemonViewModel: PokemonViewModel) {
     var currentTab by rememberSaveable { mutableStateOf(0) }
     val tabs = listOf("Naturalezas", "Concursos")
 
-    Column(Modifier.fillMaxSize().background(background_app)) {
+    Column(Modifier.fillMaxSize().background(background_app_gradient)) {
         TabRow(
             selectedTabIndex = currentTab,
             containerColor = color_menu_busqueda2,
@@ -250,44 +250,53 @@ fun ExtrasSearchMenu(pokemonViewModel: PokemonViewModel) {
         }
     }
 
+    val hasFilters = searchQuery.isNotBlank() || statFilter != "Todos"
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color_menu_busqueda1, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+            .background(brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(color_menu_busqueda2, color_menu_busqueda1)
+            ))
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Text("Filtrar Extras", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(.8f))
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        pokemonViewModel.extrasSearchQuery.value = ""
-                        pokemonViewModel.natureStatFilter.value = "Todos"
-                    },
-                    modifier = Modifier.size(35.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = color_fuego_card, contentColor = blanco80),
-                    contentPadding = PaddingValues(4.dp)
-                ) { Icon(Icons.Default.Delete, "Limpiar", Modifier.fillMaxSize()) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text("Filtrar Extras", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                if (hasFilters) {
+                    FilledTonalButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            pokemonViewModel.extrasSearchQuery.value = ""
+                            pokemonViewModel.natureStatFilter.value = "Todos"
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, "Limpiar", Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Limpiar", fontSize = 12.sp)
+                    }
+                }
             }
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { pokemonViewModel.extrasSearchQuery.value = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar por nombre") },
-                placeholder = { Text("Ej: Alegre, Firme...") },
-                leadingIcon = { Icon(Icons.Filled.Search, "Buscar") },
-                trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { pokemonViewModel.extrasSearchQuery.value = "" }) { Icon(Icons.Filled.Clear, "Limpiar") } },
-                singleLine = true, shape = RoundedCornerShape(8.dp),
+                placeholder = { Text("Buscar por nombre...") },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar", tint = Color.White.copy(alpha = 0.7f)) },
+                trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { pokemonViewModel.extrasSearchQuery.value = "" }) { Icon(Icons.Filled.Clear, "Limpiar", tint = Color.White.copy(alpha = 0.8f)) } },
+                singleLine = true, shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.copy(alpha = 0.7f), unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                    focusedBorderColor = Color.White.copy(alpha = 0.7f), unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                    cursorColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.12f), unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.4f), unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedPlaceholderColor = Color.White.copy(alpha = 0.5f), unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
                 )
             )
 
-            Spacer(Modifier.height(12.dp))
-
-            // Filtro por stat (para naturalezas)
             var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -299,12 +308,16 @@ fun ExtrasSearchMenu(pokemonViewModel: PokemonViewModel) {
                     readOnly = true,
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                        focusedBorderColor = Color.White.copy(alpha = 0.7f),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                        focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                        focusedBorderColor = Color.White.copy(alpha = 0.2f),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                        focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                        unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
                     )
                 )
                 ExposedDropdownMenu(

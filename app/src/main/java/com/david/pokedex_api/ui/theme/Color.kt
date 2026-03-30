@@ -1,10 +1,16 @@
 package com.david.pokedex_api.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 //sistema
 //val background_app = Color(0xFFD3C8B6)
 val background_app = Color(0xFFD3C8B6)
+val background_app_top = Color(0xFFCBC0AE)
+val background_app_bottom = Color(0xFFDDD4C5)
+val background_app_gradient = Brush.verticalGradient(
+    colors = listOf(background_app_top, background_app_bottom)
+)
 val color_boton_busqueda2 = Color(0xFF2D82DC)
 val color_boton_busqueda = Color(0xFF2D82DC)
 val color_menu_busqueda1 = Color(0xFF8269DA)

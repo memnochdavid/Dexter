@@ -90,9 +90,13 @@ fun PokemonSpecialFormsView(
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
                     val forms = mutableListOf<SpecialForm>()
+                    // Extraer species ID del default variety (base form)
+                    val speciesId = speciesDetail.varieties
+                        .firstOrNull { it.isDefault }
+                        ?.pokemon?.url
+                        ?.trimEnd('/')?.substringAfterLast('/')?.toIntOrNull()
 
-                    // Asegúrate de que tu modelo PokemonSpeciesResponse tenga 'varieties'
-                    speciesDetail.varieties.forEach { variety ->
+                    speciesDetail.varieties.forEachIndexed { index, variety ->
                         if (!variety.isDefault) {
                             val formApiName = variety.pokemon.name
                             var displayName = ""
@@ -111,17 +115,21 @@ fun PokemonSpecialFormsView(
                             }
 
                             if (isSpecialForm) {
-                                // CAMBIO 2: Usa la función estándar para obtener detalles del Pokémon por nombre
-                                val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
-                                //                                             ^^^^^^^^^^^^^^^^^
-
-                                val sprite = if (formDetailsResponse.isSuccessful) {
-                                    formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
-                                        ?: formDetailsResponse.body()?.sprites?.frontDefault
-                                } else {
-                                    null
+                                // HOME icon: speciesId + form index (posición en varieties)
+                                var sprite: String? = null
+                                if (speciesId != null) {
+                                    sprite = "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${index.toString().padStart(2, '0')}_s0.png"
                                 }
-                                forms.add(SpecialForm(formApiName, displayName, sprite))
+                                // Fallback: official artwork desde la API
+                                val fallbackSprite = try {
+                                    val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
+                                    if (formDetailsResponse.isSuccessful) {
+                                        formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
+                                            ?: formDetailsResponse.body()?.sprites?.frontDefault
+                                    } else null
+                                } catch (_: Exception) { null }
+
+                                forms.add(SpecialForm(formApiName, displayName, sprite, fallbackSprite))
                             }
                         }
                     }
@@ -242,6 +250,7 @@ fun SpecialFormItemView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var imageUrl by remember { mutableStateOf(specialForm.spriteUrl ?: specialForm.fallbackSpriteUrl ?: "") }
     ElevatedCard(
         onClick = onClick,
         modifier = modifier,
@@ -259,8 +268,14 @@ fun SpecialFormItemView(
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(specialForm.spriteUrl ?: "")
+                    .data(imageUrl)
                     .crossfade(true)
+                    .listener(onError = { _, _ ->
+                        // Si HOME icon falla (ej: Gigamax), usar fallback
+                        if (imageUrl == specialForm.spriteUrl && specialForm.fallbackSpriteUrl != null) {
+                            imageUrl = specialForm.fallbackSpriteUrl
+                        }
+                    })
                     .build(),
                 contentDescription = specialForm.displayName,
                 modifier = Modifier.size(90.dp),

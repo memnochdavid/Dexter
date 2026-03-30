@@ -68,7 +68,7 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(background_app)) {
+    Column(Modifier.fillMaxSize().background(background_app_gradient)) {
         // Top bar con navegacion
         val title = when (RegionNav.valueOf(currentNav)) {
             RegionNav.REGIONS -> "Regiones"

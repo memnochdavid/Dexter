@@ -62,7 +62,7 @@ private fun getPokemonIdFromSpeciesUrl(url: String): Int? =
     url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()
 
 private fun getPokemonSpriteUrl(pokemonId: Int): String =
-    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokemonId.png"
+    "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonId.toString().padStart(4, '0')}_f00_s0.png"
 
 // ==================== CARD DE UN POKEMON EN LA CADENA ====================
 

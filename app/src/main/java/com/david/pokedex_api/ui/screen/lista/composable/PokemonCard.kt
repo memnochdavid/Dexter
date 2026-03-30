@@ -102,9 +102,11 @@ fun PokemonListItemCard(
                     val homeUrl = remember(pokemonSummary.id) {
                         "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png"
                     }
-                    // Fallback a PokeAPI official artwork (GitHub) si Pokemon Home falla
-                    val fallbackUrl = pokemonSummary.spriteUrl
-                    var imageUrl by remember(pokemonSummary.id) { mutableStateOf(homeUrl) }
+                    // spriteUrl puede ser HOME con form index (megas/gigas) o official artwork
+                    val primaryUrl = if (pokemonSummary.id < 10000) homeUrl else (pokemonSummary.spriteUrl ?: homeUrl)
+                    // Fallback: para base → spriteUrl (artwork), para megas/gigas → fallbackSpriteUrl (artwork)
+                    val fallbackUrl = if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl else pokemonSummary.fallbackSpriteUrl
+                    var imageUrl by remember(pokemonSummary.id) { mutableStateOf(primaryUrl) }
 
                     AsyncImage(
                         model = ImageRequest.Builder(context)
@@ -113,8 +115,7 @@ fun PokemonListItemCard(
                             .diskCacheKey("pkmn_${pokemonSummary.id}")
                             .size(128)
                             .listener(onError = { _, _ ->
-                                // Si Pokemon Home falla, usar PokeAPI como fallback
-                                if (imageUrl == homeUrl && fallbackUrl != null) {
+                                if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
                                     imageUrl = fallbackUrl
                                 }
                             })

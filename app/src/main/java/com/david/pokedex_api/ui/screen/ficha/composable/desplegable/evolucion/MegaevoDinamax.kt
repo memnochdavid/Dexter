@@ -104,23 +104,26 @@ fun SpecialFormDisplay(
         displayName = tempDisplayName.ifBlank { formVariety.pokemon.name } // Fallback al nombre completo si todo falla
 
 
-        // 2. Obtener la URL del sprite
+        // 2. Obtener la URL del sprite (HOME icon si ID < 10000, sino official artwork)
         try {
-            // Intenta obtener los detalles del Pokémon específico para la forma (que puede tener mejores sprites)
             val detailResponse = apiService.getFullPokemonDetails(formVariety.pokemon.name)
             if (detailResponse.isSuccessful) {
-                val sprites = detailResponse.body()?.sprites
-                spriteUrl = sprites?.other?.officialArtwork?.frontDefault
-                    ?: sprites?.frontDefault // Fallback a frontDefault si official-artwork no está
+                val body = detailResponse.body()
+                val pokemonId = body?.id
+                if (pokemonId != null && pokemonId < 10000) {
+                    // HOME icon (solo para formas base, no megas/gigas con ID 10000+)
+                    spriteUrl = "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonId.toString().padStart(4, '0')}_f00_s0.png"
+                } else {
+                    val sprites = body?.sprites
+                    spriteUrl = sprites?.other?.officialArtwork?.frontDefault
+                        ?: sprites?.frontDefault
+                }
             }
-            // Si después de la llamada anterior no se obtuvo sprite, usar el helper
             if (spriteUrl == null) {
                 spriteUrl = getPokemonSpriteUrlFromSpeciesVariety(formVariety)
             }
         } catch (e: Exception) {
-            // Si la llamada falla, usar el helper como fallback principal
             spriteUrl = getPokemonSpriteUrlFromSpeciesVariety(formVariety)
-            // println("Error fetching details for ${formVariety.pokemon.name}: ${e.message}, falling back to default sprite logic.")
         }
         isLoadingSprite = false
     }

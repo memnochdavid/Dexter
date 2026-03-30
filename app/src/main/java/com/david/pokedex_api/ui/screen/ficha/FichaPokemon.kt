@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -69,7 +70,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.decode.ImageDecoderDecoder
+import coil.request.ImageRequest
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.MoveDetailResponse
@@ -80,14 +84,17 @@ import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorDark
+import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorSurface
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeToIcon
 import com.david.pokedex_api.ui.screen.ficha.composable.DetallesDesplegables
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.NombreNumAlturaPeso
+import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.dinamaxLiveSprites
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.ExoPlayerSimple
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 import com.david.pokedex_api.ui.theme.background_app
+import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.shimmerBrush
 import androidx.media3.common.MediaItem
@@ -180,7 +187,7 @@ fun PokemonDetailScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(background_app),
+                        .background(background_app_gradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Lottie(
@@ -318,7 +325,7 @@ fun PokemonDetailsView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = background_app)
+            .background(background_app_gradient)
     ) {
         // Header fijo: imagen + nombre
         ComponenteImagen(
@@ -327,6 +334,7 @@ fun PokemonDetailsView(
             pokemonViewModel = pokemonViewModel,
             isExpanded = isImageExpanded,
             onToggleExpand = { isImageExpanded = !isImageExpanded },
+            nombreSpanish = spanishPokemonName,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.35f + imageWeight * 0.65f)
@@ -385,6 +393,7 @@ fun ComponenteImagen(
     pokemonViewModel: PokemonViewModel? = null,
     isExpanded: Boolean = false,
     onToggleExpand: () -> Unit = {},
+    nombreSpanish: String = "",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -392,6 +401,30 @@ fun ComponenteImagen(
 
     // Shiny toggle
     var isShiny by remember { mutableStateOf(false) }
+
+    // Animated WebP resources (normal + shiny)
+    // Usamos pokemon.name (nombre API con forma, ej: "charizard-mega-x", "meowth-alola")
+    // en vez de nombreSpanish (que solo tiene el nombre base sin forma)
+    val webpResourceName = remember(pokemon.name) {
+        transformPokemonNameToResourceName(pokemon.name.lowercase())
+    }
+    val webpResourceId = remember(webpResourceName) {
+        context.resources.getIdentifier(webpResourceName, "raw", context.packageName)
+    }
+    val shinyResourceName = remember(webpResourceName) { "${webpResourceName}_shiny" }
+    val shinyResourceId = remember(shinyResourceName) {
+        context.resources.getIdentifier(shinyResourceName, "raw", context.packageName)
+    }
+    val animatedImageLoader = remember {
+        ImageLoader.Builder(context)
+            .components { add(ImageDecoderDecoder.Factory()) }
+            .build()
+    }
+
+    // Gigamax GIF fallback (no existen webm/webp para estas formas)
+    val gigamaxSpriteUrl = remember(pokemon.id) {
+        dinamaxLiveSprites.find { it.pokeId == pokemon.id }?.spriteUrl
+    }
 
     // Animacion de escala: solo se dispara una vez por Pokemon
     val alreadyAnimated = pokemonViewModel?.animatedPokemonIds?.contains(pokemon.id) == true
@@ -418,51 +451,83 @@ fun ComponenteImagen(
     val color1 = type1Name?.let { getPokemonTypeColorDark(it) } ?: Color.Gray
     val color2 = type2Name?.let { getPokemonTypeColorDark(it) } ?: color1
 
+    // Gradientes por tipo, oscurecidos para la ficha
+    fun Color.darken(factor: Float = 0.75f): Color =
+        Color(red * factor, green * factor, blue * factor, alpha)
+
+    val gradient1 = type1Name?.let { getPokemonTypeGradientColors(it) }
+        ?: (Color.Gray to Color.DarkGray)
+    val gradient2 = type2Name?.let { getPokemonTypeGradientColors(it) }
+    val isDualType = gradient2 != null
+
+    val g1 = gradient1.first.darken() to gradient1.second.darken()
+    val g2 = (gradient2?.first?.darken() ?: g1.first) to (gradient2?.second?.darken() ?: g1.second)
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        // Fondo dual-color por tipo
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(0.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-
-                // Banda superior — tipo 1
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth().background(color1),
-                    contentAlignment = Alignment.BottomEnd
-                ) {
-                    if (pokemon.types.size == 2 && type1Name != null) {
-                        val iconResId = getPokemonTypeToIcon(type1Name)
+        if (isDualType) {
+            // Dos bandas, cada una con gradiente sutil interno
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .background(Brush.verticalGradient(listOf(g1.first, g1.second))),
+                        contentAlignment = Alignment.BottomEnd
+                    ) {
+                        val iconResId = type1Name?.let { getPokemonTypeToIcon(it) } ?: 0
                         if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                             Image(
                                 painter = painterResource(id = iconResId),
                                 contentDescription = type1Name,
-                                modifier = Modifier.padding(8.dp).size(40.dp)
+                                modifier = Modifier.padding(8.dp).size(40.dp),
+                                alpha = 0.4f
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .background(Brush.verticalGradient(listOf(g2.first, g2.second))),
+                        contentAlignment = Alignment.BottomEnd
+                    ) {
+                        val iconResId = type2Name?.let { getPokemonTypeToIcon(it) } ?: 0
+                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                            Image(
+                                painter = painterResource(id = iconResId),
+                                contentDescription = type2Name,
+                                modifier = Modifier.padding(8.dp).size(40.dp),
+                                alpha = 0.4f
                             )
                         }
                     }
                 }
-
-                // Banda inferior — tipo 2 (o tipo 1 si mono-tipo)
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth().background(color2),
-                    contentAlignment = Alignment.BottomEnd
-                ) {
-                    // Icono de tipo
-                    val typeToShowOnBottom = if (pokemon.types.size == 1) type1Name else type2Name
-                    if (typeToShowOnBottom != null) {
-                        val iconResId = getPokemonTypeToIcon(typeToShowOnBottom)
-                        if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
-                            Image(
-                                painter = painterResource(id = iconResId),
-                                contentDescription = typeToShowOnBottom,
-                                modifier = Modifier.padding(8.dp).size(40.dp)
-                            )
-                        }
-                    }
+            }
+        } else {
+            // Una sola banda con gradiente sutil
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(g1.first, g1.second)))
+            ) {
+                val iconResId = type1Name?.let { getPokemonTypeToIcon(it) } ?: 0
+                if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
+                    Image(
+                        painter = painterResource(id = iconResId),
+                        contentDescription = type1Name,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(40.dp),
+                        alpha = 0.4f
+                    )
                 }
             }
         }
@@ -514,7 +579,13 @@ fun ComponenteImagen(
             }
         }
 
-        // Contenido central: official artwork — pulsar expande/contrae
+        // Contenido central: animated webp > gigamax gif > official artwork
+        val activeResourceId = if (isShiny && shinyResourceId != 0) shinyResourceId
+            else if (isShiny) 0
+            else webpResourceId
+        val useAnimated = activeResourceId != 0
+        val useGigamax = !useAnimated && !isShiny && gigamaxSpriteUrl != null
+
         val imageUrl = if (isShiny) {
             pokemon.sprites.other?.officialArtwork?.frontShiny
                 ?: pokemon.sprites.frontShiny
@@ -529,7 +600,7 @@ fun ComponenteImagen(
             animationSpec = tween(450),
             label = "imagePadding"
         )
-        if (imageUrl != null) {
+        if (useAnimated || useGigamax || imageUrl != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -542,20 +613,52 @@ fun ComponenteImagen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "${pokemon.name} sprite",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (showShimmerEffect) Modifier.clip(CircleShape) else Modifier),
-                    contentScale = ContentScale.Fit,
-                    colorFilter = if (showShimmerEffect) ColorFilter.tint(
-                        color = Color.White.copy(alpha = 0.7f),
-                        blendMode = BlendMode.SrcAtop
-                    ) else null,
-                    error = painterResource(id = R.drawable.pokeball_icon),
-                    placeholder = painterResource(id = R.drawable.pokeball_icon)
-                )
+                if (useAnimated) {
+                    val animatedUri = "android.resource://${context.packageName}/$activeResourceId"
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(animatedUri)
+                            .crossfade(true)
+                            .build(),
+                        imageLoader = animatedImageLoader,
+                        contentDescription = "${pokemon.name} sprite",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (showShimmerEffect) Modifier.clip(CircleShape) else Modifier),
+                        contentScale = ContentScale.Fit
+                    )
+                } else if (useGigamax) {
+                    // Gigamax: GIF animado desde URL (ya tiene transparencia)
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(gigamaxSpriteUrl)
+                            .crossfade(true)
+                            .build(),
+                        imageLoader = animatedImageLoader,
+                        contentDescription = "${pokemon.name} gigamax sprite",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (showShimmerEffect) Modifier.clip(CircleShape) else Modifier),
+                        contentScale = ContentScale.Fit,
+                        error = painterResource(id = R.drawable.pokeball_icon),
+                        placeholder = painterResource(id = R.drawable.pokeball_icon)
+                    )
+                } else if (imageUrl != null) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "${pokemon.name} sprite",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (showShimmerEffect) Modifier.clip(CircleShape) else Modifier),
+                        contentScale = ContentScale.Fit,
+                        colorFilter = if (showShimmerEffect) ColorFilter.tint(
+                            color = Color.White.copy(alpha = 0.7f),
+                            blendMode = BlendMode.SrcAtop
+                        ) else null,
+                        error = painterResource(id = R.drawable.pokeball_icon),
+                        placeholder = painterResource(id = R.drawable.pokeball_icon)
+                    )
+                }
                 if (showShimmerEffect) {
                     Box(
                         modifier = Modifier

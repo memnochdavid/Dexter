@@ -230,14 +230,26 @@ fun PokedexApp(
                             val sq by pokemonViewModel.pokemonSearchQuery.collectAsState()
                             val t1 by pokemonViewModel.pokemonSelectedType1.collectAsState()
                             val t2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
+                            val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
+                            val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
                             PokemonSearchMenu(
                                 searchQuery = sq,
                                 selectedType1 = t1,
                                 selectedType2 = t2,
                                 availableTypes = ALL_POKEMON_TYPES,
+                                showMegas = showMegas,
+                                showGigamax = showGigamax,
                                 onSearchQueryChanged = { pokemonViewModel.pokemonSearchQuery.value = it },
                                 onType1Changed = { pokemonViewModel.pokemonSelectedType1.value = it },
-                                onType2Changed = { pokemonViewModel.pokemonSelectedType2.value = it }
+                                onType2Changed = { pokemonViewModel.pokemonSelectedType2.value = it },
+                                onShowMegasChanged = {
+                                    pokemonViewModel.pokemonShowMegas.value = it
+                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                },
+                                onShowGigamaxChanged = {
+                                    pokemonViewModel.pokemonShowGigamax.value = it
+                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                }
                             )
                         }
                         Routes.MOVE_BROWSER -> {
@@ -296,7 +308,7 @@ private fun NavigationRow(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) background_app.copy(alpha = 0.5f) else Color.Transparent)
+                    .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
                     .clickable { onNavigate(item.route) }
                     .padding(vertical = 8.dp)
             ) {
@@ -304,13 +316,13 @@ private fun NavigationRow(
                     imageVector = ImageVector.vectorResource(id = item.iconResId),
                     contentDescription = item.label,
                     modifier = Modifier.size(22.dp),
-                    tint = if (selected) CardBorder else CardBorder.copy(alpha = 0.5f)
+                    tint = if (selected) Color.White else Color.White.copy(alpha = 0.45f)
                 )
                 Text(
                     text = item.label,
                     fontSize = 10.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) CardBorder else CardBorder.copy(alpha = 0.5f),
+                    color = if (selected) Color.White else Color.White.copy(alpha = 0.45f),
                     maxLines = 1,
                     textAlign = TextAlign.Center
                 )

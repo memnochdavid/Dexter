@@ -33,6 +33,7 @@ import com.david.pokedex_api.ui.screen.lista.composable.PokemonListItemCard
 import com.david.pokedex_api.ui.screen.lista.composable.PokemonSearchMenu
 import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
+import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.ui.theme.color_agua_light
 import com.david.pokedex_api.ui.theme.color_boton_busqueda
 import com.david.pokedex_api.ui.theme.color_menu_busqueda2
@@ -52,6 +53,9 @@ fun GenerationPagerScreen(
     val searchQuery by pokemonViewModel.pokemonSearchQuery.collectAsState()
     val selectedType1 by pokemonViewModel.pokemonSelectedType1.collectAsState()
     val selectedType2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
+    val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
+    val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
+    val specialForms by pokemonViewModel.specialFormsSummaries.observeAsState(emptyList())
 
     LaunchedEffect(Unit) {
         if (generations.isEmpty()) pokemonViewModel.fetchGenerations()
@@ -66,11 +70,19 @@ fun GenerationPagerScreen(
         }
     }
 
-    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED
-    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2) {
+    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax
+    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2, showMegas, showGigamax, specialForms) {
         if (!isSearching) emptyList()
         else {
-            pokemonByGenerationCache.values.flatten().distinctBy { it.id }.filter { p ->
+            val basePokemon = if (!showMegas && !showGigamax) {
+                pokemonByGenerationCache.values.flatten().distinctBy { it.id }
+            } else {
+                emptyList()
+            }
+            val megaForms = if (showMegas) specialForms.filter { it.name.contains("-mega") } else emptyList()
+            val gmaxForms = if (showGigamax) specialForms.filter { it.name.contains("-gmax") } else emptyList()
+
+            (basePokemon + megaForms + gmaxForms).distinctBy { it.id }.filter { p ->
                 (searchQuery.isBlank() || p.name.contains(searchQuery, true)) &&
                 (selectedType1 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType1, true) }) &&
                 (selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType2, true) })
@@ -78,7 +90,7 @@ fun GenerationPagerScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(background_app)) {
+    Box(modifier = Modifier.fillMaxSize().background(background_app_gradient)) {
         if (isSearching) {
             if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
                 NoResultsView()

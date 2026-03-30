@@ -58,6 +58,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -134,6 +135,12 @@ fun DetallesDesplegables(
     val colorTexto = Color(0xFF1A1A1A)                                  // texto principal
     val colorTextoSecundario = Color(0xFF5A5A5A)                        // texto secundario
     val colorDark = getPokemonTypeColorDark(typeName)                   // acento fuerte (barra secciones, headers)
+    val colorDarker = Color(
+        colorDark.red * 0.75f,
+        colorDark.green * 0.75f,
+        colorDark.blue * 0.75f,
+        colorDark.alpha
+    )
     val colorAccent = getPokemonTypeColorTypeChip(typeName)             // acento (bordes seleccion, chips)
     val colorCard = Color.White.copy(alpha = 0.65f)                     // cards principales
     val colorCardInner = Color.White.copy(alpha = 0.40f)                // cards internas / dropdowns
@@ -209,7 +216,7 @@ fun DetallesDesplegables(
             modifier = Modifier
                 .fillMaxWidth()
                 .nestedScroll(consumeHorizontalScroll)
-                .background(colorDark)
+                .background(Brush.verticalGradient(listOf(colorDark.copy(alpha = 0.82f), colorDarker)))
                 .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             contentPadding = PaddingValues(horizontal = 8.dp)

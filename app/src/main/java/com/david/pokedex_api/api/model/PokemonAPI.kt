@@ -164,7 +164,8 @@ data class PokemonSummary(
     val name: String,
     val spriteUrl: String?,
     val types: List<String>, // Lista de nombres de tipos
-    val colorName: String?
+    val colorName: String?,
+    val fallbackSpriteUrl: String? = null
 )
 
 data class GenerationListResponse(
@@ -383,7 +384,8 @@ data class PokemonSpeciesVariety(
 data class SpecialForm(
     val formName: String, // ej: "charizard-mega-x"
     val displayName: String, // ej: "Mega Charizard X"
-    val spriteUrl: String?
+    val spriteUrl: String?,
+    val fallbackSpriteUrl: String? = null
 )
 
 data class TypeListResponse(

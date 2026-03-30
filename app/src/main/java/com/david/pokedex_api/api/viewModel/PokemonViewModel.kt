@@ -42,6 +42,98 @@ class PokemonViewModel : ViewModel() {
     var pokemonSearchQuery = MutableStateFlow("")
     var pokemonSelectedType1 = MutableStateFlow("Sin tipo")
     var pokemonSelectedType2 = MutableStateFlow("Sin tipo")
+    var pokemonShowMegas = MutableStateFlow(false)
+    var pokemonShowGigamax = MutableStateFlow(false)
+
+    // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
+    private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
+    val specialFormsSummaries: LiveData<List<PokemonSummary>> = _specialFormsSummaries
+    private var specialFormsLoaded = false
+
+    fun fetchSpecialForms() {
+        if (specialFormsLoaded) return
+        specialFormsLoaded = true
+        viewModelScope.launch {
+            try {
+                // 1. Listar todas las formas alternativas de PokeAPI
+                val megaGmaxResources = mutableListOf<PokemonListItem>()
+                var offset = 1025
+                var hasMore = true
+                while (hasMore) {
+                    val response = withContext(Dispatchers.IO) {
+                        pokemonApiService.getPokemonList(limit = 200, offset = offset)
+                    }
+                    if (response.isSuccessful) {
+                        val results = response.body()?.results ?: emptyList()
+                        if (results.isEmpty()) { hasMore = false }
+                        else {
+                            megaGmaxResources.addAll(results.filter { r ->
+                                r.name.contains("-mega") || r.name.contains("-gmax")
+                            })
+                            offset += 200
+                        }
+                    } else { hasMore = false }
+                }
+
+                // 2. Obtener detalles de cada forma (tipos, species URL)
+                val semaphore = kotlinx.coroutines.sync.Semaphore(30)
+                data class FormDetail(val id: Int, val name: String, val types: List<String>,
+                    val speciesUrl: String, val fallbackSprite: String?)
+                val formDetails = megaGmaxResources.map { resource ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                val resp = pokemonApiService.getPokemonDetails(resource.name)
+                                if (resp.isSuccessful) {
+                                    val d = resp.body()!!
+                                    FormDetail(d.id, d.name, d.types.map { it.type.name },
+                                        d.species.url,
+                                        d.sprites.other?.officialArtwork?.frontDefault ?: d.sprites.frontDefault)
+                                } else null
+                            } catch (_: Exception) { null }
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+
+                // 3. Agrupar por species y obtener varieties para calcular form index
+                val bySpeciesUrl = formDetails.groupBy { it.speciesUrl }
+                // Cache de species → varieties (nombre → index)
+                val varietiesCache = mutableMapOf<String, Map<String, Int>>()
+                bySpeciesUrl.keys.map { speciesUrl ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                val resp = pokemonApiService.getPokemonSpeciesDetailsByUrl(speciesUrl)
+                                if (resp.isSuccessful) {
+                                    val varieties = resp.body()?.varieties ?: emptyList()
+                                    val indexMap = varieties.mapIndexed { index, v -> v.pokemon.name to index }.toMap()
+                                    synchronized(varietiesCache) { varietiesCache[speciesUrl] = indexMap }
+                                }
+                            } catch (_: Exception) { }
+                        }
+                    }
+                }.awaitAll()
+
+                // 4. Construir PokemonSummary con HOME URL
+                val allForms = formDetails.map { form ->
+                    val speciesId = form.speciesUrl.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                    val formIndex = varietiesCache[form.speciesUrl]?.get(form.name)
+                    val homeUrl = if (speciesId != null && formIndex != null) {
+                        "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${formIndex.toString().padStart(2, '0')}_s0.png"
+                    } else null
+                    PokemonSummary(
+                        id = form.id,
+                        name = form.name,
+                        spriteUrl = homeUrl ?: form.fallbackSprite,
+                        types = form.types,
+                        colorName = null,
+                        fallbackSpriteUrl = if (homeUrl != null) form.fallbackSprite else null
+                    )
+                }
+                _specialFormsSummaries.postValue(allForms.sortedBy { it.id })
+            } catch (_: Exception) { }
+        }
+    }
     // Movimientos
     var moveSearchQuery = MutableStateFlow("")
     var moveSelectedType = MutableStateFlow("Sin tipo")
@@ -329,7 +421,16 @@ class PokemonViewModel : ViewModel() {
                 val dDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(name.lowercase().trim()) }
                 val sDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(name.lowercase().trim()) }
                 val dRes = dDef.await()
-                val sRes = sDef.await()
+                var sRes = sDef.await()
+
+                // Si la species no se encuentra (formas como mega, gmax, regionales),
+                // obtener la species URL del pokemon detail y reintentar
+                if (!sRes.isSuccessful && dRes.isSuccessful) {
+                    val speciesUrl = dRes.body()?.species?.url
+                    if (speciesUrl != null) {
+                        sRes = pokemonApiService.getPokemonSpeciesDetailsByUrl(speciesUrl)
+                    }
+                }
 
                 if (sRes.isSuccessful) {
                     val species = sRes.body()

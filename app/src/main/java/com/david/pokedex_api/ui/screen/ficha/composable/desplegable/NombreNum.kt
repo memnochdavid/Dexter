@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,9 +45,16 @@ fun NombreNumAlturaPeso(
     }
     val formattedNum = remember(numero) { "#${numero.toString().padStart(3, '0')}" }
 
+    val darkerFondo = Color(
+        colorFondo.red * 0.82f,
+        colorFondo.green * 0.82f,
+        colorFondo.blue * 0.82f,
+        colorFondo.alpha
+    )
+
     Column(
         modifier = modifier
-            .background(colorFondo)
+            .background(Brush.verticalGradient(listOf(colorFondo, darkerFondo)))
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
