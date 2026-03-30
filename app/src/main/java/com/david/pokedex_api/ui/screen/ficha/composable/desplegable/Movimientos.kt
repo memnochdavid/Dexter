@@ -19,13 +19,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import com.david.pokedex_api.util.Lottie
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +48,8 @@ import com.david.pokedex_api.api.model.PokemonMoveSlot
 import com.david.pokedex_api.api.model.VersionGroupDetail
 import com.david.pokedex_api.api.service.PokeApiService
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
-import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
-import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorSurface
+import com.david.pokedex_api.util.Lottie
 
 // Función auxiliar para formatear el nombre del método de aprendizaje (opcional)
 fun formatMoveLearnMethod(method: String): String {
