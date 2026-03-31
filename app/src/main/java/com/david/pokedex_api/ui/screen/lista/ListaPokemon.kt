@@ -90,12 +90,14 @@ fun GenerationPagerScreen(
         }
     }
 
+    val recalledId by pokemonViewModel.recalledPokemonId.collectAsState()
+
     Box(modifier = Modifier.fillMaxSize().background(background_app_gradient)) {
         if (isSearching) {
             if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
                 NoResultsView()
             } else {
-                PokemonLazyList(filteredList, onNavigateToDetails)
+                PokemonLazyList(filteredList, recalledId, onNavigateToDetails, pokemonViewModel)
             }
         } else if (generations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -112,7 +114,7 @@ fun GenerationPagerScreen(
                 if (list == null) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
                 } else {
-                    PokemonLazyList(list, onNavigateToDetails)
+                    PokemonLazyList(list, recalledId, onNavigateToDetails, pokemonViewModel)
                 }
             }
         }
@@ -120,7 +122,12 @@ fun GenerationPagerScreen(
 }
 
 @Composable
-fun PokemonLazyList(list: List<PokemonSummary>, onNavigateToDetails: (String) -> Unit) {
+fun PokemonLazyList(
+    list: List<PokemonSummary>,
+    recalledId: Int?,
+    onNavigateToDetails: (String) -> Unit,
+    pokemonViewModel: PokemonViewModel
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
@@ -129,7 +136,11 @@ fun PokemonLazyList(list: List<PokemonSummary>, onNavigateToDetails: (String) ->
         items(items = list, key = { it.id }) { pokemon ->
             PokemonListItemCard(
                 pokemonSummary = pokemon,
-                onItemClick = { onNavigateToDetails(pokemon.id.toString()) }
+                isRecalled = recalledId == pokemon.id,
+                onRecallAndNavigate = {
+                    pokemonViewModel.recalledPokemonId.value = pokemon.id
+                    onNavigateToDetails(pokemon.id.toString())
+                }
             )
         }
     }

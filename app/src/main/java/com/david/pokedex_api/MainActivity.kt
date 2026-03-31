@@ -5,6 +5,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +34,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +65,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.delay
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
@@ -78,6 +88,10 @@ import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.color_boton_busqueda
 import com.david.pokedex_api.ui.theme.color_menu_busqueda2
 
+// CompositionLocals para shared element transitions
+@OptIn(ExperimentalSharedTransitionApi::class)
+val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { null }
+val LocalAnimatedVisibilityScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
 object Routes {
     const val POKEMON_LIST = "pokemon_list"
@@ -116,7 +130,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun PokedexApp(
     pokemonViewModel: PokemonViewModel = viewModel(),
@@ -125,6 +139,16 @@ fun PokedexApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val haptic = LocalHapticFeedback.current
+
+    // Detectar retorno de la ficha: restaurar card recalled
+    var wasInDetail by remember { mutableStateOf(false) }
+    LaunchedEffect(currentRoute) {
+        if (wasInDetail && currentRoute != Routes.POKEMON_DETAILS) {
+            delay(400) // esperar a que el shared element termine
+            pokemonViewModel.recalledPokemonId.value = null
+        }
+        wasInDetail = currentRoute == Routes.POKEMON_DETAILS
+    }
     var showBottomSheet by remember { mutableStateOf(false) }
 
     val isDetailRoute = currentRoute == Routes.POKEMON_DETAILS
@@ -152,46 +176,67 @@ fun PokedexApp(
             }
         },
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = Routes.POKEMON_LIST,
-            modifier = Modifier.padding(padding)
-        ) {
-            composable(Routes.POKEMON_LIST) {
-                GenerationPagerScreen(
-                    pokemonViewModel = pokemonViewModel,
-                    onNavigateToDetails = { pokemonName ->
-                        pokemonViewModel.resetDetailState()
-                        navController.navigate(Routes.pokemonDetails(pokemonName))
+        SharedTransitionLayout {
+            val sharedTransitionScope = this
+            NavHost(
+                navController = navController,
+                startDestination = Routes.POKEMON_LIST,
+                modifier = Modifier.padding(padding)
+            ) {
+                composable(
+                    route = Routes.POKEMON_LIST,
+                    exitTransition = { fadeOut(tween(300)) },
+                    popEnterTransition = { fadeIn(tween(300)) }
+                ) {
+                    CompositionLocalProvider(
+                        LocalSharedTransitionScope provides sharedTransitionScope,
+                        LocalAnimatedVisibilityScope provides this@composable
+                    ) {
+                        GenerationPagerScreen(
+                            pokemonViewModel = pokemonViewModel,
+                            onNavigateToDetails = { pokemonName ->
+                                pokemonViewModel.resetDetailState()
+                                navController.navigate(Routes.pokemonDetails(pokemonName))
+                            }
+                        )
                     }
-                )
-            }
-            composable(Routes.MOVE_BROWSER) {
-                MoveBrowserScreen(pokemonViewModel = pokemonViewModel)
-            }
-            composable(Routes.ITEM_BROWSER) {
-                ItemBrowserScreen(pokemonViewModel = pokemonViewModel)
-            }
-            composable(Routes.REGION_BROWSER) {
-                RegionBrowserScreen(pokemonViewModel = pokemonViewModel)
-            }
-            composable(Routes.EXTRAS_BROWSER) {
-                ExtrasBrowserScreen(pokemonViewModel = pokemonViewModel)
-            }
-            composable(
-                route = Routes.POKEMON_DETAILS,
-                arguments = listOf(navArgument("pokemonName") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val pokemonName = backStackEntry.arguments?.getString("pokemonName")
-                if (pokemonName != null) {
-                    PokemonDetailScreen(
-                        pokemonViewModel = pokemonViewModel,
-                        pokemonName = pokemonName,
-                        onNavigateBack = { navController.popBackStack() }
-                    )
-                } else {
-                    Text("Error: Pokémon name not found.", modifier = Modifier.padding(16.dp))
-                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
+                composable(Routes.MOVE_BROWSER) {
+                    MoveBrowserScreen(pokemonViewModel = pokemonViewModel)
+                }
+                composable(Routes.ITEM_BROWSER) {
+                    ItemBrowserScreen(pokemonViewModel = pokemonViewModel)
+                }
+                composable(Routes.REGION_BROWSER) {
+                    RegionBrowserScreen(pokemonViewModel = pokemonViewModel)
+                }
+                composable(Routes.EXTRAS_BROWSER) {
+                    ExtrasBrowserScreen(pokemonViewModel = pokemonViewModel)
+                }
+                composable(
+                    route = Routes.POKEMON_DETAILS,
+                    arguments = listOf(navArgument("pokemonName") { type = NavType.StringType }),
+                    enterTransition = { fadeIn(tween(300)) },
+                    exitTransition = { fadeOut(tween(300)) },
+                    popEnterTransition = { fadeIn(tween(300)) },
+                    popExitTransition = { fadeOut(tween(300)) }
+                ) { backStackEntry ->
+                    val pokemonName = backStackEntry.arguments?.getString("pokemonName")
+                    if (pokemonName != null) {
+                        CompositionLocalProvider(
+                            LocalSharedTransitionScope provides sharedTransitionScope,
+                            LocalAnimatedVisibilityScope provides this@composable
+                        ) {
+                            PokemonDetailScreen(
+                                pokemonViewModel = pokemonViewModel,
+                                pokemonName = pokemonName,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                    } else {
+                        Text("Error: Pokémon name not found.", modifier = Modifier.padding(16.dp))
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    }
                 }
             }
         }

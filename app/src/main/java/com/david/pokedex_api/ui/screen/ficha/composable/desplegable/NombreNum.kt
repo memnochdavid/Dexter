@@ -1,7 +1,9 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,10 +27,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import com.david.pokedex_api.R
 import java.util.Locale
 
 @Composable
@@ -38,8 +50,11 @@ fun NombreNumAlturaPeso(
     altura: Double,
     peso: Double,
     tipo: String,
+    cryUrl: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val displayName = remember(nombre) {
         adaptaNombre(transformPokemonNameToResourceName(nombre))
     }
@@ -58,7 +73,7 @@ fun NombreNumAlturaPeso(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Nombre + Numero
+        // Nombre + Numero + Cry
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -78,6 +93,27 @@ fun NombreNumAlturaPeso(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp
             )
+            if (cryUrl != null) {
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(colorTexto.copy(alpha = 0.12f))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            playCry(context, cryUrl)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.pokeball_icon),
+                        contentDescription = "Escuchar cry",
+                        modifier = Modifier.size(18.dp),
+                        tint = colorTexto.copy(alpha = 0.7f)
+                    )
+                }
+            }
         }
 
         // Genus
@@ -138,6 +174,20 @@ private fun StatChip(label: String, value: String, colorTexto: Color) {
             fontWeight = FontWeight.Bold
         )
     }
+}
+
+private fun playCry(context: Context, url: String) {
+    val player = ExoPlayer.Builder(context).build()
+    player.setMediaItem(MediaItem.fromUri(url))
+    player.prepare()
+    player.play()
+    player.addListener(object : androidx.media3.common.Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == androidx.media3.common.Player.STATE_ENDED) {
+                player.release()
+            }
+        }
+    })
 }
 
 fun adaptaNombre(nombre: String): String {

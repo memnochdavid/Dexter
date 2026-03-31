@@ -37,6 +37,9 @@ class PokemonViewModel : ViewModel() {
     private val pokemonDao = DexterApplication.database.pokemonDao()
     private val wikiDexRepository = WikiDexRepository(pokemonDao)
 
+    // --- Card recall: trackea que Pokemon esta "dentro de la pokeball" ---
+    val recalledPokemonId = MutableStateFlow<Int?>(null)
+
     // --- Estados de búsqueda/filtro (compartidos con el BottomSheet de MainActivity) ---
     // Pokemon
     var pokemonSearchQuery = MutableStateFlow("")

@@ -17,7 +17,8 @@
       "Bash(find C:UsersdavduDesktopPokedex_API -name *.webp -o -name *.webm)",
       "WebFetch(domain:resource.pokemon-home.com)",
       "WebFetch(domain:pokeapi.co)",
-      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java/com/david/pokedex_api/ui/screen -name *.kt)"
+      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java/com/david/pokedex_api/ui/screen -name *.kt)",
+      "Bash(./gradlew assembleDebug)"
     ]
   }
 }
