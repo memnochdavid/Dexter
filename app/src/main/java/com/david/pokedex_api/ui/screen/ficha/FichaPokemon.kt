@@ -244,6 +244,7 @@ fun PokemonDetailScreen(
                 }
 
                 // Pre-cachear imagenes de artwork para swipe fluido
+                val imageLoader = remember { coil.ImageLoader(context) }
                 LaunchedEffect(allPreloaded) {
                     navList.forEach { id ->
                         evoMap[id]?.detail?.sprites?.other?.officialArtwork?.frontDefault?.let { url ->
@@ -251,7 +252,7 @@ fun PokemonDetailScreen(
                                 .data(url)
                                 .size(coil.size.Size.ORIGINAL)
                                 .build()
-                            coil.ImageLoader(context).enqueue(request)
+                            imageLoader.enqueue(request)
                         }
                     }
                 }
@@ -286,7 +287,10 @@ fun PokemonDetailScreen(
                     }
                 }
             } else {
-                // Vista simple antes de que la cadena evolutiva este pre-cargada
+                // Vista simple: transitoria (cadena aun cargando) o definitiva (pokemon sin pager)
+                // Es definitiva si la cadena ya cargo pero este pokemon no entrara en el pager
+                val chainLoaded = evolutionChain != null && !isLoadingEvolutionChain
+                val pagerWillTakeOver = !chainLoaded || (navList.size > 1 && navList.contains(pokemonDetail!!.id))
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,
@@ -304,7 +308,7 @@ fun PokemonDetailScreen(
                     isLoadingEncounters = isLoadingEncounters,
                     selectedSection = pokemonViewModel.selectedDetailSection.collectAsState().value,
                     onNavigateBack = onNavigateBack,
-                    shouldAnimate = false
+                    shouldAnimate = !pagerWillTakeOver
                 )
             }
         }
@@ -595,14 +599,16 @@ fun ComponenteImagen(
         val sharedTransitionScope = LocalSharedTransitionScope.current
         val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
-        // Pulse sutil de la pokeball dockeada
-        val infiniteTransition = rememberInfiniteTransition(label = "pokeballPulse")
-        val pulseScale by infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.06f,
-            animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-            label = "pulse"
-        )
+        // Pulse sutil de la pokeball — solo en pagina activa para no gastar CPU
+        val pulseScale = if (isActivePage) {
+            val infiniteTransition = rememberInfiniteTransition(label = "pokeballPulse")
+            infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.06f,
+                animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+                label = "pulse"
+            ).value
+        } else 1f
 
         val sharedElementModifier = if (isActivePage && sharedTransitionScope != null && animatedVisibilityScope != null) {
             with(sharedTransitionScope) {
