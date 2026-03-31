@@ -18,7 +18,9 @@
       "WebFetch(domain:resource.pokemon-home.com)",
       "WebFetch(domain:pokeapi.co)",
       "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java/com/david/pokedex_api/ui/screen -name *.kt)",
-      "Bash(./gradlew assembleDebug)"
+      "Bash(./gradlew assembleDebug)",
+      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main -name *evo* -o -name *Evo*)",
+      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")"
     ]
   }
 }

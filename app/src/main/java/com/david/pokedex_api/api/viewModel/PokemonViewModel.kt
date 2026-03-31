@@ -47,6 +47,7 @@ class PokemonViewModel : ViewModel() {
     var pokemonSelectedType2 = MutableStateFlow("Sin tipo")
     var pokemonShowMegas = MutableStateFlow(false)
     var pokemonShowGigamax = MutableStateFlow(false)
+    var pokemonShowRegionals = MutableStateFlow(false)
 
     // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
     private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
@@ -71,7 +72,9 @@ class PokemonViewModel : ViewModel() {
                         if (results.isEmpty()) { hasMore = false }
                         else {
                             megaGmaxResources.addAll(results.filter { r ->
-                                r.name.contains("-mega") || r.name.contains("-gmax")
+                                r.name.contains("-mega") || r.name.contains("-gmax") ||
+                                r.name.contains("-alola") || r.name.contains("-galar") ||
+                                r.name.contains("-hisui") || r.name.contains("-paldea")
                             })
                             offset += 200
                         }

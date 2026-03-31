@@ -137,7 +137,7 @@ fun PokemonDetailScreen(
     }
 
     // Cuando llega la cadena evolutiva, pre-cargar TODOS los Pokemon de la cadena
-    LaunchedEffect(evolutionChain) {
+    LaunchedEffect(evolutionChain, pokemonDetail?.id) {
         evolutionChain?.chain?.let { chain ->
             val ids = mutableListOf<Int>()
             fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
@@ -145,6 +145,14 @@ fun PokemonDetailScreen(
                 link.evolvesTo.forEach { traverse(it) }
             }
             traverse(chain)
+
+            // Para formas regionales, megas, gigas (ID > 10000): incluir el ID actual
+            // para que el pager funcione y se pueda swipear por la cadena evolutiva
+            val currentId = pokemonDetail?.id
+            if (currentId != null && !ids.contains(currentId)) {
+                ids.add(currentId)
+            }
+
             ids.sort()
             pokemonViewModel.setNavigationList(ids)
             pokemonViewModel.preloadEvolutionChain(ids)

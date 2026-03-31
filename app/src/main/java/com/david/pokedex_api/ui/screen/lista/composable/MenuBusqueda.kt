@@ -60,16 +60,18 @@ fun PokemonSearchMenu(
     availableTypes: List<String>,
     showMegas: Boolean = false,
     showGigamax: Boolean = false,
+    showRegionals: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
     onType1Changed: (String) -> Unit,
     onType2Changed: (String) -> Unit,
     onShowMegasChanged: (Boolean) -> Unit = {},
     onShowGigamaxChanged: (Boolean) -> Unit = {},
+    onShowRegionalsChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val hasActiveFilters = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED ||
-            selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax
+            selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals
 
     Box(
         modifier = modifier
@@ -155,7 +157,7 @@ fun PokemonSearchMenu(
                 )
             }
 
-            // ── Chips Mega / Gigamax ──
+            // ── Chips Mega / Gigamax / Regionales ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -172,6 +174,13 @@ fun PokemonSearchMenu(
                     checked = showGigamax,
                     onCheckedChange = onShowGigamaxChanged,
                     activeColor = Color(0xFFFF9F43),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChipToggle(
+                    label = "Regionales",
+                    checked = showRegionals,
+                    onCheckedChange = onShowRegionalsChanged,
+                    activeColor = Color(0xFF4ECDC4),
                     modifier = Modifier.weight(1f)
                 )
             }

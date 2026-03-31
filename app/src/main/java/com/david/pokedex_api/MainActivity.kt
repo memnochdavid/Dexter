@@ -277,6 +277,7 @@ fun PokedexApp(
                             val t2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
                             val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
                             val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
+                            val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
                             PokemonSearchMenu(
                                 searchQuery = sq,
                                 selectedType1 = t1,
@@ -284,6 +285,7 @@ fun PokedexApp(
                                 availableTypes = ALL_POKEMON_TYPES,
                                 showMegas = showMegas,
                                 showGigamax = showGigamax,
+                                showRegionals = showRegionals,
                                 onSearchQueryChanged = { pokemonViewModel.pokemonSearchQuery.value = it },
                                 onType1Changed = { pokemonViewModel.pokemonSelectedType1.value = it },
                                 onType2Changed = { pokemonViewModel.pokemonSelectedType2.value = it },
@@ -293,6 +295,10 @@ fun PokedexApp(
                                 },
                                 onShowGigamaxChanged = {
                                     pokemonViewModel.pokemonShowGigamax.value = it
+                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                },
+                                onShowRegionalsChanged = {
+                                    pokemonViewModel.pokemonShowRegionals.value = it
                                     if (it) pokemonViewModel.fetchSpecialForms()
                                 }
                             )

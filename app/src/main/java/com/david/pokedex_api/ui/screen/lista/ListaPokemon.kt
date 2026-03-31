@@ -55,6 +55,7 @@ fun GenerationPagerScreen(
     val selectedType2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
     val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
     val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
+    val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
     val specialForms by pokemonViewModel.specialFormsSummaries.observeAsState(emptyList())
 
     LaunchedEffect(Unit) {
@@ -70,19 +71,23 @@ fun GenerationPagerScreen(
         }
     }
 
-    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax
-    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2, showMegas, showGigamax, specialForms) {
+    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals
+    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2, showMegas, showGigamax, showRegionals, specialForms) {
         if (!isSearching) emptyList()
         else {
-            val basePokemon = if (!showMegas && !showGigamax) {
+            val showingOnlySpecialForms = showMegas || showGigamax || showRegionals
+            val basePokemon = if (!showingOnlySpecialForms) {
                 pokemonByGenerationCache.values.flatten().distinctBy { it.id }
             } else {
                 emptyList()
             }
             val megaForms = if (showMegas) specialForms.filter { it.name.contains("-mega") } else emptyList()
             val gmaxForms = if (showGigamax) specialForms.filter { it.name.contains("-gmax") } else emptyList()
+            val regionalForms = if (showRegionals) specialForms.filter { it.name.let { n ->
+                n.contains("-alola") || n.contains("-galar") || n.contains("-hisui") || n.contains("-paldea")
+            }} else emptyList()
 
-            (basePokemon + megaForms + gmaxForms).distinctBy { it.id }.filter { p ->
+            (basePokemon + megaForms + gmaxForms + regionalForms).distinctBy { it.id }.filter { p ->
                 (searchQuery.isBlank() || p.name.contains(searchQuery, true)) &&
                 (selectedType1 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType1, true) }) &&
                 (selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType2, true) })
