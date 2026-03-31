@@ -51,6 +51,7 @@ fun NombreNumAlturaPeso(
     peso: Double,
     tipo: String,
     cryUrl: String? = null,
+    regionTag: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -93,6 +94,23 @@ fun NombreNumAlturaPeso(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp
             )
+            if (regionTag != null) {
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(colorTexto.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = regionTag,
+                        color = colorTexto,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
             if (cryUrl != null) {
                 Spacer(Modifier.width(10.dp))
                 Box(

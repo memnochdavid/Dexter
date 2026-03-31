@@ -265,19 +265,29 @@ fun DetallesDesplegables(
         ) {
             when (currentSection) {
                 SectionPage.DESC -> {
-                    val flavorEntries = remember(pokemonSpecies, wikiDexFlavorTexts) {
+                    // Formas regionales: PokeAPI solo tiene textos de la species base, no de la forma.
+                    // WikiDex SI tiene textos especificos. Prioridad cambia segun si es regional.
+                    val isRegionalForm = remember(pokemon.name) {
+                        listOf("-alola", "-galar", "-hisui", "-paldea").any { pokemon.name.contains(it) }
+                    }
+
+                    val flavorEntries = remember(pokemonSpecies, wikiDexFlavorTexts, isRegionalForm) {
                         val entries = pokemonSpecies?.flavorTextEntries ?: emptyList()
-                        val spanishByVersion = entries
-                            .filter { it.language.name == "es" && !it.flavorText.isNullOrBlank() }
-                            .associateBy { it.version.name }
-                        val englishByVersion = entries
-                            .filter { it.language.name == "en" && !it.flavorText.isNullOrBlank() }
-                            .associateBy { it.version.name }
-                        // Merge 3 fuentes: PokeAPI ES + WikiDex ES + PokeAPI EN
-                        val allVersions = (spanishByVersion.keys + wikiDexFlavorTexts.keys + englishByVersion.keys).distinct()
+                        // Para regionales, los textos de PokeAPI son del base y no corresponden
+                        val spanishByVersion = if (!isRegionalForm) {
+                            entries.filter { it.language.name == "es" && !it.flavorText.isNullOrBlank() }
+                                .associateBy { it.version.name }
+                        } else emptyMap()
+                        val englishByVersion = if (!isRegionalForm) {
+                            entries.filter { it.language.name == "en" && !it.flavorText.isNullOrBlank() }
+                                .associateBy { it.version.name }
+                        } else emptyMap()
+
+                        // Merge: WikiDex (prioridad para regionales) + PokeAPI ES + PokeAPI EN
+                        val allVersions = (wikiDexFlavorTexts.keys + spanishByVersion.keys + englishByVersion.keys).distinct()
                         allVersions.mapNotNull { version ->
-                            val text = spanishByVersion[version]?.flavorText
-                                ?: wikiDexFlavorTexts[version]
+                            val text = wikiDexFlavorTexts[version]
+                                ?: spanishByVersion[version]?.flavorText
                                 ?: englishByVersion[version]?.flavorText
                                 ?: return@mapNotNull null
                             val cleaned = text.replace("\n", " ").replace("\u000c", " ").replace("POKéMON", "Pokémon")

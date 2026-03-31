@@ -101,6 +101,7 @@ import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.ui.theme.rojo_pokeball
 import com.david.pokedex_api.util.AnimatedPokeball
 import com.david.pokedex_api.util.Lottie
+import com.david.pokedex_api.util.ShinySparkleEffect
 import kotlinx.coroutines.delay
 
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
@@ -361,8 +362,16 @@ fun PokemonDetailsView(
     }
 
     val spanishPokemonName = remember(pokemonSpecies, pokemon) {
-        val localizedName = pokemonSpecies?.localizedNames?.find { it.language.name == "es" }?.name
-        localizedName ?: pokemonSpecies?.name ?: pokemon.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+        pokemonSpecies?.localizedNames?.find { it.language.name == "es" }?.name
+            ?: pokemonSpecies?.name
+            ?: pokemon.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+    }
+
+    val regionTag = remember(pokemon.name) {
+        mapOf(
+            "-alola" to "Alola", "-galar" to "Galar",
+            "-hisui" to "Hisui", "-paldea" to "Paldea"
+        ).entries.firstOrNull { pokemon.name.contains(it.key) }?.value
     }
 
     val type1 = pokemon.types[0].type.name
@@ -421,7 +430,8 @@ fun PokemonDetailsView(
                     peso = pokemon.weight.toDouble(),
                     modifier = Modifier.fillMaxWidth(),
                     tipo = pokemon.types[0].type.name,
-                    cryUrl = pokemon.cries?.latest
+                    cryUrl = pokemon.cries?.latest,
+                    regionTag = regionTag
                 )
 
                 // Contenido con barra de secciones integrada
@@ -466,8 +476,9 @@ fun ComponenteImagen(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    // Shiny toggle
+    // Shiny toggle + sparkle trigger
     var isShiny by remember { mutableStateOf(false) }
+    var shinySparkleKey by remember { mutableStateOf(0) } // incrementa para re-disparar
 
     // Animated WebP resources
     val webpResourceName = remember(pokemon.name) {
@@ -657,7 +668,9 @@ fun ComponenteImagen(
                     )
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val wasShiny = isShiny
                         isShiny = !isShiny
+                        if (!wasShiny) shinySparkleKey++ // sparkles solo al activar shiny
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -786,6 +799,16 @@ fun ComponenteImagen(
                         error = painterResource(id = R.drawable.pokeball_icon),
                         placeholder = painterResource(id = R.drawable.pokeball_icon)
                     )
+                }
+
+                // Sparkles al activar shiny
+                androidx.compose.runtime.key(shinySparkleKey) {
+                    if (shinySparkleKey > 0) {
+                        ShinySparkleEffect(
+                            trigger = true,
+                            modifier = Modifier.matchParentSize()
+                        )
+                    }
                 }
 
                 // Shimmer rojo: anillo que sigue al pokemon (dentro del Box trasladado+escalado)

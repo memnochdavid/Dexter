@@ -275,8 +275,12 @@ class PokemonViewModel : ViewModel() {
                 async(Dispatchers.IO) {
                     try {
                         val detailResp = pokemonApiService.getPokemonDetailsById(id)
-                        val speciesResp = pokemonApiService.getPokemonSpeciesDetailsById(id)
                         val detail = detailResp.body() ?: return@async
+                        // Species por ID; si falla (formas regionales ID>10000), usar species URL del detail
+                        var speciesResp = pokemonApiService.getPokemonSpeciesDetailsById(id)
+                        if (!speciesResp.isSuccessful) {
+                            speciesResp = pokemonApiService.getPokemonSpeciesDetailsByUrl(detail.species.url)
+                        }
                         _evoChainPokemonMap.update { it + (id to PreloadedPokemonData(detail, speciesResp.body())) }
                     } catch (_: Exception) { }
                 }
@@ -307,13 +311,31 @@ class PokemonViewModel : ViewModel() {
         // WikiDex async
         _wikiDexFlavorTexts.value = emptyMap()
         _wikiDexLocations.value = emptyMap()
-        val spanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
-        if (spanishName != null) {
+        val baseSpanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
+        if (baseSpanishName != null) {
+            // Para formas regionales, buscar con nombre regional en WikiDex
+            val pokemonApiName = preloaded.detail.name
+            val regionalSuffix = mapOf(
+                "-alola" to " de Alola", "-galar" to " de Galar",
+                "-hisui" to " de Hisui", "-paldea" to " de Paldea"
+            ).entries.firstOrNull { pokemonApiName.contains(it.key) }?.value
+
+            val wikiSearchName = if (regionalSuffix != null) "$baseSpanishName$regionalSuffix" else baseSpanishName
+
             viewModelScope.launch {
-                _wikiDexFlavorTexts.value = wikiDexRepository.getFlavorTexts(spanishName)
+                // Intentar con nombre regional primero, fallback al nombre base
+                var texts = wikiDexRepository.getFlavorTexts(wikiSearchName)
+                if (texts.isEmpty() && regionalSuffix != null) {
+                    texts = wikiDexRepository.getFlavorTexts(baseSpanishName)
+                }
+                _wikiDexFlavorTexts.value = texts
             }
             viewModelScope.launch {
-                _wikiDexLocations.value = wikiDexRepository.getLocations(spanishName).mapKeys { (apiName, _) ->
+                var locations = wikiDexRepository.getLocations(wikiSearchName)
+                if (locations.isEmpty() && regionalSuffix != null) {
+                    locations = wikiDexRepository.getLocations(baseSpanishName)
+                }
+                _wikiDexLocations.value = locations.mapKeys { (apiName, _) ->
                     translateVersionName(apiName)
                 }
             }
