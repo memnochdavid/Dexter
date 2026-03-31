@@ -38,6 +38,7 @@ import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName
 import com.david.pokedex_api.ui.theme.rojo_pokeball
+import com.david.pokedex_api.util.AnimatedPokeball
 import kotlinx.coroutines.flow.first
 
 private val CardDShape = DShape()
@@ -220,12 +221,11 @@ fun PokemonListItemCard(
                 }
             }
 
-            // Pokeball: solo compuesta cuando este card esta animando
+            // Pokeball animada: se abre al capturar/soltar el contenido del card
             if (isAnimating && sharedTransitionScope != null && animatedVisibilityScope != null) {
                 with(sharedTransitionScope) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pokeball_icon),
-                        contentDescription = null,
+                    AnimatedPokeball(
+                        isOpen = showShimmer, // abierta mientras el pokemon entra/sale
                         modifier = Modifier
                             .size(36.dp)
                             .align(Alignment.CenterStart)

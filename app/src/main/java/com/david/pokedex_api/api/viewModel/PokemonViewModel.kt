@@ -241,6 +241,34 @@ class PokemonViewModel : ViewModel() {
     private val _evoChainPokemonMap = MutableStateFlow<Map<Int, PreloadedPokemonData>>(emptyMap())
     val evoChainPokemonMap: StateFlow<Map<Int, PreloadedPokemonData>> = _evoChainPokemonMap.asStateFlow()
 
+    /**
+     * Expande una lista de IDs de species (en orden de cadena) con sus formas regionales.
+     * Para cada species, inserta las varieties regionales justo despues del base.
+     * Retorna la lista expandida manteniendo el orden de la cadena.
+     */
+    suspend fun expandChainWithRegionalForms(chainOrderIds: List<Int>): List<Int> = coroutineScope {
+        val regionalSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+
+        val results = chainOrderIds.map { speciesId ->
+            async(Dispatchers.IO) {
+                speciesId to try {
+                    val resp = pokemonApiService.getPokemonSpeciesDetailsById(speciesId)
+                    resp.body()?.varieties?.filter { !it.isDefault }
+                        ?.filter { v -> regionalSuffixes.any { s -> v.pokemon.name.contains(s) } }
+                        ?.mapNotNull { v -> v.pokemon.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull() }
+                        ?: emptyList()
+                } catch (_: Exception) { emptyList<Int>() }
+            }
+        }.awaitAll()
+
+        val expanded = mutableListOf<Int>()
+        results.forEach { (speciesId, regionalIds) ->
+            expanded.add(speciesId)
+            expanded.addAll(regionalIds)
+        }
+        expanded
+    }
+
     fun preloadEvolutionChain(pokemonIds: List<Int>) {
         viewModelScope.launch {
             pokemonIds.map { id ->

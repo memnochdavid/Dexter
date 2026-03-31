@@ -99,6 +99,7 @@ import com.david.pokedex_api.LocalSharedTransitionScope
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.ui.theme.rojo_pokeball
+import com.david.pokedex_api.util.AnimatedPokeball
 import com.david.pokedex_api.util.Lottie
 import kotlinx.coroutines.delay
 
@@ -136,26 +137,38 @@ fun PokemonDetailScreen(
         pokemonDetail?.id?.let { pokemonViewModel.fetchPokemonEncounters(it) }
     }
 
-    // Cuando llega la cadena evolutiva, pre-cargar TODOS los Pokemon de la cadena
+    // Cuando llega la cadena evolutiva, expandir con formas regionales y pre-cargar
     LaunchedEffect(evolutionChain, pokemonDetail?.id) {
         evolutionChain?.chain?.let { chain ->
-            val ids = mutableListOf<Int>()
+            // Fase 1: recorrer la cadena en ORDEN EVOLUTIVO (no numerico)
+            val chainOrderIds = mutableListOf<Int>()
             fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
-                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { ids.add(it) }
+                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { chainOrderIds.add(it) }
                 link.evolvesTo.forEach { traverse(it) }
             }
             traverse(chain)
 
-            // Para formas regionales, megas, gigas (ID > 10000): incluir el ID actual
-            // para que el pager funcione y se pueda swipear por la cadena evolutiva
+            // Fase 2: expandir con formas regionales (Alola, Galar, Hisui, Paldea)
+            // Cada regional se inserta justo despues de su species base
+            val expandedIds = pokemonViewModel.expandChainWithRegionalForms(chainOrderIds)
+
+            // Fase 3: incluir el pokemon actual si no esta (megas, gigas, etc.)
+            val finalIds = expandedIds.toMutableList()
             val currentId = pokemonDetail?.id
-            if (currentId != null && !ids.contains(currentId)) {
-                ids.add(currentId)
+            if (currentId != null && !finalIds.contains(currentId)) {
+                // Insertar cerca de su species base si es posible
+                val speciesUrl = pokemonDetail?.species?.url
+                val baseSpeciesId = speciesUrl?.trimEnd('/')?.split("/")?.lastOrNull()?.toIntOrNull()
+                val insertIdx = if (baseSpeciesId != null) {
+                    val baseIdx = finalIds.indexOf(baseSpeciesId)
+                    if (baseIdx >= 0) baseIdx + 1 else finalIds.size
+                } else finalIds.size
+                finalIds.add(insertIdx, currentId)
             }
 
-            ids.sort()
-            pokemonViewModel.setNavigationList(ids)
-            pokemonViewModel.preloadEvolutionChain(ids)
+            // NO sort — el orden de la cadena es el correcto
+            pokemonViewModel.setNavigationList(finalIds)
+            pokemonViewModel.preloadEvolutionChain(finalIds)
         }
     }
 
@@ -216,9 +229,8 @@ fun PokemonDetailScreen(
                         // Pokeball en la misma posicion que tendra en ComponenteImagen
                         if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                             with(sharedTransitionScope) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.pokeball_icon),
-                                    contentDescription = null,
+                                AnimatedPokeball(
+                                    isOpen = false,
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
                                         .padding(start = 8.dp, bottom = 8.dp)
@@ -658,10 +670,9 @@ fun ComponenteImagen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Pokeball: shared element + recall
-            Image(
-                painter = painterResource(id = R.drawable.pokeball_icon),
-                contentDescription = "Volver a la lista",
+            // Pokeball animada: se abre al soltar/capturar el pokemon
+            AnimatedPokeball(
+                isOpen = showShimmerEffect, // abierta mientras el pokemon emerge/se recoge
                 modifier = sharedElementModifier
                     .then(Modifier
                         .size(45.dp)

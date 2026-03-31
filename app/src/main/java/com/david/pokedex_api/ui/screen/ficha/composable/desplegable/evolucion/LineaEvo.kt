@@ -76,6 +76,9 @@ private fun getPokemonIdFromSpeciesUrl(url: String): Int? =
 private fun getPokemonSpriteUrl(pokemonId: Int): String =
     "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonId.toString().padStart(4, '0')}_f00_s0.png"
 
+private fun getPokemonHomeSpriteUrl(speciesId: Int, formIndex: Int): String =
+    "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${formIndex.toString().padStart(2, '0')}_s0.png"
+
 // ==================== ICONOS DE CONDICION ====================
 
 private fun getItemSpriteUrl(itemName: String): String =
@@ -318,6 +321,17 @@ fun PokemonEvolutionChainView(
         return
     }
 
+    // Nombres de species para descubrir formas regionales
+    val chainSpeciesNames = remember(evolutionChainResponse.chain) {
+        val names = mutableListOf<String>()
+        fun collectNames(link: ChainLink) {
+            names.add(link.species.name)
+            link.evolvesTo.forEach { collectNames(it) }
+        }
+        collectNames(evolutionChainResponse.chain)
+        names
+    }
+
     val branchedEvolutionData = remember(evolutionChainResponse.chain) {
         getEvolutionSteps(evolutionChainResponse.chain)
     }
@@ -379,63 +393,94 @@ fun PokemonEvolutionChainView(
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
-                if (isLinear && linearEvolutionPath.isNotEmpty()) {
-                    // LINEAL: lista vertical con conectores animados entre cards
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
-                            item(key = "evo_${chainLink.species.name}") {
-                                val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-                                    value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-                                }
-                                EvolutionStageView(
-                                    chainLink = chainLink,
-                                    builtEvolutionCondition = condition,
-                                    conditionIcon = getConditionIcon(evolutionDetail),
-                                    itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
-                                    onClick = onPokemonClick,
-                                    viewModel = viewModel,
-                                    color = color2,
-                                    colorTexto = colorTexto,
-                                    staggerIndex = index,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            if (index < linearEvolutionPath.size - 1) {
-                                item(key = "connector_$index") {
-                                    EnergyFlowConnector(
-                                        color = colorTexto.copy(alpha = 0.6f),
-                                        modifier = Modifier
-                                            .width(24.dp)
-                                            .height(36.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (isLinear && linearEvolutionPath.isNotEmpty()) {
+                        // LINEAL: lista vertical con conectores animados entre cards
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
+                                item(key = "evo_${chainLink.species.name}") {
+                                    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
+                                        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
+                                    }
+                                    EvolutionStageView(
+                                        chainLink = chainLink,
+                                        builtEvolutionCondition = condition,
+                                        conditionIcon = getConditionIcon(evolutionDetail),
+                                        itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
+                                        onClick = onPokemonClick,
+                                        viewModel = viewModel,
+                                        color = color2,
+                                        colorTexto = colorTexto,
+                                        staggerIndex = index,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
+                                if (index < linearEvolutionPath.size - 1) {
+                                    item(key = "connector_$index") {
+                                        EnergyFlowConnector(
+                                            color = colorTexto.copy(alpha = 0.6f),
+                                            modifier = Modifier
+                                                .width(24.dp)
+                                                .height(36.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Ramas regionales al final de la cadena
+                            item(key = "regional_branches") {
+                                RegionalEvolutionBranches(
+                                    chainSpeciesNames = chainSpeciesNames,
+                                    onPokemonClick = onPokemonClick,
+                                    viewModel = viewModel,
+                                    cardColor = color2,
+                                    textColor = colorTexto,
+                                    connectorColor = colorTexto.copy(alpha = 0.6f)
+                                )
                             }
                         }
-                    }
-                } else {
-                    // RAMIFICADA: cada paso con base + evoluciones
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        items(branchedEvolutionData.size) { index ->
-                            EvolutionStepDisplay(
-                                step = branchedEvolutionData[index],
-                                onPokemonClick = onPokemonClick,
-                                viewModel = viewModel,
-                                cardColor = color2,
-                                textColor = colorTexto,
-                                connectorColor = colorTexto.copy(alpha = 0.6f),
-                                baseStaggerIndex = index * 3
-                            )
+                    } else {
+                        // RAMIFICADA: cada paso con base + evoluciones
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            items(branchedEvolutionData.size) { index ->
+                                EvolutionStepDisplay(
+                                    step = branchedEvolutionData[index],
+                                    onPokemonClick = onPokemonClick,
+                                    viewModel = viewModel,
+                                    cardColor = color2,
+                                    textColor = colorTexto,
+                                    connectorColor = colorTexto.copy(alpha = 0.6f),
+                                    baseStaggerIndex = index * 3
+                                )
+                            }
+
+                            // Ramas regionales al final
+                            item(key = "regional_branches") {
+                                RegionalEvolutionBranches(
+                                    chainSpeciesNames = chainSpeciesNames,
+                                    onPokemonClick = onPokemonClick,
+                                    viewModel = viewModel,
+                                    cardColor = color2,
+                                    textColor = colorTexto,
+                                    connectorColor = colorTexto.copy(alpha = 0.6f)
+                                )
+                            }
                         }
                     }
                 }
@@ -512,6 +557,202 @@ fun EvolutionStepDisplay(
                     )
                 }
             }
+        }
+    }
+}
+
+// ==================== FORMAS REGIONALES EN LA CADENA ====================
+
+data class RegionalBranch(
+    val regionLabel: String, // ej: "Galar", "Alola"
+    val forms: List<RegionalFormEntry> // formas en orden evolutivo
+)
+
+data class RegionalFormEntry(
+    val pokemonName: String, // ej: "mr-mime-galar"
+    val pokemonId: Int,
+    val speciesId: Int, // ID de la species base (para URL HOME)
+    val formIndex: Int, // indice de la variedad en la lista de varieties
+    val displayName: String // se resuelve async
+)
+
+private val REGIONAL_SUFFIXES = mapOf(
+    "-alola" to "Alola", "-galar" to "Galar", "-hisui" to "Hisui", "-paldea" to "Paldea"
+)
+
+/**
+ * Composable que muestra ramas de evolucion regionales.
+ * Descubre varieties regionales de las species de la cadena y las muestra como ramas adicionales.
+ */
+@Composable
+fun RegionalEvolutionBranches(
+    chainSpeciesNames: List<String>,
+    onPokemonClick: (String) -> Unit,
+    viewModel: PokemonViewModel = viewModel(),
+    cardColor: Color,
+    textColor: Color,
+    connectorColor: Color
+) {
+    // Descubrir formas regionales de todas las species de la cadena
+    val regionalBranches by produceState<List<RegionalBranch>>(initialValue = emptyList(), chainSpeciesNames) {
+        if (chainSpeciesNames.isEmpty()) return@produceState
+
+        val allRegionalForms = mutableMapOf<String, MutableList<RegionalFormEntry>>() // region -> forms
+
+        chainSpeciesNames.forEach { speciesName ->
+            try {
+                val resp = viewModel.pokemonApiService.getPokemonSpeciesDetails(speciesName)
+                if (resp.isSuccessful) {
+                    val body = resp.body() ?: return@forEach
+                    val speciesId = body.id
+                    val varieties = body.varieties
+                    varieties.forEachIndexed { index, variety ->
+                        if (variety.isDefault) return@forEachIndexed
+                        val name = variety.pokemon.name
+                        val matchedRegion = REGIONAL_SUFFIXES.entries.firstOrNull { name.contains(it.key) }
+                        if (matchedRegion != null) {
+                            val formId = variety.pokemon.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull() ?: return@forEachIndexed
+                            val region = matchedRegion.value
+                            allRegionalForms.getOrPut(region) { mutableListOf() }.add(
+                                RegionalFormEntry(name, formId, speciesId, index, name)
+                            )
+                        }
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+
+        value = allRegionalForms.map { (region, forms) ->
+            RegionalBranch(region, forms.sortedBy { it.pokemonId })
+        }.sortedBy { it.regionLabel }
+    }
+
+    if (regionalBranches.isEmpty()) return
+
+    var staggerOffset = 0
+    regionalBranches.forEach { branch ->
+        Spacer(Modifier.height(12.dp))
+
+        // Header de la region
+        Text(
+            text = "Formas de ${branch.regionLabel}",
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = textColor.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        branch.forms.forEachIndexed { index, form ->
+            if (index > 0) {
+                EnergyFlowConnector(
+                    color = connectorColor,
+                    modifier = Modifier
+                        .width(24.dp)
+                        .height(28.dp)
+                )
+            }
+
+            RegionalFormCard(
+                formEntry = form,
+                onClick = onPokemonClick,
+                viewModel = viewModel,
+                color = cardColor,
+                colorTexto = textColor,
+                staggerIndex = staggerOffset + index
+            )
+        }
+        staggerOffset += branch.forms.size
+    }
+}
+
+@Composable
+private fun RegionalFormCard(
+    formEntry: RegionalFormEntry,
+    onClick: (String) -> Unit,
+    viewModel: PokemonViewModel,
+    color: Color,
+    colorTexto: Color,
+    staggerIndex: Int
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(staggerIndex * 120L)
+        appeared = true
+    }
+    val appearAlpha by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(300), label = "regAlpha"
+    )
+    val appearSlide by animateFloatAsState(
+        targetValue = if (appeared) 0f else 20f,
+        animationSpec = tween(300), label = "regSlide"
+    )
+
+    var localizedName by remember(formEntry.pokemonName) {
+        mutableStateOf(formatApiName(formEntry.pokemonName))
+    }
+    LaunchedEffect(formEntry.pokemonName) {
+        try {
+            localizedName = viewModel.fetchLocalizedName(
+                resourceUrl = "https://pokeapi.co/api/v2/pokemon-species/${formEntry.pokemonName.substringBefore("-")}/",
+                fallbackApiName = formEntry.pokemonName,
+                resourceTypeHint = "pokemon-species"
+            )
+            // Append region suffix
+            val regionSuffix = REGIONAL_SUFFIXES.entries.firstOrNull { formEntry.pokemonName.contains(it.key) }?.value
+            if (regionSuffix != null && !localizedName.contains(regionSuffix, ignoreCase = true)) {
+                localizedName = "$localizedName de $regionSuffix"
+            }
+        } catch (_: Exception) { }
+    }
+
+    ElevatedCard(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick(formEntry.pokemonId.toString())
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .graphicsLayer { alpha = appearAlpha; translationY = appearSlide },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = color)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(10.dp)
+        ) {
+            val homeUrl = remember(formEntry) {
+                getPokemonHomeSpriteUrl(formEntry.speciesId, formEntry.formIndex)
+            }
+            val fallbackUrl = remember(formEntry) {
+                "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${formEntry.pokemonId}.png"
+            }
+            var spriteUrl by remember(formEntry.pokemonId) { mutableStateOf(homeUrl) }
+
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(spriteUrl)
+                    .crossfade(true)
+                    .listener(onError = { _, _ ->
+                        if (spriteUrl == homeUrl) spriteUrl = fallbackUrl
+                    })
+                    .build(),
+                contentDescription = localizedName,
+                modifier = Modifier.size(90.dp),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = localizedName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = colorTexto
+            )
         }
     }
 }
