@@ -385,7 +385,8 @@ data class SpecialForm(
     val formName: String, // ej: "charizard-mega-x"
     val displayName: String, // ej: "Mega Charizard X"
     val spriteUrl: String?,
-    val fallbackSpriteUrl: String? = null
+    val fallbackSpriteUrl: String? = null,
+    val localResourceName: String? = null // nombre del recurso webp local (para swap sin navegación)
 )
 
 data class TypeListResponse(

@@ -127,6 +127,7 @@ fun DetallesDesplegables(
     selectedSection: String = SectionPage.DESC.name,
     onSectionSelected: (String) -> Unit = {},
     onAvailableSectionsChanged: (List<String>) -> Unit = {},
+    onFormSwap: (resourceName: String, displayName: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
@@ -560,6 +561,7 @@ fun DetallesDesplegables(
                             pokemonSpeciesUrl = pokemon.species.url,
                             pokemonApiService = pokemonApiService,
                             onFormClick = { _, formApiName -> onEvolutionPokemonClick(formApiName) },
+                            onFormSwap = onFormSwap,
                             cardColor = colorSoft,
                             itemCardColor = colorSoft,
                             colorTexto = colorTexto,

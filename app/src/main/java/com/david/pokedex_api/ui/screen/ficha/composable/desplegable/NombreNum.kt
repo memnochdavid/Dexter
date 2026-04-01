@@ -47,11 +47,15 @@ fun NombreNumAlturaPeso(
     nombre: String,
     numero: Int,
     genus: String?,
+    formName: String? = null,
     altura: Double,
     peso: Double,
     tipo: String,
     cryUrl: String? = null,
     regionTag: String? = null,
+    hasFemale: Boolean = false,
+    isFemale: Boolean = false,
+    onToggleGender: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -74,7 +78,7 @@ fun NombreNumAlturaPeso(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Nombre + Numero + Cry
+        // Nombre + Numero
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -111,8 +115,79 @@ fun NombreNumAlturaPeso(
                     )
                 }
             }
+        }
+
+        // Genus + Forma
+        val genusFormText = remember(genus, formName) {
+            when {
+                !genus.isNullOrBlank() && !formName.isNullOrBlank() -> "$genus (Forma $formName)"
+                !genus.isNullOrBlank() -> genus
+                !formName.isNullOrBlank() -> "Forma $formName"
+                else -> null
+            }
+        }
+        if (genusFormText != null) {
+            Text(
+                text = genusFormText,
+                color = colorTexto.copy(alpha = 0.6f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Altura + Peso + Botones (género + cry)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StatChip(
+                label = "Altura",
+                value = String.format(Locale.getDefault(), "%.1f m", altura / 10.0),
+                colorTexto = colorTexto
+            )
+            Spacer(Modifier.width(12.dp))
+            StatChip(
+                label = "Peso",
+                value = String.format(Locale.getDefault(), "%.1f kg", peso / 10.0),
+                colorTexto = colorTexto
+            )
+
+            // Separador flexible para empujar botones a la derecha
+            Spacer(Modifier.weight(1f))
+
+            // Botones de género (solo si hay dimorfismo sexual)
+            if (hasFemale) {
+                GenderButton(
+                    symbol = "\u2642", // ♂
+                    isSelected = !isFemale,
+                    colorTexto = colorTexto,
+                    selectedColor = Color(0xFF6CB4EE), // azul
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleGender(false)
+                    }
+                )
+                Spacer(Modifier.width(4.dp))
+                GenderButton(
+                    symbol = "\u2640", // ♀
+                    isSelected = isFemale,
+                    colorTexto = colorTexto,
+                    selectedColor = Color(0xFFFF6B8A), // rosa
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleGender(true)
+                    }
+                )
+            }
+
+            // Cry button
             if (cryUrl != null) {
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(if (hasFemale) 8.dp else 0.dp))
                 Box(
                     modifier = Modifier
                         .size(28.dp)
@@ -125,47 +200,44 @@ fun NombreNumAlturaPeso(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.pokeball_icon),
+                        painter = painterResource(id = R.drawable.cry_logo),
                         contentDescription = "Escuchar cry",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = colorTexto.copy(alpha = 0.7f)
                     )
                 }
             }
         }
+    }
+}
 
-        // Genus
-        if (!genus.isNullOrBlank()) {
-            Text(
-                text = genus,
-                color = colorTexto.copy(alpha = 0.6f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Normal,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
+@Composable
+private fun GenderButton(
+    symbol: String,
+    isSelected: Boolean,
+    colorTexto: Color,
+    selectedColor: Color,
+    onClick: () -> Unit
+) {
+    val bgColor = if (isSelected) selectedColor.copy(alpha = 0.3f)
+    else colorTexto.copy(alpha = 0.08f)
+    val textColor = if (isSelected) selectedColor
+    else colorTexto.copy(alpha = 0.4f)
 
-        Spacer(Modifier.height(8.dp))
-
-        // Altura + Peso en chips compactos
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatChip(
-                label = "Altura",
-                value = String.format(Locale.getDefault(), "%.1f m", altura / 10.0),
-                colorTexto = colorTexto
-            )
-            Spacer(Modifier.width(16.dp))
-            StatChip(
-                label = "Peso",
-                value = String.format(Locale.getDefault(), "%.1f kg", peso / 10.0),
-                colorTexto = colorTexto
-            )
-        }
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(bgColor)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = symbol,
+            color = textColor,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -218,4 +290,3 @@ fun adaptaNombre(nombre: String): String {
         }
     }
 }
-

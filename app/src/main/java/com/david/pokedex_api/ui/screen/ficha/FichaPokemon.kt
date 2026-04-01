@@ -376,8 +376,72 @@ fun PokemonDetailsView(
         ).entries.firstOrNull { pokemon.name.contains(it.key) }?.value
     }
 
+    // Número de especie (para megas, gigamax y formas especiales)
+    val speciesId = remember(pokemon.species.url) {
+        pokemon.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+    }
+    val isRegional = regionTag != null
+    val displayNumber = remember(pokemon.id, speciesId, isRegional) {
+        if (!isRegional && speciesId != null && speciesId != pokemon.id) speciesId
+        else pokemon.id
+    }
+
+    // Nombre de la forma (si tiene)
+    val formDisplayName = remember(pokemon.name, spanishPokemonName) {
+        val apiName = pokemon.name.lowercase()
+        // Extraer el sufijo de forma del nombre API
+        val regionalSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+        val isRegionalForm = regionalSuffixes.any { apiName.contains(it) }
+        if (isRegionalForm) {
+            null // Las regionales ya tienen su regionTag
+        } else if (apiName.contains("-")) {
+            // Convertir nombre recurso → nombre display de la forma
+            val resourceName = transformPokemonNameToResourceName(apiName)
+            val baseName = transformPokemonNameToResourceName(
+                apiName.substringBefore("-")
+            )
+            if (resourceName == baseName) {
+                null // Forma por defecto (confined, normal, etc.)
+            } else {
+                // Extraer la parte de forma del nombre recurso
+                val formPart = resourceName.removePrefix("${baseName}_")
+                    .also { if (it == resourceName) return@remember null } // no se pudo extraer
+                // Mega tiene formato especial: mega_X → Mega X
+                if (resourceName.startsWith("mega_")) {
+                    val megaSuffix = resourceName.removePrefix("mega_${baseName.removePrefix("mega_")}")
+                        .removePrefix("_").uppercase().takeIf { it.isNotEmpty() }
+                    if (megaSuffix != null) "Mega $megaSuffix" else "Mega"
+                } else if (resourceName.startsWith("ultra_")) {
+                    "Ultra"
+                } else {
+                    // Capitalizar cada parte: "alas_del_alba" → "Alas Del Alba"
+                    adaptaNombre(formPart)
+                }
+            }
+        } else {
+            null
+        }
+    }
+
     val type1 = pokemon.types[0].type.name
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // Estado de swap de forma (para formas locales sin navegación)
+    var overrideResourceName by remember { mutableStateOf<String?>(null) }
+    var overrideFormDisplayName by remember { mutableStateOf<String?>(null) }
+
+    // Estado de género (dimorfismo sexual)
+    var isFemale by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val webpResourceName = remember(pokemon.name) {
+        transformPokemonNameToResourceName(pokemon.name.lowercase())
+    }
+    val femaleResourceId = remember(webpResourceName) {
+        context.resources.getIdentifier("${webpResourceName}_hembra", "raw", context.packageName)
+    }
+    val hasFemaleSprite = remember(femaleResourceId, pokemon.sprites.frontFemale) {
+        femaleResourceId != 0 || pokemon.sprites.frontFemale != null
+    }
 
     // Estado de imagen expandida
     var isImageExpanded by remember { mutableStateOf(false) }
@@ -403,14 +467,18 @@ fun PokemonDetailsView(
                 colorFondo = getPokemonTypeColorDark(type1),
                 colorTexto = Color.White,
                 nombre = spanishPokemonName,
-                numero = pokemon.id,
+                numero = displayNumber,
                 genus = spanishGenus,
+                formName = overrideFormDisplayName ?: formDisplayName,
                 altura = pokemon.height.toDouble(),
                 peso = pokemon.weight.toDouble(),
                 modifier = Modifier.fillMaxWidth(),
                 tipo = pokemon.types[0].type.name,
                 cryUrl = pokemon.cries?.latest,
-                regionTag = regionTag
+                regionTag = regionTag,
+                hasFemale = hasFemaleSprite,
+                isFemale = isFemale,
+                onToggleGender = { female -> isFemale = female }
             )
 
             DetallesDesplegables(
@@ -429,6 +497,10 @@ fun PokemonDetailsView(
                 selectedSection = selectedSection,
                 onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
                 onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
+                onFormSwap = { resName, displayName ->
+                    overrideResourceName = resName
+                    overrideFormDisplayName = displayName
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -452,6 +524,8 @@ fun PokemonDetailsView(
                 onNavigateBack = onNavigateBack,
                 shouldAnimate = shouldAnimate,
                 nombreSpanish = spanishPokemonName,
+                isFemale = isFemale,
+                overrideResourceName = overrideResourceName,
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(0.35f + imageWeight * 0.65f)
@@ -482,6 +556,8 @@ fun PokemonDetailsView(
                 onNavigateBack = onNavigateBack,
                 shouldAnimate = shouldAnimate,
                 nombreSpanish = spanishPokemonName,
+                isFemale = isFemale,
+                overrideResourceName = overrideResourceName,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.35f + imageWeight * 0.65f)
@@ -510,6 +586,8 @@ fun ComponenteImagen(
     onNavigateBack: () -> Unit = {},
     shouldAnimate: Boolean = true,
     nombreSpanish: String = "",
+    isFemale: Boolean = false,
+    overrideResourceName: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -520,13 +598,29 @@ fun ComponenteImagen(
     var shinySparkleKey by remember { mutableStateOf(0) } // incrementa para re-disparar
 
     // Animated WebP resources
-    val webpResourceName = remember(pokemon.name) {
-        transformPokemonNameToResourceName(pokemon.name.lowercase())
+    val webpResourceName = remember(pokemon.name, overrideResourceName) {
+        overrideResourceName ?: transformPokemonNameToResourceName(pokemon.name.lowercase())
     }
-    val webpResourceId = remember(webpResourceName) {
+    val femaleResourceName = remember(webpResourceName) { "${webpResourceName}_hembra" }
+    val femaleResourceId = remember(femaleResourceName) {
+        context.resources.getIdentifier(femaleResourceName, "raw", context.packageName)
+    }
+    val femaleShinyResourceName = remember(webpResourceName) { "${webpResourceName}_hembra_shiny" }
+    val femaleShinyResourceId = remember(femaleShinyResourceName) {
+        context.resources.getIdentifier(femaleShinyResourceName, "raw", context.packageName)
+    }
+
+    val baseWebpResourceId = remember(webpResourceName) {
         context.resources.getIdentifier(webpResourceName, "raw", context.packageName)
     }
-    val shinyResourceName = remember(webpResourceName) { "${webpResourceName}_shiny" }
+    // Seleccionar recurso webp según género
+    val webpResourceId = remember(baseWebpResourceId, femaleResourceId, isFemale) {
+        if (isFemale && femaleResourceId != 0) femaleResourceId else baseWebpResourceId
+    }
+    val shinyResourceName = remember(webpResourceName, isFemale) {
+        if (isFemale && femaleShinyResourceId != 0) "${webpResourceName}_hembra_shiny"
+        else "${webpResourceName}_shiny"
+    }
     val shinyResourceId = remember(shinyResourceName) {
         context.resources.getIdentifier(shinyResourceName, "raw", context.packageName)
     }
@@ -748,13 +842,20 @@ fun ComponenteImagen(
         val useAnimated = activeResourceId != 0
         val useGigamax = !useAnimated && !isShiny && gigamaxSpriteUrl != null
 
-        val imageUrl = if (isShiny) {
-            pokemon.sprites.other?.officialArtwork?.frontShiny
+        val imageUrl = when {
+            isFemale && isShiny -> pokemon.sprites.frontShinyFemale
+                ?: pokemon.sprites.other?.home?.frontShinyFemale
+                ?: pokemon.sprites.other?.officialArtwork?.frontShiny
+                ?: pokemon.sprites.frontShiny
+            isFemale -> pokemon.sprites.frontFemale
+                ?: pokemon.sprites.other?.home?.frontFemale
+                ?: pokemon.sprites.other?.officialArtwork?.frontDefault
+                ?: pokemon.sprites.frontDefault
+            isShiny -> pokemon.sprites.other?.officialArtwork?.frontShiny
                 ?: pokemon.sprites.frontShiny
                 ?: pokemon.sprites.other?.officialArtwork?.frontDefault
                 ?: pokemon.sprites.frontDefault
-        } else {
-            pokemon.sprites.other?.officialArtwork?.frontDefault
+            else -> pokemon.sprites.other?.officialArtwork?.frontDefault
                 ?: pokemon.sprites.frontDefault
         }
         val imagePadding by animateDpAsState(

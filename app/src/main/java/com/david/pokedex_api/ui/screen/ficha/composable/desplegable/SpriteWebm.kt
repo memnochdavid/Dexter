@@ -176,54 +176,478 @@ fun ExoPlayerSimple(
     )
 }
 
+// Mapeo completo nombre API → nombre recurso local.
+// Se busca primero por nombre completo (fullNameMap), luego por sufijo (formSuffixMap).
+// Los casos ambiguos (colores, tipos) van en fullNameMap con nombre completo.
+
+// Sufijos genéricos sin ambigüedad (usados como fallback para nombres no listados)
+private val formSuffixMap = mapOf(
+    "f" to "hembra",
+    "m" to "macho",
+    "z" to "z",
+)
+private val fullNameMap = mapOf(
+    // --- Nombres compuestos (sin forma, el guión es parte del nombre) ---
+    // Unown (forma base = A)
+    "unown" to "unown_a",
+    "unown-exclamation" to "unown_exclamacion",
+    "unown-question" to "unown_pregunta",
+
+    // --- Formas base que no tienen webp sin sufijo ---
+    "ogerpon" to "ogerpon_mascara_turquesa",
+    "terapagos" to "terapagos_normal",
+    "gimmighoul" to "gimmighoul_andante",
+    "vivillon" to "vivillon_vergel",
+    "frillish-male" to "frillish",
+    "jellicent-male" to "jellicent",
+
+    // --- Maushold ---
+    "maushold-family-of-four" to "maushold_familia_de_cuatro",
+    "maushold-family-of-three" to "maushold_familia_de_tres",
+    "maushold" to "maushold_familia_de_tres",
+
+    // --- Paradox pasado (Scarlet) ---
+    "great-tusk" to "colmilargo",
+    "scream-tail" to "colagrito",
+    "brute-bonnet" to "furioseta",
+    "flutter-mane" to "melenaleteo",
+    "slither-wing" to "reptalada",
+    "sandy-shocks" to "pelarena",
+    "roaring-moon" to "bramaluna",
+    "walking-wake" to "ondulagua",
+    "gouging-fire" to "flamariete",
+    "raging-bolt" to "electrofuria",
+
+    // --- Paradox futuro (Violet) ---
+    "iron-treads" to "ferropuas",
+    "iron-bundle" to "ferrosaco",
+    "iron-hands" to "ferropalmas",
+    "iron-jugulis" to "ferrodada",
+    "iron-moth" to "ferropolilla",
+    "iron-thorns" to "ferrocuello",
+    "iron-valiant" to "ferropaladin",
+    "iron-leaves" to "ferroverdor",
+    "iron-boulder" to "ferromole",
+    "iron-crown" to "ferrotesta",
+
+    "ho-oh" to "ho_oh",
+    "porygon-z" to "porygon_z",
+    "mr-mime" to "mr_mime",
+    "mime-jr" to "mime_jr",
+    "mr-rime" to "mr_rime",
+    "hakamo-o" to "hakamo_o",
+    "jangmo-o" to "jangmo_o",
+    "kommo-o" to "kommo_o",
+    "tapu-koko" to "tapu_koko",
+    "tapu-lele" to "tapu_lele",
+    "tapu-bulu" to "tapu_bulu",
+    "tapu-fini" to "tapu_fini",
+    "chi-yu" to "chi_yu",
+    "chien-pao" to "chien_pao",
+    "ting-lu" to "ting_lu",
+    "wo-chien" to "wo_chien",
+    "type-null" to "codigo_cero",
+
+    // --- Formas por defecto (el recurso es el nombre base sin sufijo) ---
+    "deoxys-normal" to "deoxys",
+    "hoopa-confined" to "hoopa",
+    "darmanitan-standard" to "darmanitan",
+    "keldeo-ordinary" to "keldeo",
+    "basculegion-male" to "basculegion",
+    "morpeko-full-belly" to "morpeko",
+    "mimikyu-disguised" to "mimikyu",
+    "eiscue-ice" to "eiscue",
+    "zygarde-50" to "zygarde",
+    "shaymin-land" to "shaymin_tierra",
+    "meloetta-aria" to "meloetta_lirica",
+    "wishiwashi-solo" to "wishiwashi_individual",
+
+    // --- Deoxys ---
+    "deoxys-attack" to "deoxys_ataque",
+    "deoxys-defense" to "deoxys_defensa",
+    "deoxys-speed" to "deoxys_velocidad",
+
+    // --- Castform ---
+    "castform-sunny" to "castform_sol",
+    "castform-rainy" to "castform_lluvia",
+    "castform-snowy" to "castform_nieve",
+
+    // --- Cherrim ---
+    "cherrim-overcast" to "cherrim_encapotado",
+    "cherrim-sunshine" to "cherrim_soleado",
+
+    // --- Burmy / Wormadam ---
+    "burmy-plant" to "burmy_planta",
+    "burmy-sandy" to "burmy_arena",
+    "burmy-trash" to "burmy_basura",
+    "wormadam-plant" to "wormadam_planta",
+    "wormadam-sandy" to "wormadam_arena",
+    "wormadam-trash" to "wormadam_basura",
+
+    // --- Aegislash ---
+    "aegislash-blade" to "aegislash_filo",
+    "aegislash-shield" to "aegislash_escudo",
+
+    // --- Hoopa ---
+    "hoopa-unbound" to "hoopa_desatado",
+
+    // --- Oricorio ---
+    "oricorio-baile" to "oricorio_apasionado",
+    "oricorio-pom-pom" to "oricorio_animado",
+    "oricorio-pau" to "oricorio_placido",
+    "oricorio-sensu" to "oricorio_refinado",
+
+    // --- Wishiwashi ---
+    "wishiwashi-school" to "wishiwashi_banco",
+
+    // --- Dudunsparce ---
+    "dudunsparce-two-segment" to "dudunsparce_binodular",
+    "dudunsparce-three-segment" to "dudunsparce_trinodular",
+
+    // --- Giratina / Dialga / Palkia ---
+    "giratina-origin" to "giratina_origen",
+    "giratina-altered" to "giratina_modificada",
+    "dialga-origin" to "dialga_origen",
+    "palkia-origin" to "palkia_origen",
+
+    // --- Shaymin ---
+    "shaymin-sky" to "shaymin_cielo",
+
+    // --- Keldeo ---
+    "keldeo-resolute" to "keldeo_brio",
+
+    // --- Meloetta ---
+    "meloetta-pirouette" to "meloetta_danza",
+
+    // --- Fuerzas de la Naturaleza ---
+    "landorus-incarnate" to "landorus_avatar",
+    "landorus-therian" to "landorus_totem",
+    "thundurus-incarnate" to "thundurus_avatar",
+    "thundurus-therian" to "thundurus_totem",
+    "tornadus-incarnate" to "tornadus_avatar",
+    "tornadus-therian" to "tornadus_totem",
+    "enamorus-incarnate" to "enamorus_avatar",
+    "enamorus-therian" to "enamorus_totem",
+
+    // --- Kyurem ---
+    "kyurem-white" to "kyurem_blanco",
+    "kyurem-black" to "kyurem_negro",
+
+    // --- Primigenios ---
+    "groudon-primal" to "groudon_primigenio",
+    "kyogre-primal" to "kyogre_primigenio",
+
+    // --- Lycanroc ---
+    "lycanroc-midday" to "lycanroc_diurno",
+    "lycanroc-midnight" to "lycanroc_nocturno",
+    "lycanroc-dusk" to "lycanroc_crepuscular",
+
+    // --- Rotom ---
+    "rotom-heat" to "rotom_calor",
+    "rotom-frost" to "rotom_frio",
+    "rotom-wash" to "rotom_lavado",
+    "rotom-fan" to "rotom_ventilador",
+    "rotom-mow" to "rotom_corte",
+
+    // --- Toxtricity ---
+    "toxtricity-amped" to "toxtricity_aguda",
+    "toxtricity-low-key" to "toxtricity_grave",
+
+    // --- Darmanitan ---
+    "darmanitan-zen" to "darmanitan_daruma",
+    "darmanitan-galar-standard" to "darmanitan_de_galar",
+    "darmanitan-galar-zen" to "darmanitan_de_galar_daruma",
+
+    // --- Cramorant ---
+    "cramorant-gulping" to "cramorant_tragatodo",
+    "cramorant-gorging" to "cramorant_engulletodo",
+
+    // --- Morpeko ---
+    "morpeko-hangry" to "morpeko_voraz",
+
+    // --- Eiscue ---
+    "eiscue-noice" to "eiscue_cara_deshielo",
+
+    // --- Mimikyu ---
+    "mimikyu-busted" to "mimikyu_descubierto",
+
+    // --- Palafin ---
+    "palafin-zero" to "palafin_ingenua",
+    "palafin-hero" to "palafin_heroica",
+
+    // --- Zygarde ---
+    "zygarde-10" to "zygarde_diez",
+    "zygarde-complete" to "zygarde_completo",
+
+    // --- Urshifu ---
+    "urshifu-single-strike" to "urshifu_brusco",
+    "urshifu-rapid-strike" to "urshifu_fluido",
+
+    // --- Calyrex ---
+    "calyrex-ice-rider" to "calyrex_jinete_glacial",
+    "calyrex-shadow-rider" to "calyrex_jinete_espectral",
+
+    // --- Necrozma ---
+    "necrozma-dawn-wings" to "necrozma_alas_del_alba",
+    "necrozma-dusk-mane" to "necrozma_melena_crepuscular",
+    "necrozma-ultra" to "ultra_necrozma",
+
+    // --- Zacian / Zamazenta ---
+    "zacian-crowned-sword" to "zacian_espada_suprema",
+    "zacian-crowned" to "zacian_espada_suprema",
+    "zamazenta-crowned-shield" to "zamazenta_escudo_supremo",
+    "zamazenta-crowned" to "zamazenta_escudo_supremo",
+
+    // --- Gimmighoul ---
+    "gimmighoul-roaming" to "gimmighoul_andante",
+    "gimmighoul-chest" to "gimmighoul_cofre",
+
+    // --- Terapagos ---
+    "terapagos-normal" to "terapagos_normal",
+    "terapagos-terastal" to "terapagos_teracristal",
+    "terapagos-stellar" to "terapagos_estelar",
+
+    // --- Zarude ---
+    "zarude-dada" to "zarude_papa",
+
+    // --- Magearna ---
+    "magearna-original" to "magearna_vetusta",
+
+    // --- Greninja ---
+    "greninja-ash" to "greninja_ash",
+
+    // --- Ursaluna ---
+    "ursaluna-bloodmoon" to "ursaluna_luna_carmesi",
+
+    // --- Ogerpon ---
+    "ogerpon-cornerstone-mask" to "ogerpon_mascara_cimiento",
+    "ogerpon-wellspring-mask" to "ogerpon_mascara_fuente",
+    "ogerpon-hearthflame-mask" to "ogerpon_mascara_horno",
+    "ogerpon-teal-mask" to "ogerpon_mascara_turquesa",
+
+    // --- Marshadow ---
+    "marshadow-zenith" to "marshadow_ataque",
+
+    // --- Basculin ---
+    "basculin-red-striped" to "basculin_roja",
+    "basculin-blue-striped" to "basculin_azul",
+    "basculin-white-striped" to "basculin_blanca",
+
+    // --- Floette ---
+    "floette-eternal" to "floette_eterna",
+
+    // --- Pikachu gorras ---
+    "pikachu-original-cap" to "pikachu_original",
+    "pikachu-hoenn-cap" to "pikachu_hoenn",
+    "pikachu-sinnoh-cap" to "pikachu_sinnoh",
+    "pikachu-unova-cap" to "pikachu_teselia",
+    "pikachu-kalos-cap" to "pikachu_kalos",
+    "pikachu-alola-cap" to "pikachu_alola",
+    "pikachu-partner-cap" to "pikachu_companero",
+
+    // --- Genesect ---
+    "genesect-douse" to "genesect_hidrorom",
+    "genesect-shock" to "genesect_fulgorom",
+    "genesect-burn" to "genesect_pirorom",
+    "genesect-chill" to "genesect_criorom",
+
+    // --- Vivillon ---
+    "vivillon-meadow" to "vivillon_vergel",
+    "vivillon-icy-snow" to "vivillon_polar",
+    "vivillon-polar" to "vivillon_polar",
+    "vivillon-tundra" to "vivillon_tundra",
+    "vivillon-continental" to "vivillon_continental",
+    "vivillon-garden" to "vivillon_floral",
+    "vivillon-elegant" to "vivillon_estepa",
+    "vivillon-modern" to "vivillon_moderno",
+    "vivillon-marine" to "vivillon_marino",
+    "vivillon-archipelago" to "vivillon_isleno",
+    "vivillon-high-plains" to "vivillon_oasis",
+    "vivillon-sandstorm" to "vivillon_desierto",
+    "vivillon-river" to "vivillon_oceano",
+    "vivillon-monsoon" to "vivillon_monzon",
+    "vivillon-savanna" to "vivillon_jungla",
+    "vivillon-sun" to "vivillon_solar",
+    "vivillon-ocean" to "vivillon_oceano",
+    "vivillon-jungle" to "vivillon_jungla",
+    "vivillon-fancy" to "vivillon_fantasia",
+    "vivillon-poke-ball" to "vivillon_poke_ball",
+
+    // --- Furfrou ---
+    "furfrou-heart" to "furfrou_corazon",
+    "furfrou-star" to "furfrou_estrella",
+    "furfrou-diamond" to "furfrou_rombo",
+    "furfrou-debutante" to "furfrou_dama",
+    "furfrou-matron" to "furfrou_senorita",
+    "furfrou-dandy" to "furfrou_caballero",
+    "furfrou-la-reine" to "furfrou_aristocratico",
+    "furfrou-kabuki" to "furfrou_kabuki",
+    "furfrou-pharaoh" to "furfrou_faraonico",
+
+    // --- Deerling / Sawsbuck ---
+    "deerling-spring" to "deerling_primavera",
+    "deerling-summer" to "deerling_verano",
+    "deerling-autumn" to "deerling_otono",
+    "deerling-winter" to "deerling_invierno",
+    "sawsbuck-spring" to "sawsbuck_primavera",
+    "sawsbuck-summer" to "sawsbuck_verano",
+    "sawsbuck-autumn" to "sawsbuck_otono",
+    "sawsbuck-winter" to "sawsbuck_invierno",
+
+    // --- Tatsugiri ---
+    "tatsugiri-curly" to "tatsugiri_curvada",
+    "tatsugiri-droopy" to "tatsugiri_languida",
+    "tatsugiri-stretchy" to "tatsugiri_recta",
+
+    // --- Shellos / Gastrodon ---
+    "shellos-east" to "shellos_este",
+    "shellos-west" to "shellos_oeste",
+    "gastrodon-east" to "gastrodon_este",
+    "gastrodon-west" to "gastrodon_oeste",
+
+    // --- Minior ---
+    "minior-red" to "minior_rojo",
+    "minior-orange" to "minior_naranja",
+    "minior-yellow" to "minior_amarillo",
+    "minior-green" to "minior_verde",
+    "minior-blue" to "minior_azul",
+    "minior-indigo" to "minior_anil",
+    "minior-violet" to "minior_violeta",
+    "minior-meteor" to "minior_meteorito",
+
+    // --- Flabébé / Floette / Florges (colores en femenino) ---
+    "flabebe-red" to "flabebe_roja",
+    "flabebe-orange" to "flabebe_naranja",
+    "flabebe-yellow" to "flabebe_amarilla",
+    "flabebe-blue" to "flabebe_azul",
+    "flabebe-white" to "flabebe_blanca",
+    "floette-red" to "floette_roja",
+    "floette-orange" to "floette_naranja",
+    "floette-yellow" to "floette_amarilla",
+    "floette-blue" to "floette_azul",
+    "floette-white" to "floette_blanca",
+    "florges-red" to "florges_roja",
+    "florges-orange" to "florges_naranja",
+    "florges-yellow" to "florges_amarilla",
+    "florges-blue" to "florges_azul",
+    "florges-white" to "florges_blanca",
+
+    // --- Squawkabilly ---
+    "squawkabilly-green-plumage" to "squawkabilly_verde",
+    "squawkabilly-blue-plumage" to "squawkabilly_azul",
+    "squawkabilly-yellow-plumage" to "squawkabilly_amarillo",
+    "squawkabilly-white-plumage" to "squawkabilly_blanco",
+
+    // --- Arceus (tipos) ---
+    "arceus-bug" to "arceus_bicho",
+    "arceus-dark" to "arceus_siniestro",
+    "arceus-dragon" to "arceus_dragon",
+    "arceus-electric" to "arceus_electrico",
+    "arceus-fairy" to "arceus_hada",
+    "arceus-fighting" to "arceus_lucha",
+    "arceus-fire" to "arceus_fuego",
+    "arceus-flying" to "arceus_volador",
+    "arceus-ghost" to "arceus_fantasma",
+    "arceus-grass" to "arceus_planta",
+    "arceus-ground" to "arceus_tierra",
+    "arceus-ice" to "arceus_hielo",
+    "arceus-poison" to "arceus_veneno",
+    "arceus-psychic" to "arceus_psiquico",
+    "arceus-rock" to "arceus_roca",
+    "arceus-steel" to "arceus_acero",
+    "arceus-water" to "arceus_agua",
+
+    // --- Silvally (tipos) ---
+    "silvally-bug" to "silvally_bicho",
+    "silvally-dark" to "silvally_siniestro",
+    "silvally-dragon" to "silvally_dragon",
+    "silvally-electric" to "silvally_electrico",
+    "silvally-fairy" to "silvally_hada",
+    "silvally-fighting" to "silvally_lucha",
+    "silvally-fire" to "silvally_fuego",
+    "silvally-flying" to "silvally_volador",
+    "silvally-ghost" to "silvally_fantasma",
+    "silvally-grass" to "silvally_planta",
+    "silvally-ground" to "silvally_tierra",
+    "silvally-ice" to "silvally_hielo",
+    "silvally-poison" to "silvally_veneno",
+    "silvally-psychic" to "silvally_psiquico",
+    "silvally-rock" to "silvally_roca",
+    "silvally-steel" to "silvally_acero",
+    "silvally-water" to "silvally_agua",
+
+    // --- Alcremie sabores (los más comunes) ---
+    "alcremie-vanilla-cream" to "alcremie_crema_rosa",
+    "alcremie-ruby-cream" to "alcremie_crema_rosa",
+    "alcremie-matcha-cream" to "alcremie_crema_rosa",
+    "alcremie-mint-cream" to "alcremie_crema_rosa",
+    "alcremie-lemon-cream" to "alcremie_crema_de_limon",
+    "alcremie-salted-cream" to "alcremie_crema_salada",
+    "alcremie-ruby-swirl" to "alcremie_mezcla_rosa",
+    "alcremie-caramel-swirl" to "alcremie_mezcla_caramelo",
+    "alcremie-rainbow-swirl" to "alcremie_tres_sabores",
+)
+
 fun transformPokemonNameToResourceName(pokemonInputName: String): String {
-    var inputLower = pokemonInputName.lowercase()
-    var partes = listOf<String>()
-    if(inputLower.contains("-")){
-        partes = inputLower.split("-")
-    }
-    if(partes.isEmpty()){
-        if(inputLower.contains("código")) return "codigo_cero"//caso muy particular
+    val inputLower = pokemonInputName.lowercase()
+
+    // Primero: buscar coincidencia exacta del nombre completo (con o sin guiones)
+    fullNameMap[inputLower]?.let { return it }
+
+    // Sin guiones → nombre simple
+    if (!inputLower.contains("-")) {
+        if (inputLower.contains("código")) return "codigo_cero"
         return inputLower
     }
-    else{
-        if(partes.size == 2 && partes[1].equals("mega")){
-            return "mega_" + partes[0]
+
+    val partes = inputLower.split("-")
+
+    // Mega evoluciones
+    if (partes.size >= 2 && partes[1] == "mega") {
+        return if (partes.size == 3) "mega_${partes[0]}_${partes[2]}"
+        else "mega_${partes[0]}"
+    }
+
+    // Regionales
+    when (partes[1]) {
+        "alola" -> return "${partes[0]}_de_alola"
+        "galar" -> {
+            // Casos como darmanitan-galar-zen → darmanitan_de_galar_daruma
+            if (partes.size > 2) {
+                val subForm = partes.drop(2).joinToString("-")
+                val mappedSub = formSuffixMap[subForm]
+                return if (mappedSub != null && mappedSub.isNotEmpty())
+                    "${partes[0]}_de_galar_$mappedSub"
+                else "${partes[0]}_de_galar"
+            }
+            return "${partes[0]}_de_galar"
         }
-        else if(partes.size == 3 && partes[1].equals("mega")){
-            return "mega_" + partes[0] + "_" + partes[2]
-        }
-        //regionales o nombres compuestos
-        else {
-            when(partes[1]){
-                "alola" -> {return partes[0] + "_de_alola"}
-                "galar" -> {return partes[0] + "_de_galar"}
-                "hisui" -> {return partes[0] + "_de_hisui"}
-                "paldea" -> {
-                    if(partes[0].equals("tauros")){
-                        when(partes[2]){
-                            "blaze" -> {return partes[0] + "_de_paldea_ardiente"}
-                            "aqua" -> {return partes[0] + "_de_paldea_acuatica"}
-                            "combat" -> {return partes[0] + "_de_paldea_combatiente"}
-                        }
-                    }
-                    else{
-                        return partes[0] + "_de_paldea"
-                    }
-                }
-                "f" -> {return partes[0] + "_hembra"}
-                "m" -> {return partes[0] + "_macho"}
-                "shield" -> {return partes[0] + "_escudo"}//falta el filo
-                "z" -> {return partes[0] + "_z"}
-                else -> {
-                    //casos aun más particulares
-                    inputLower = partes[0] + "_" + partes[1]
-                    inputLower
+        "hisui" -> return "${partes[0]}_de_hisui"
+        "paldea" -> {
+            if (partes[0] == "tauros" && partes.size > 2) {
+                return when (partes[2]) {
+                    "blaze" -> "tauros_de_paldea_ardiente"
+                    "aqua" -> "tauros_de_paldea_acuatica"
+                    "combat" -> "tauros_de_paldea_combatiente"
+                    else -> "tauros_de_paldea"
                 }
             }
+            return "${partes[0]}_de_paldea"
         }
     }
-    return inputLower
+
+    // Sufijo de forma (todo después del primer guión)
+    val base = partes[0]
+    val formSuffix = partes.drop(1).joinToString("-")
+
+    // Buscar en el mapa de sufijos
+    val mapped = formSuffixMap[formSuffix]
+    if (mapped != null) {
+        return if (mapped.isEmpty()) base else "${base}_$mapped"
+    }
+
+    // Fallback genérico: reemplazar guiones por guiones bajos
+    return inputLower.replace("-", "_")
 }
 
 /*
