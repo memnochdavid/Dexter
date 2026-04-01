@@ -14,11 +14,20 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,11 +36,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -50,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -85,6 +97,7 @@ import com.david.pokedex_api.ui.screen.movimientos.MoveSearchMenu
 import com.david.pokedex_api.ui.screen.regiones.RegionBrowserScreen
 import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
+import com.david.pokedex_api.ui.theme.background_app_bottom
 import com.david.pokedex_api.ui.theme.color_boton_busqueda
 import com.david.pokedex_api.ui.theme.color_menu_busqueda2
 
@@ -153,36 +166,160 @@ fun PokedexApp(
 
     val isDetailRoute = currentRoute == Routes.POKEMON_DETAILS
 
-    Scaffold(
-        floatingActionButton = {
-            if (!isDetailRoute) {
-                FloatingActionButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showBottomSheet = true
-                    },
-                    containerColor = color_boton_busqueda.copy(alpha = 0.85f),
-                    modifier = Modifier
-                        .size(65.dp)
-                        .clip(RoundedCornerShape(50.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Menu,
-                        contentDescription = "Menú",
-                        modifier = Modifier.size(28.dp),
-                        tint = Color.White
+    val isGridView by pokemonViewModel.pokemonIsGridView.collectAsState()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // Composable de botones de navegacion reutilizable
+    @Composable
+    fun NavBarButtons() {
+        // 5 iconos de navegacion
+        navItems.forEach { item ->
+            val selected = currentRoute == item.route
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (selected) Color.White.copy(alpha = 0.22f)
+                        else Color.Transparent
                     )
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (currentRoute != item.route) {
+                            navController.navigate(item.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(id = item.iconResId),
+                    contentDescription = item.label,
+                    modifier = Modifier.size(20.dp),
+                    tint = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
+                )
+            }
+        }
+
+        // Separador sutil
+        Box(
+            modifier = if (isLandscape) {
+                Modifier.padding(vertical = 4.dp).height(1.dp).width(24.dp)
+            } else {
+                Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp)
+            }.background(Color.White.copy(alpha = 0.2f))
+        )
+
+        // Toggle lista/grid (solo en pokemon list)
+        if (currentRoute == Routes.POKEMON_LIST) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        pokemonViewModel.pokemonIsGridView.value = !isGridView
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(
+                        id = if (isGridView) R.drawable.ic_view_list else R.drawable.ic_view_grid
+                    ),
+                    contentDescription = if (isGridView) "Vista lista" else "Vista grid",
+                    modifier = Modifier.size(18.dp),
+                    tint = Color.White.copy(alpha = 0.8f)
+                )
+            }
+        }
+
+        // Boton busqueda/filtros
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showBottomSheet = true
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = "Buscar",
+                modifier = Modifier.size(20.dp),
+                tint = Color.White.copy(alpha = 0.8f)
+            )
+        }
+    }
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        bottomBar = {
+            if (!isDetailRoute && !isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(background_app_bottom)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(color_boton_busqueda.copy(alpha = 0.92f))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NavBarButtons()
+                    }
                 }
             }
         },
     ) { padding ->
         SharedTransitionLayout {
             val sharedTransitionScope = this
-            NavHost(
-                navController = navController,
-                startDestination = Routes.POKEMON_LIST,
-                modifier = Modifier.padding(padding)
-            ) {
+
+            Row(modifier = Modifier.fillMaxSize()) {
+                // Barra lateral izquierda (solo landscape, no en ficha)
+                if (isLandscape && !isDetailRoute) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .background(color_boton_busqueda.copy(alpha = 0.92f))
+                            .displayCutoutPadding()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            NavBarButtons()
+                        }
+                    }
+                }
+
+                NavHost(
+                    navController = navController,
+                    startDestination = Routes.POKEMON_LIST,
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(
+                            if (isLandscape) Modifier
+                                .statusBarsPadding()
+                                .navigationBarsPadding()
+                            else Modifier
+                                .statusBarsPadding()
+                        )
+                ) {
                 composable(
                     route = Routes.POKEMON_LIST,
                     exitTransition = { fadeOut(tween(300)) },
@@ -227,20 +364,23 @@ fun PokedexApp(
                             LocalSharedTransitionScope provides sharedTransitionScope,
                             LocalAnimatedVisibilityScope provides this@composable
                         ) {
-                            PokemonDetailScreen(
-                                pokemonViewModel = pokemonViewModel,
-                                pokemonName = pokemonName,
-                                onNavigateBack = { navController.popBackStack() }
-                            )
+                            Box(Modifier.systemBarsPadding().displayCutoutPadding()) {
+                                PokemonDetailScreen(
+                                    pokemonViewModel = pokemonViewModel,
+                                    pokemonName = pokemonName,
+                                    onNavigateBack = { navController.popBackStack() }
+                                )
+                            }
                         }
                     } else {
                         Text("Error: Pokémon name not found.", modifier = Modifier.padding(16.dp))
                         LaunchedEffect(Unit) { navController.popBackStack() }
                     }
                 }
-            }
-        }
-    }
+            } // NavHost
+            } // Row
+        } // SharedTransitionLayout
+    } // Scaffold
 
     // BottomSheet contextual (solo fuera de la ficha)
     if (showBottomSheet && !isDetailRoute) {
@@ -251,25 +391,8 @@ fun PokedexApp(
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             scrimColor = Color.Black.copy(alpha = 0.32f)
         ) {
-                // --- Listas: navegación + búsqueda ---
+                // --- Filtros de búsqueda según la ruta actual ---
                 Column {
-                    // Navegación entre secciones
-                    NavigationRow(
-                        currentRoute = currentRoute,
-                        onNavigate = { route ->
-                            if (currentRoute != route) {
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        }
-                    )
-
-                    Spacer(Modifier.height(4.dp))
-
-                    // Búsqueda/filtros según la ruta actual
                     when (currentRoute) {
                         Routes.POKEMON_LIST -> {
                             val sq by pokemonViewModel.pokemonSearchQuery.collectAsState()

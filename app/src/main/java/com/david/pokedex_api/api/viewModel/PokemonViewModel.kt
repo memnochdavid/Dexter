@@ -48,6 +48,7 @@ class PokemonViewModel : ViewModel() {
     var pokemonShowMegas = MutableStateFlow(false)
     var pokemonShowGigamax = MutableStateFlow(false)
     var pokemonShowRegionals = MutableStateFlow(false)
+    var pokemonIsGridView = MutableStateFlow(false)
 
     // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
     private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
@@ -309,8 +310,7 @@ class PokemonViewModel : ViewModel() {
         preloaded.detail.id.let { fetchPokemonEncounters(it) }
 
         // WikiDex async
-        _wikiDexFlavorTexts.value = emptyMap()
-        _wikiDexLocations.value = emptyMap()
+
         val baseSpanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
         if (baseSpanishName != null) {
             // Para formas regionales, buscar con nombre regional en WikiDex
@@ -468,8 +468,7 @@ class PokemonViewModel : ViewModel() {
         _isLoadingDetails.value = true
         _pokemonDetails.value = null
         _pokemonDescription.value = null
-        _wikiDexFlavorTexts.value = emptyMap()
-        _wikiDexLocations.value = emptyMap()
+
 
         detailFetchJob = viewModelScope.launch {
             try {

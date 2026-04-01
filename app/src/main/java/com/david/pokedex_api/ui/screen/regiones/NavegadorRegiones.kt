@@ -117,7 +117,7 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
+                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(items = filteredRegions, key = { it.id }) { region ->
@@ -143,7 +143,7 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
+                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(items = filteredLocations, key = { it.id }) { location ->
@@ -169,7 +169,7 @@ fun RegionBrowserScreen(pokemonViewModel: PokemonViewModel) {
                     }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
+                        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         filteredAreas.forEach { area ->

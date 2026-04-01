@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -118,6 +121,7 @@ private fun getConditionIcon(detail: EvolutionDetail?): String {
 @Composable
 fun EnergyFlowConnector(
     color: Color,
+    horizontal: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "evoFlow")
@@ -132,46 +136,83 @@ fun EnergyFlowConnector(
     )
 
     Canvas(modifier = modifier) {
-        val centerX = size.width / 2f
-        val startY = 0f
-        val endY = size.height
+        if (horizontal) {
+            val centerY = size.height / 2f
+            val startX = 0f
+            val endX = size.width
 
-        // Linea central con gradiente
-        drawLine(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    color.copy(alpha = 0.3f),
-                    color.copy(alpha = 0.8f),
-                    color.copy(alpha = 0.3f)
-                )
-            ),
-            start = Offset(centerX, startY),
-            end = Offset(centerX, endY),
-            strokeWidth = 3.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        // Particulas que fluyen (dashado animado)
-        val path = Path().apply {
-            moveTo(centerX, startY)
-            lineTo(centerX, endY)
-        }
-        drawPath(
-            path = path,
-            color = color,
-            style = Stroke(
-                width = 2.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(
-                    intervals = floatArrayOf(8.dp.toPx(), 12.dp.toPx()),
-                    phase = -phase.dp.toPx()
+            drawLine(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        color.copy(alpha = 0.3f),
+                        color.copy(alpha = 0.8f),
+                        color.copy(alpha = 0.3f)
+                    )
                 ),
+                start = Offset(startX, centerY),
+                end = Offset(endX, centerY),
+                strokeWidth = 3.dp.toPx(),
                 cap = StrokeCap.Round
             )
-        )
 
-        // Puntos de energia en los extremos
-        drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(centerX, startY + 2.dp.toPx()))
-        drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(centerX, endY - 2.dp.toPx()))
+            val path = Path().apply {
+                moveTo(startX, centerY)
+                lineTo(endX, centerY)
+            }
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(
+                    width = 2.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        intervals = floatArrayOf(8.dp.toPx(), 12.dp.toPx()),
+                        phase = -phase.dp.toPx()
+                    ),
+                    cap = StrokeCap.Round
+                )
+            )
+
+            drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(startX + 2.dp.toPx(), centerY))
+            drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(endX - 2.dp.toPx(), centerY))
+        } else {
+            val centerX = size.width / 2f
+            val startY = 0f
+            val endY = size.height
+
+            drawLine(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        color.copy(alpha = 0.3f),
+                        color.copy(alpha = 0.8f),
+                        color.copy(alpha = 0.3f)
+                    )
+                ),
+                start = Offset(centerX, startY),
+                end = Offset(centerX, endY),
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+
+            val path = Path().apply {
+                moveTo(centerX, startY)
+                lineTo(centerX, endY)
+            }
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(
+                    width = 2.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        intervals = floatArrayOf(8.dp.toPx(), 12.dp.toPx()),
+                        phase = -phase.dp.toPx()
+                    ),
+                    cap = StrokeCap.Round
+                )
+            )
+
+            drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(centerX, startY + 2.dp.toPx()))
+            drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(centerX, endY - 2.dp.toPx()))
+        }
     }
 }
 
@@ -188,6 +229,7 @@ fun EvolutionStageView(
     color: Color = Color.LightGray,
     colorTexto: Color = Color.Black,
     staggerIndex: Int = 0,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val pokemonId = getPokemonIdFromSpeciesUrl(chainLink.species.url)
@@ -232,44 +274,53 @@ fun EvolutionStageView(
         },
         modifier = modifier.graphicsLayer {
             alpha = appearAlpha
-            translationY = appearSlide
+            translationY = if (compact) 0f else appearSlide
+            translationX = if (compact) appearSlide else 0f
         },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = color)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp)
-        ) {
-            if (pokemonId != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(getPokemonSpriteUrl(pokemonId))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = localizedPokemonName,
-                    modifier = Modifier.size(90.dp),
-                    contentScale = ContentScale.Fit
-                )
-            } else {
-                Spacer(modifier = Modifier.size(90.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        if (compact) {
+            // Layout compacto vertical (landscape) — se adapta al ancho disponible
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp)
+            ) {
+                if (pokemonId != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(getPokemonSpriteUrl(pokemonId))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = localizedPokemonName,
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .aspectRatio(1f),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Spacer(modifier = Modifier.size(60.dp))
+                }
                 Text(
                     text = localizedPokemonName,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = colorTexto
+                    fontSize = 12.sp,
+                    color = colorTexto,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 14.sp
                 )
                 builtEvolutionCondition?.let { condition ->
                     Spacer(Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         if (itemSpriteUrl != null) {
-                            // Sprite real del objeto (piedra, item equipado, etc.)
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
                                     .data(itemSpriteUrl)
@@ -277,22 +328,80 @@ fun EvolutionStageView(
                                     .size(64)
                                     .build(),
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp).padding(end = 4.dp),
+                                modifier = Modifier.size(18.dp).padding(end = 2.dp),
                                 contentScale = ContentScale.Fit
                             )
                         } else if (conditionIcon.isNotEmpty()) {
-                            Text(
-                                text = conditionIcon,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(end = 4.dp)
-                            )
+                            Text(text = conditionIcon, fontSize = 11.sp, modifier = Modifier.padding(end = 2.dp))
                         }
                         Text(
                             text = condition,
-                            fontSize = 12.sp,
+                            fontSize = 10.sp,
                             color = colorTexto.copy(alpha = 0.7f),
-                            lineHeight = 16.sp
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
                         )
+                    }
+                }
+            }
+        } else {
+            // Layout normal horizontal (portrait)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp)
+            ) {
+                if (pokemonId != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(getPokemonSpriteUrl(pokemonId))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = localizedPokemonName,
+                        modifier = Modifier.size(90.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Spacer(modifier = Modifier.size(90.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = localizedPokemonName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colorTexto
+                    )
+                    builtEvolutionCondition?.let { condition ->
+                        Spacer(Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (itemSpriteUrl != null) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(itemSpriteUrl)
+                                        .crossfade(true)
+                                        .size(64)
+                                        .build(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp).padding(end = 4.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else if (conditionIcon.isNotEmpty()) {
+                                Text(
+                                    text = conditionIcon,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                            }
+                            Text(
+                                text = condition,
+                                fontSize = 12.sp,
+                                color = colorTexto.copy(alpha = 0.7f),
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -312,6 +421,7 @@ fun PokemonEvolutionChainView(
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
     modifier: Modifier = Modifier
 ) {
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var isExpanded by remember { mutableStateOf(true) }
 
     if (evolutionChainResponse == null) {
@@ -398,16 +508,18 @@ fun PokemonEvolutionChainView(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (isLinear && linearEvolutionPath.isNotEmpty()) {
-                        // LINEAL: lista vertical con conectores animados entre cards
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
-                                item(key = "evo_${chainLink.species.name}") {
+                        if (isLandscape) {
+                            // LINEAL LANDSCAPE: Row horizontal, cards se reparten el ancho
+                            val evoCount = linearEvolutionPath.size
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f, fill = false)
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
                                     val condition by produceState<String?>(initialValue = null, evolutionDetail) {
                                         value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
                                     }
@@ -421,31 +533,70 @@ fun PokemonEvolutionChainView(
                                         color = color2,
                                         colorTexto = colorTexto,
                                         staggerIndex = index,
-                                        modifier = Modifier.fillMaxWidth()
+                                        compact = true,
+                                        modifier = Modifier.weight(1f)
                                     )
-                                }
-                                if (index < linearEvolutionPath.size - 1) {
-                                    item(key = "connector_$index") {
+                                    if (index < evoCount - 1) {
                                         EnergyFlowConnector(
                                             color = colorTexto.copy(alpha = 0.6f),
+                                            horizontal = true,
                                             modifier = Modifier
-                                                .width(24.dp)
-                                                .height(36.dp)
+                                                .width(32.dp)
+                                                .height(24.dp)
                                         )
                                     }
                                 }
                             }
+                        } else {
+                            // LINEAL PORTRAIT: lista vertical con conectores animados entre cards
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f, fill = false)
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
+                                    item(key = "evo_${chainLink.species.name}") {
+                                        val condition by produceState<String?>(initialValue = null, evolutionDetail) {
+                                            value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
+                                        }
+                                        EvolutionStageView(
+                                            chainLink = chainLink,
+                                            builtEvolutionCondition = condition,
+                                            conditionIcon = getConditionIcon(evolutionDetail),
+                                            itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
+                                            onClick = onPokemonClick,
+                                            viewModel = viewModel,
+                                            color = color2,
+                                            colorTexto = colorTexto,
+                                            staggerIndex = index,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    if (index < linearEvolutionPath.size - 1) {
+                                        item(key = "connector_$index") {
+                                            EnergyFlowConnector(
+                                                color = colorTexto.copy(alpha = 0.6f),
+                                                modifier = Modifier
+                                                    .width(24.dp)
+                                                    .height(36.dp)
+                                            )
+                                        }
+                                    }
+                                }
 
-                            // Ramas regionales al final de la cadena
-                            item(key = "regional_branches") {
-                                RegionalEvolutionBranches(
-                                    chainSpeciesNames = chainSpeciesNames,
-                                    onPokemonClick = onPokemonClick,
-                                    viewModel = viewModel,
-                                    cardColor = color2,
-                                    textColor = colorTexto,
-                                    connectorColor = colorTexto.copy(alpha = 0.6f)
-                                )
+                                // Ramas regionales al final de la cadena
+                                item(key = "regional_branches") {
+                                    RegionalEvolutionBranches(
+                                        chainSpeciesNames = chainSpeciesNames,
+                                        onPokemonClick = onPokemonClick,
+                                        viewModel = viewModel,
+                                        cardColor = color2,
+                                        textColor = colorTexto,
+                                        connectorColor = colorTexto.copy(alpha = 0.6f)
+                                    )
+                                }
                             }
                         }
                     } else {

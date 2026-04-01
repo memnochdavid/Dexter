@@ -130,6 +130,9 @@ fun DetallesDesplegables(
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val selectorWeight = if (isLandscape) 0.20f else 0.35f
+    val contentWeight = if (isLandscape) 0.80f else 0.65f
 
     // Paleta neutra + acentos del tipo
     val colorTexto = Color(0xFF1A1A1A)                                  // texto principal
@@ -306,6 +309,10 @@ fun DetallesDesplegables(
                         }
                     } else {
                         var selectedVersion by rememberSaveable { mutableStateOf(flavorEntries.first().first) }
+                        // Si la version guardada no existe en las entradas actuales, seleccionar la primera
+                        if (flavorEntries.none { it.first == selectedVersion }) {
+                            selectedVersion = flavorEntries.first().first
+                        }
                         val selectedText = flavorEntries.firstOrNull { it.first == selectedVersion }?.second ?: ""
 
                         Column(
@@ -347,7 +354,7 @@ fun DetallesDesplegables(
                             // Columna izquierda: caratulas de juego (selector)
                             LazyColumn(
                                 modifier = Modifier
-                                    .weight(0.35f)
+                                    .weight(selectorWeight)
                                     .fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                                 contentPadding = PaddingValues(4.dp)
@@ -407,7 +414,7 @@ fun DetallesDesplegables(
                             // Columna derecha: descripcion del juego seleccionado
                             Column(
                                 modifier = Modifier
-                                    .weight(0.65f)
+                                    .weight(contentWeight)
                                     .fillMaxSize(),
                                 verticalArrangement = Arrangement.Top
                             ) {

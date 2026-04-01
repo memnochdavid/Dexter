@@ -97,6 +97,23 @@ fun PokemonTypeChipSmall( // Versión más pequeña de tu PokemonTypeChip
 }
 
 @Composable
+fun PokemonTypeChipIcon(typeName: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(getPokemonTypeColorTypeChip(typeName))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = getPokemonTypeToIcon(typeName)),
+            contentDescription = pokemonTypeNameTranslator(typeName),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
 fun PokemonTypeChipForColumn(typeName: String, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,

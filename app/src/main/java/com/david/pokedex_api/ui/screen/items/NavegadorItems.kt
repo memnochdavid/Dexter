@@ -102,7 +102,7 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredItems, key = { it.id }) { item ->
@@ -153,7 +153,7 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredBerries, key = { it.id }) { berry ->

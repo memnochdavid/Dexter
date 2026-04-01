@@ -20,7 +20,14 @@
       "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java/com/david/pokedex_api/ui/screen -name *.kt)",
       "Bash(./gradlew assembleDebug)",
       "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main -name *evo* -o -name *Evo*)",
-      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")"
+      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")",
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(./gradlew clean:*)",
+      "Bash(grep -r bottomBar /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java --include=*.kt)",
+      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java -name *SearchMenu* -o -name *Search*)",
+      "Bash(grep -r \"color_boton_busqueda\\\\|color_menu_busqueda\" /c/Users/davdu/Desktop/Pokedex_API/app/src/main/java --include=*.kt)",
+      "Bash(find /c/Users/davdu/Desktop/Pokedex_API/app/src/main -name *Theme* -o -name *theme*)",
+      "WebFetch(domain:i.pinimg.com)"
     ]
   }
 }

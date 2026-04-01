@@ -32,6 +32,7 @@ import com.david.pokedex_api.LocalSharedTransitionScope
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.PokemonSummary
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
+import com.david.pokedex_api.ui.screen.comun.PokemonTypeChipIcon
 import com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors
@@ -230,6 +231,216 @@ fun PokemonListItemCard(
                             .size(36.dp)
                             .align(Alignment.CenterStart)
                             .offset(x = 27.dp)
+                            .graphicsLayer { alpha = pokeballAlpha }
+                            .sharedElement(
+                                rememberSharedContentState(key = "pokeball-transit-${pokemonSummary.id}"),
+                                animatedVisibilityScope = animatedVisibilityScope
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun PokemonGridItemCard(
+    pokemonSummary: PokemonSummary,
+    isRecalled: Boolean = false,
+    onRecallAndNavigate: () -> Unit,
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+    var isPressed by remember { mutableStateOf(false) }
+    var isRecalling by remember { mutableStateOf(false) }
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.93f else 1f,
+        animationSpec = spring(stiffness = 800f),
+        label = "gridScale"
+    )
+
+    val isAnimating = isRecalling || isRecalled
+    val contentScale by animateFloatAsState(
+        targetValue = if (isAnimating) 0f else 1f,
+        animationSpec = tween(if (isRecalling) 250 else 300),
+        label = "gridContentScale"
+    )
+    val showShimmer = isAnimating && contentScale < 0.95f && contentScale > 0.05f
+    val silhouetteFilter = if (showShimmer) {
+        val color = lerp(rojo_pokeball, Color.White, contentScale)
+        ColorFilter.tint(color, BlendMode.SrcAtop)
+    } else null
+
+    val pokeballAlpha by animateFloatAsState(
+        targetValue = if (isAnimating) 1f else 0f,
+        animationSpec = tween(200),
+        label = "gridPokeballAlpha"
+    )
+
+    LaunchedEffect(isRecalling) {
+        if (isRecalling) {
+            snapshotFlow { contentScale }.first { it < 0.05f }
+            onRecallAndNavigate()
+        }
+    }
+
+    val type1 = pokemonSummary.types.getOrNull(0)
+    val type2 = pokemonSummary.types.getOrNull(1)
+    val color1 = if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray
+    val color2 = if (type2 != null) getPokemonTypeColorClear(type2) else color1
+    val gradientPair = if (type1 != null) getPokemonTypeGradientColors(type1) else Color.Gray to Color.DarkGray
+
+    val backgroundBrush = remember(pokemonSummary.types, color1, color2, gradientPair) {
+        if (pokemonSummary.types.size >= 2) Brush.linearGradient(listOf(color1, color2))
+        else Brush.linearGradient(listOf(gradientPair.first, gradientPair.second))
+    }
+
+    val isDark = remember(pokemonSummary.types) {
+        pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(pokemonSummary.types[0])
+    }
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.75f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .pointerInput(pokemonSummary.id) {
+                detectTapGestures(
+                    onPress = {
+                        if (!isRecalling && !isRecalled) {
+                            isPressed = true
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            try {
+                                awaitRelease()
+                                isRecalling = true
+                            } finally {
+                                if (!isRecalling) isPressed = false
+                            }
+                        }
+                    }
+                )
+            },
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            val contentModifier = if (isAnimating) {
+                Modifier.graphicsLayer {
+                    scaleX = contentScale; scaleY = contentScale
+                    alpha = contentScale
+                }
+            } else Modifier
+
+            Column(
+                modifier = Modifier
+                    .background(backgroundBrush)
+                    .fillMaxSize()
+                    .then(contentModifier)
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Imagen
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val homeUrl = remember(pokemonSummary.id) {
+                        "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png"
+                    }
+                    val primaryUrl = if (pokemonSummary.id < 10000) homeUrl else (pokemonSummary.spriteUrl ?: homeUrl)
+                    val fallbackUrl = if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl else pokemonSummary.fallbackSpriteUrl
+                    var imageUrl by remember(pokemonSummary.id) { mutableStateOf(primaryUrl) }
+
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .memoryCacheKey("pkmn_${pokemonSummary.id}")
+                            .diskCacheKey("pkmn_${pokemonSummary.id}")
+                            .size(128)
+                            .listener(onError = { _, _ ->
+                                if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
+                                    imageUrl = fallbackUrl
+                                }
+                            })
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        colorFilter = silhouetteFilter
+                    )
+
+                    // Shimmer radial durante animacion
+                    if (showShimmer) {
+                        val burstAlpha = (1f - contentScale).coerceIn(0f, 1f)
+                        val ringCenter = (1f - contentScale) * 0.55f
+                        val ringThickness = 0.25f
+                        val innerEdge = (ringCenter - ringThickness / 2f).coerceAtLeast(0f)
+                        val outerEdge = (ringCenter + ringThickness / 2f).coerceAtMost(0.95f)
+
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.radialGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to Color.White.copy(alpha = 0.9f * burstAlpha),
+                                            innerEdge.coerceAtLeast(0.01f) to rojo_pokeball.copy(alpha = 0.2f * burstAlpha),
+                                            ringCenter.coerceAtLeast(0.03f) to rojo_pokeball.copy(alpha = 1f * burstAlpha),
+                                            outerEdge to rojo_pokeball.copy(alpha = 0.3f * burstAlpha),
+                                            1.0f to Color.Transparent
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
+
+                // Numero
+                Text(
+                    text = "#${pokemonSummary.id.toString().padStart(3, '0')}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = textColor.copy(alpha = 0.7f)
+                )
+
+                // Nombre
+                Text(
+                    text = adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name)),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Tipos (solo icono en grid)
+                Spacer(Modifier.height(3.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    pokemonSummary.types.forEach { type ->
+                        PokemonTypeChipIcon(typeName = type)
+                    }
+                }
+            }
+
+            // Pokeball animada: transicion compartida con la ficha
+            if (isAnimating && sharedTransitionScope != null && animatedVisibilityScope != null) {
+                with(sharedTransitionScope) {
+                    AnimatedPokeball(
+                        isOpen = showShimmer,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .align(Alignment.Center)
                             .graphicsLayer { alpha = pokeballAlpha }
                             .sharedElement(
                                 rememberSharedContentState(key = "pokeball-transit-${pokemonSummary.id}"),

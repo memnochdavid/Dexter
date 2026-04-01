@@ -1,10 +1,16 @@
 package com.david.pokedex_api.ui.screen.lista
 
 import android.util.Log
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -19,7 +25,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,6 +37,7 @@ import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.getGenerationIdFromUrl
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
 import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
+import com.david.pokedex_api.ui.screen.lista.composable.PokemonGridItemCard
 import com.david.pokedex_api.ui.screen.lista.composable.PokemonListItemCard
 import com.david.pokedex_api.ui.screen.lista.composable.PokemonSearchMenu
 import com.david.pokedex_api.ui.theme.CardBorder
@@ -57,6 +66,7 @@ fun GenerationPagerScreen(
     val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
     val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
     val specialForms by pokemonViewModel.specialFormsSummaries.observeAsState(emptyList())
+    val isGridView by pokemonViewModel.pokemonIsGridView.collectAsState()
 
     LaunchedEffect(Unit) {
         if (generations.isEmpty()) pokemonViewModel.fetchGenerations()
@@ -100,7 +110,7 @@ fun GenerationPagerScreen(
             if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
                 NoResultsView()
             } else {
-                PokemonLazyList(filteredList, onNavigateToDetails, pokemonViewModel)
+                PokemonLazyList(filteredList, onNavigateToDetails, pokemonViewModel, isGridView)
             }
         } else if (generations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -117,7 +127,7 @@ fun GenerationPagerScreen(
                 if (list == null) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
                 } else {
-                    PokemonLazyList(list, onNavigateToDetails, pokemonViewModel)
+                    PokemonLazyList(list, onNavigateToDetails, pokemonViewModel, isGridView)
                 }
             }
         }
@@ -128,26 +138,56 @@ fun GenerationPagerScreen(
 fun PokemonLazyList(
     list: List<PokemonSummary>,
     onNavigateToDetails: (String) -> Unit,
-    pokemonViewModel: PokemonViewModel
+    pokemonViewModel: PokemonViewModel,
+    isGridView: Boolean = false
 ) {
     // collectAsState aqui en vez de en GenerationPagerScreen:
     // solo recompone el LazyColumn, no el pager ni el screen entero
     val recalledId by pokemonViewModel.recalledPokemonId.collectAsState()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val gridColumns = if (isLandscape) 5 else 3
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(items = list, key = { it.id }) { pokemon ->
-            PokemonListItemCard(
-                pokemonSummary = pokemon,
-                isRecalled = recalledId == pokemon.id,
-                onRecallAndNavigate = {
-                    pokemonViewModel.recalledPokemonId.value = pokemon.id
-                    onNavigateToDetails(pokemon.id.toString())
+    Crossfade(
+        targetState = isGridView,
+        animationSpec = tween(300),
+        label = "listGridCrossfade"
+    ) { grid ->
+        if (grid) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(gridColumns),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(items = list, key = { it.id }) { pokemon ->
+                    PokemonGridItemCard(
+                        pokemonSummary = pokemon,
+                        isRecalled = recalledId == pokemon.id,
+                        onRecallAndNavigate = {
+                            pokemonViewModel.recalledPokemonId.value = pokemon.id
+                            onNavigateToDetails(pokemon.id.toString())
+                        }
+                    )
                 }
-            )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(items = list, key = { it.id }) { pokemon ->
+                    PokemonListItemCard(
+                        pokemonSummary = pokemon,
+                        isRecalled = recalledId == pokemon.id,
+                        onRecallAndNavigate = {
+                            pokemonViewModel.recalledPokemonId.value = pokemon.id
+                            onNavigateToDetails(pokemon.id.toString())
+                        }
+                    )
+                }
+            }
         }
     }
 }

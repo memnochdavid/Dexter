@@ -58,6 +58,10 @@ fun PokemonEncountersView(
     colorAccent: Color = colorFondo,
     modifier: Modifier = Modifier
 ) {
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val selectorWeight = if (isLandscape) 0.22f else 0.38f
+    val contentWeight = if (isLandscape) 0.78f else 0.62f
+
     // Merge: WikiDex (primario, español) + PokeAPI (fallback, puede tener inglés)
     val allVersions = remember(encounters, wikiDexLocations) {
         val wikiVersions = wikiDexLocations.keys.toList()
@@ -123,7 +127,7 @@ fun PokemonEncountersView(
                     // Columna izquierda: selector de juego con caratulas
                     LazyColumn(
                         modifier = Modifier
-                            .weight(0.38f)
+                            .weight(selectorWeight)
                             .fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         contentPadding = PaddingValues(4.dp)
@@ -183,7 +187,7 @@ fun PokemonEncountersView(
                     // Columna derecha: contenido de ubicaciones
                     Column(
                         modifier = Modifier
-                            .weight(0.62f)
+                            .weight(contentWeight)
                             .fillMaxSize()
                             .padding(top = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally

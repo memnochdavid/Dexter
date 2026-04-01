@@ -84,7 +84,7 @@ private fun NaturesTab(pokemonViewModel: PokemonViewModel) {
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
+            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Header
@@ -173,7 +173,7 @@ private fun ContestsTab(pokemonViewModel: PokemonViewModel) {
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 16.dp),
+            contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(items = filteredContests, key = { it.id }) { contest ->

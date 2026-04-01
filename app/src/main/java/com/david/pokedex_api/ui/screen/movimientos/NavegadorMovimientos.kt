@@ -89,7 +89,7 @@ fun MoveBrowserScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredMoves, key = { it.id }) { move ->

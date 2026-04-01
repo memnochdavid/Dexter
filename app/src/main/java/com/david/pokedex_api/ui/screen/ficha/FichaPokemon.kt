@@ -1,6 +1,7 @@
 package com.david.pokedex_api.ui.screen.ficha
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -69,6 +70,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -375,6 +377,7 @@ fun PokemonDetailsView(
     }
 
     val type1 = pokemon.types[0].type.name
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Estado de imagen expandida
     var isImageExpanded by remember { mutableStateOf(false) }
@@ -392,68 +395,104 @@ fun PokemonDetailsView(
         label = "bottomAlpha"
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(background_app_gradient)
-    ) {
-        // Header fijo: imagen + nombre
-        ComponenteImagen(
-            pokemon = pokemon,
-            isActivePage = isActivePage,
-            pokemonViewModel = pokemonViewModel,
-            isExpanded = isImageExpanded,
-            onToggleExpand = { isImageExpanded = !isImageExpanded },
-            onNavigateBack = onNavigateBack,
-            shouldAnimate = shouldAnimate,
-            nombreSpanish = spanishPokemonName,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.35f + imageWeight * 0.65f)
-        )
+    // Contenido reutilizable: nombre + desplegables
+    @Composable
+    fun BottomContent(modifier: Modifier) {
+        Column(modifier = modifier) {
+            NombreNumAlturaPeso(
+                colorFondo = getPokemonTypeColorDark(type1),
+                colorTexto = Color.White,
+                nombre = spanishPokemonName,
+                numero = pokemon.id,
+                genus = spanishGenus,
+                altura = pokemon.height.toDouble(),
+                peso = pokemon.weight.toDouble(),
+                modifier = Modifier.fillMaxWidth(),
+                tipo = pokemon.types[0].type.name,
+                cryUrl = pokemon.cries?.latest,
+                regionTag = regionTag
+            )
 
-        // Secciones inferiores: nombre + desplegables — se encogen con peso animado
-        if (imageWeight < 0.99f) {
-            Column(
+            DetallesDesplegables(
+                pokemon = pokemon,
+                evolutionChainDetailResponse = evolutionChainDetailResponse,
+                isLoadingEvolutionChain = isLoadingEvolutionChain,
+                onEvolutionPokemonClick = onEvolutionPokemonClick,
+                description = description,
+                pokemonApiService = pokemonViewModel.pokemonApiService,
+                moveDetailsMap = moveDetailsMap,
+                pokemonSpecies = pokemonSpecies,
+                wikiDexFlavorTexts = wikiDexFlavorTexts,
+                wikiDexLocations = wikiDexLocations,
+                encounters = encounters,
+                isLoadingEncounters = isLoadingEncounters,
+                selectedSection = selectedSection,
+                onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
+                onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.65f - imageWeight * 0.65f)
-                    .graphicsLayer { alpha = bottomAlpha }
-            ) {
-                NombreNumAlturaPeso(
-                    colorFondo = getPokemonTypeColorDark(type1),
-                    colorTexto = Color.White,
-                    nombre = spanishPokemonName,
-                    numero = pokemon.id,
-                    genus = spanishGenus,
-                    altura = pokemon.height.toDouble(),
-                    peso = pokemon.weight.toDouble(),
-                    modifier = Modifier.fillMaxWidth(),
-                    tipo = pokemon.types[0].type.name,
-                    cryUrl = pokemon.cries?.latest,
-                    regionTag = regionTag
-                )
+                    .weight(1f)
+            )
+        }
+    }
 
-                // Contenido con barra de secciones integrada
-                DetallesDesplegables(
-                    pokemon = pokemon,
-                    evolutionChainDetailResponse = evolutionChainDetailResponse,
-                    isLoadingEvolutionChain = isLoadingEvolutionChain,
-                    onEvolutionPokemonClick = onEvolutionPokemonClick,
-                    description = description,
-                    pokemonApiService = pokemonViewModel.pokemonApiService,
-                    moveDetailsMap = moveDetailsMap,
-                    pokemonSpecies = pokemonSpecies,
-                    wikiDexFlavorTexts = wikiDexFlavorTexts,
-                    wikiDexLocations = wikiDexLocations,
-                    encounters = encounters,
-                    isLoadingEncounters = isLoadingEncounters,
-                    selectedSection = selectedSection,
-                    onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
-                    onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
+    if (isLandscape) {
+        // Landscape: imagen a la izquierda, contenido a la derecha
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(background_app_gradient)
+        ) {
+            ComponenteImagen(
+                pokemon = pokemon,
+                isActivePage = isActivePage,
+                pokemonViewModel = pokemonViewModel,
+                isExpanded = isImageExpanded,
+                onToggleExpand = { isImageExpanded = !isImageExpanded },
+                onNavigateBack = onNavigateBack,
+                shouldAnimate = shouldAnimate,
+                nombreSpanish = spanishPokemonName,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(0.35f + imageWeight * 0.65f)
+            )
+
+            if (imageWeight < 0.99f) {
+                BottomContent(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(0.65f - imageWeight * 0.65f)
+                        .graphicsLayer { alpha = bottomAlpha }
+                )
+            }
+        }
+    } else {
+        // Portrait: imagen arriba, contenido abajo
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(background_app_gradient)
+        ) {
+            ComponenteImagen(
+                pokemon = pokemon,
+                isActivePage = isActivePage,
+                pokemonViewModel = pokemonViewModel,
+                isExpanded = isImageExpanded,
+                onToggleExpand = { isImageExpanded = !isImageExpanded },
+                onNavigateBack = onNavigateBack,
+                shouldAnimate = shouldAnimate,
+                nombreSpanish = spanishPokemonName,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.35f + imageWeight * 0.65f)
+            )
+
+            if (imageWeight < 0.99f) {
+                BottomContent(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .weight(0.65f - imageWeight * 0.65f)
+                        .graphicsLayer { alpha = bottomAlpha }
                 )
             }
         }
