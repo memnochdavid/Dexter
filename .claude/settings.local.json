@@ -45,7 +45,10 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(curl -s \"https://www.wikidex.net/api.php?action=query&list=search&srsearch=Farfetch+HOME+webm&srnamespace=6&format=json&srlimit=20\")",
-      "Bash(echo \"=== Calyrex ===\" ls C:/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/calyrex*)"
+      "Bash(echo \"=== Calyrex ===\" ls C:/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/calyrex*)",
+      "Bash(rm -rf app/build/.intermediates/apk_from_bundle)",
+      "Bash(rm -rf app/build/intermediates/incremental/packageDebug)",
+      "Bash(rm -rf app/build/outputs/apk)"
     ]
   }
 }

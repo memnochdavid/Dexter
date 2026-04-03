@@ -108,6 +108,53 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * Filtra la cadena expandida para mostrar solo la línea relevante al pokémon actual.
+ * - Si el pokémon tiene sufijo regional → extrae la rama regional de la raíz.
+ * - Si no → intenta la cadena base; si el pokémon no está en ella (exclusivo de
+ *   región, ej. Obstagoon), busca en qué rama regional se encuentra.
+ */
+private fun filterChainForPokemon(
+    expanded: com.david.pokedex_api.api.model.ChainLink,
+    currentPokemonName: String
+): com.david.pokedex_api.api.model.ChainLink {
+    val regionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+    val currentRegion = regionSuffixes.firstOrNull { currentPokemonName.contains(it) }
+    val rootSpeciesName = expanded.species.name
+    val regionalRootNames = regionSuffixes.map { rootSpeciesName + it }.toSet()
+
+    // Busca recursivamente si un nombre de especie está en el subárbol
+    fun chainContains(link: com.david.pokedex_api.api.model.ChainLink, name: String): Boolean {
+        if (link.species.name == name) return true
+        return link.evolvesTo.any { chainContains(it, name) }
+    }
+
+    if (currentRegion != null) {
+        // Forma regional explícita → extraer rama de la raíz regional
+        return expanded.evolvesTo.firstOrNull { child ->
+            child.species.name == rootSpeciesName + currentRegion
+        } ?: expanded
+    }
+
+    // Forma sin sufijo → probar cadena base primero
+    val baseChain = expanded.copy(
+        evolvesTo = expanded.evolvesTo.filter { it.species.name !in regionalRootNames }
+    )
+    if (chainContains(baseChain, currentPokemonName)) {
+        return baseChain
+    }
+
+    // No está en la cadena base → buscar en ramas regionales (ej. Obstagoon en Galar)
+    for (child in expanded.evolvesTo) {
+        if (child.species.name in regionalRootNames && chainContains(child, currentPokemonName)) {
+            return child
+        }
+    }
+
+    // Fallback: cadena base
+    return baseChain
+}
+
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -142,32 +189,36 @@ fun PokemonDetailScreen(
         pokemonDetail?.id?.let { pokemonViewModel.fetchPokemonEncounters(it) }
     }
 
-    // Cuando llega la cadena evolutiva, expandir con formas regionales y pre-cargar
-    // Almacena el chain expandido para pasarlo al rendering (incluye ramas regionales)
-    var expandedChain by remember { mutableStateOf<com.david.pokedex_api.api.model.ChainLink?>(null) }
+    // Cuando llega la cadena evolutiva, expandir con formas regionales y pre-cargar.
+    // Se cachea la expansión para no repetir llamadas de red al cambiar pokemonDetail.
+    var rawExpandedChain by remember { mutableStateOf<com.david.pokedex_api.api.model.ChainLink?>(null) }
+    var expandedAllIds by remember { mutableStateOf<List<Int>>(emptyList()) }
+    // Referencia al chain que ya fue expandido, para detectar si cambió
+    var lastExpandedEvolutionChain by remember { mutableStateOf<com.david.pokedex_api.api.model.EvolutionChainDetailResponse?>(null) }
 
     LaunchedEffect(evolutionChain, pokemonDetail?.id) {
         evolutionChain?.chain?.let { chain ->
-            // Fase 1: expandir chain con variantes regionales como ramas
-            val (expanded, allIds) = pokemonViewModel.expandChainWithRegionals(chain)
-            expandedChain = expanded
-
-            // Fase 2: incluir el pokemon actual si no esta (megas, gigas, etc.)
-            val finalIds = allIds.toMutableList()
-            val currentId = pokemonDetail?.id
-            if (currentId != null && !finalIds.contains(currentId)) {
-                finalIds.add(currentId)
+            // Expandir solo si la cadena cambió (evitar re-llamadas de red costosas)
+            if (evolutionChain != lastExpandedEvolutionChain) {
+                val (expanded, allIds) = pokemonViewModel.expandChainWithRegionals(chain)
+                rawExpandedChain = expanded
+                expandedAllIds = allIds
+                lastExpandedEvolutionChain = evolutionChain
             }
 
-            // Fase 3: construir lista de navegación (pager) desde el chain original
-            // El pager usa la cadena simple para swipe (sin duplicar regionales)
+            val expanded = rawExpandedChain ?: return@let
+            val currentName = pokemonDetail?.name ?: ""
+            val filteredChain = filterChainForPokemon(expanded, currentName)
+
+            // Construir lista de navegación desde la cadena FILTRADA (no la cruda)
             val navIds = mutableListOf<Int>()
             fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
                 link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { navIds.add(it) }
                 link.evolvesTo.forEach { traverse(it) }
             }
-            traverse(chain)
-            // Si el pokemon actual no está en la nav list base (es regional), añadirlo
+            traverse(filteredChain)
+
+            val currentId = pokemonDetail?.id
             if (currentId != null && !navIds.contains(currentId)) {
                 val speciesUrl = pokemonDetail?.species?.url
                 val baseSpeciesId = speciesUrl?.trimEnd('/')?.split("/")?.lastOrNull()?.toIntOrNull()
@@ -178,9 +229,19 @@ fun PokemonDetailScreen(
                 navIds.add(insertIdx, currentId)
             }
 
+            // Precargar IDs de la cadena filtrada + IDs extra para display de evolución
+            val finalIds = navIds.toMutableList()
+            expandedAllIds.forEach { id -> if (!finalIds.contains(id)) finalIds.add(id) }
+
             pokemonViewModel.setNavigationList(navIds)
             pokemonViewModel.preloadEvolutionChain(finalIds)
         }
+    }
+
+    // Chain filtrado para mostrar: derivado del raw + pokémon actual (sin llamadas de red)
+    val expandedChain = remember(rawExpandedChain, pokemonDetail?.name) {
+        val expanded = rawExpandedChain ?: return@remember null
+        filterChainForPokemon(expanded, pokemonDetail?.name ?: "")
     }
 
     // Al salir de la ficha, volver al estado inicial limpio

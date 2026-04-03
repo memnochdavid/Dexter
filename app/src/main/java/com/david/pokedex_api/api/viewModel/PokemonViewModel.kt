@@ -347,35 +347,42 @@ class PokemonViewModel : ViewModel() {
                 data class GrandchildAssignment(val grandchild: ChainLink, val regions: Set<String>)
 
                 val assignments = expandedGrandchildren.map { gc ->
-                    val gcSpeciesId = gc.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
-                    val gcInfo = gcSpeciesId?.let { speciesInfoMap[it] }
-                    val gcVarieties = gcInfo?.varieties ?: emptyList()
-                    val gcGen = gcInfo?.generation
-
-                    val gcRegionalSuffixes = gcVarieties
-                        .filter { v -> !v.isDefault }
-                        .flatMap { v -> allRegionSuffixes.filter { s -> v.pokemon.name.contains(s) } }
-                        .toSet()
-
                     val assigned = mutableSetOf<String>()
 
-                    if (gcRegionalSuffixes.isNotEmpty()) {
-                        // El nieto tiene regionales propias → va a ramas coincidentes + base
-                        val parentRegions = childRegionals.mapNotNull { v ->
-                            allRegionSuffixes.firstOrNull { s -> v.pokemon.name.contains(s) }
-                        }.toSet()
-                        assigned.addAll(parentRegions.intersect(gcRegionalSuffixes))
-                        assigned.add("base")
-                    } else if (gcGen != null) {
-                        // Sin regionales propias → ¿exclusivo de alguna región?
-                        val matching = childRegionals.mapNotNull { v ->
-                            val r = allRegionSuffixes.firstOrNull { s -> v.pokemon.name.contains(s) }
-                            if (r != null && regionToGeneration[r] == gcGen) r else null
-                        }
-                        if (matching.isNotEmpty()) assigned.addAll(matching)
-                        else assigned.add("base")
+                    // Si el nieto ya tiene sufijo regional en el nombre (creado por
+                    // expansión interna), asignarlo directamente a esa región
+                    val gcNameSuffix = allRegionSuffixes.firstOrNull { s ->
+                        gc.species.name.contains(s)
+                    }
+                    if (gcNameSuffix != null) {
+                        assigned.add(gcNameSuffix)
                     } else {
-                        assigned.add("base")
+                        val gcSpeciesId = gc.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                        val gcInfo = gcSpeciesId?.let { speciesInfoMap[it] }
+                        val gcVarieties = gcInfo?.varieties ?: emptyList()
+                        val gcGen = gcInfo?.generation
+
+                        val gcRegionalSuffixes = gcVarieties
+                            .filter { v -> !v.isDefault }
+                            .flatMap { v -> allRegionSuffixes.filter { s -> v.pokemon.name.contains(s) } }
+                            .toSet()
+
+                        if (gcRegionalSuffixes.isNotEmpty()) {
+                            // El nieto tiene regionales propias → solo base.
+                            // Las variantes regionales ya existen como entradas
+                            // separadas creadas por el expandChildren recursivo.
+                            assigned.add("base")
+                        } else if (gcGen != null) {
+                            // Sin regionales propias → ¿exclusivo de alguna región?
+                            val matching = childRegionals.mapNotNull { v ->
+                                val r = allRegionSuffixes.firstOrNull { s -> v.pokemon.name.contains(s) }
+                                if (r != null && regionToGeneration[r] == gcGen) r else null
+                            }
+                            if (matching.isNotEmpty()) assigned.addAll(matching)
+                            else assigned.add("base")
+                        } else {
+                            assigned.add("base")
+                        }
                     }
 
                     GrandchildAssignment(gc, assigned)
@@ -423,8 +430,94 @@ class PokemonViewModel : ViewModel() {
         val rootSpeciesId = chain.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
         if (rootSpeciesId != null) allPokemonIds.add(rootSpeciesId)
 
-        val expandedChain = chain.copy(evolvesTo = expandChildren(chain.evolvesTo))
-        Pair(expandedChain, allPokemonIds.distinct())
+        val expandedChildren = expandChildren(chain.evolvesTo)
+
+        // Paso 3: expandir la raíz si tiene variantes regionales
+        // Si la raíz tiene formas regionales, crear ramas: raíz-base → hijos base,
+        // raíz-regional → hijos regionales (como hijos de la raíz base)
+        val rootInfo = rootSpeciesId?.let { speciesInfoMap[it] }
+        val rootRegionals = rootInfo?.varieties?.filter { v ->
+            !v.isDefault && allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }
+        } ?: emptyList()
+
+        val finalChain = if (rootRegionals.isNotEmpty()) {
+            // No añadir IDs de variantes regionales de la raíz aquí:
+            // para la vista base no se necesitan (se filtran), y para la vista
+            // regional se añade el ID del pokémon actual en FichaPokemon.
+
+            // Clasificar hijos expandidos por región
+            data class ChildAssignment(val child: ChainLink, val regions: Set<String>)
+
+            val childAssignments = expandedChildren.map { child ->
+                val childNameSuffix = allRegionSuffixes.firstOrNull { s ->
+                    child.species.name.contains(s)
+                }
+                val assigned = mutableSetOf<String>()
+
+                if (childNameSuffix != null) {
+                    // Ya es variante regional → asignar a esa región
+                    assigned.add(childNameSuffix)
+                } else {
+                    val childSpeciesId = child.species.url.trimEnd('/')
+                        .substringAfterLast('/').toIntOrNull()
+                    val childInfo = childSpeciesId?.let { speciesInfoMap[it] }
+                    val hasAnyRegional = childInfo?.varieties?.any { v ->
+                        !v.isDefault && allRegionSuffixes.any { s ->
+                            v.pokemon.name.contains(s)
+                        }
+                    } ?: false
+
+                    if (hasAnyRegional) {
+                        // Forma base de especie con regionales → solo rama base
+                        assigned.add("base")
+                    } else {
+                        // Sin regionales propias → comprobar si es exclusiva de región
+                        val gen = childInfo?.generation
+                        if (gen != null) {
+                            val matching = rootRegionals.mapNotNull { v ->
+                                val r = allRegionSuffixes.firstOrNull { s ->
+                                    v.pokemon.name.contains(s)
+                                }
+                                if (r != null && regionToGeneration[r] == gen) r else null
+                            }
+                            if (matching.isNotEmpty()) assigned.addAll(matching)
+                            else assigned.add("base")
+                        } else {
+                            assigned.add("base")
+                        }
+                    }
+                }
+                ChildAssignment(child, assigned)
+            }
+
+            // Rama base: hijos asignados a "base"
+            val baseChildren = childAssignments
+                .filter { "base" in it.regions }.map { it.child }
+
+            // Ramas regionales de la raíz
+            val regionalRootLinks = rootRegionals.mapNotNull { regionalVar ->
+                val region = allRegionSuffixes.firstOrNull { s ->
+                    regionalVar.pokemon.name.contains(s)
+                } ?: return@mapNotNull null
+                val regionalChildren = childAssignments
+                    .filter { region in it.regions }.map { it.child }
+                ChainLink(
+                    isBaby = chain.isBaby,
+                    species = NamedApiResource(
+                        regionalVar.pokemon.name,
+                        regionalVar.pokemon.url
+                    ),
+                    evolutionDetails = emptyList(),
+                    evolvesTo = regionalChildren
+                )
+            }
+
+            chain.copy(evolvesTo = baseChildren + regionalRootLinks)
+        } else {
+            chain.copy(evolvesTo = expandedChildren)
+        }
+
+        Pair(finalChain, allPokemonIds.distinct())
     }
 
     /**
