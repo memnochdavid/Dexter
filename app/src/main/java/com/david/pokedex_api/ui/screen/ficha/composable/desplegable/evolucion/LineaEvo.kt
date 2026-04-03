@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -21,20 +20,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,11 +47,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,7 +59,9 @@ import coil.request.ImageRequest
 import com.david.pokedex_api.api.model.ChainLink
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
 import com.david.pokedex_api.api.model.EvolutionDetail
+import com.david.pokedex_api.api.model.PokemonSummary
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
+import com.david.pokedex_api.ui.screen.lista.composable.PokemonListItemCard
 
 private fun formatApiName(name: String): String =
     name.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
@@ -218,193 +211,128 @@ fun EnergyFlowConnector(
 
 // ==================== CARD DE UN POKEMON EN LA CADENA ====================
 
-@Composable
-fun EvolutionStageView(
+/** Construye un PokemonSummary desde un ChainLink + datos pre-cargados */
+private fun buildSummaryFromChain(
     chainLink: ChainLink,
-    builtEvolutionCondition: String?,
-    conditionIcon: String = "",
-    itemSpriteUrl: String? = null,
+    typeNames: List<String>
+): PokemonSummary? {
+    val id = getPokemonIdFromSpeciesUrl(chainLink.species.url) ?: return null
+    return PokemonSummary(
+        id = id,
+        name = chainLink.species.name,
+        spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$id.png",
+        types = typeNames,
+        colorName = null
+    )
+}
+
+@Composable
+fun EvolutionStageCard(
+    chainLink: ChainLink,
+    typeNames: List<String>,
     onClick: (String) -> Unit,
-    viewModel: PokemonViewModel = viewModel(),
-    color: Color = Color.LightGray,
-    colorTexto: Color = Color.Black,
-    staggerIndex: Int = 0,
-    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val pokemonId = getPokemonIdFromSpeciesUrl(chainLink.species.url)
+    val summary = remember(chainLink, typeNames) { buildSummaryFromChain(chainLink, typeNames) } ?: return
+
+    Box(modifier = modifier) {
+        PokemonListItemCard(
+            pokemonSummary = summary,
+            onRecallAndNavigate = { onClick(chainLink.species.name) }
+        )
+    }
+}
+
+// ==================== CONDICION EVOLUTIVA ====================
+
+/** Conector vertical con condición (para LazyColumn portrait) */
+@Composable
+private fun EvolutionConnectorWithCondition(
+    evolutionDetail: EvolutionDetail?,
+    viewModel: PokemonViewModel,
+    connectorColor: Color,
+    textColor: Color,
+    horizontal: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-
-    // Animacion staggered: cada card aparece con un pequeño retraso
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(staggerIndex * 120L)
-        appeared = true
+    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
+        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
     }
-    val appearAlpha by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(300),
-        label = "staggerAlpha"
-    )
-    val appearSlide by animateFloatAsState(
-        targetValue = if (appeared) 0f else 20f,
-        animationSpec = tween(300),
-        label = "staggerSlide"
-    )
+    val icon = getConditionIcon(evolutionDetail)
+    val itemUrl = getConditionItemSpriteUrl(evolutionDetail)
 
-    var localizedPokemonName by remember(chainLink.species.name) {
-        mutableStateOf(formatApiName(chainLink.species.name))
-    }
-
-    LaunchedEffect(chainLink.species.url, chainLink.species.name) {
-        if (chainLink.species.url.isNotBlank()) {
-            localizedPokemonName = viewModel.fetchLocalizedName(
-                resourceUrl = chainLink.species.url,
-                fallbackApiName = chainLink.species.name,
-                resourceTypeHint = "pokemon-species"
-            )
+    if (horizontal) {
+        Column(
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                if (itemUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
+                        contentDescription = null, modifier = Modifier.size(16.dp), contentScale = ContentScale.Fit
+                    )
+                } else if (icon.isNotEmpty()) {
+                    Text(text = icon, fontSize = 11.sp)
+                }
+            }
+            condition?.let {
+                Text(it, fontSize = 9.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 11.sp, textAlign = TextAlign.Center, maxLines = 2)
+            }
+            EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(14.dp))
+        }
+    } else {
+        Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                if (itemUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
+                        contentDescription = null, modifier = Modifier.size(20.dp).padding(end = 4.dp), contentScale = ContentScale.Fit
+                    )
+                } else if (icon.isNotEmpty()) {
+                    Text(text = icon, fontSize = 13.sp, modifier = Modifier.padding(end = 4.dp))
+                }
+                condition?.let {
+                    Text(it, fontSize = 11.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+                }
+            }
+            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(16.dp))
         }
     }
+}
 
-    ElevatedCard(
-        onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick(chainLink.species.name)
-        },
-        modifier = modifier.graphicsLayer {
-            alpha = appearAlpha
-            translationY = if (compact) 0f else appearSlide
-            translationX = if (compact) appearSlide else 0f
-        },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = color)
+/** Solo la etiqueta de condición (sin conector), para mostrar encima de un card en FlowRow */
+@Composable
+private fun EvolutionConditionLabel(
+    evolutionDetail: EvolutionDetail?,
+    viewModel: PokemonViewModel,
+    textColor: Color
+) {
+    val context = LocalContext.current
+    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
+        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
+    }
+    val icon = getConditionIcon(evolutionDetail)
+    val itemUrl = getConditionItemSpriteUrl(evolutionDetail)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
     ) {
-        if (compact) {
-            // Layout compacto vertical (landscape) — se adapta al ancho disponible
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(6.dp)
-            ) {
-                if (pokemonId != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(getPokemonSpriteUrl(pokemonId))
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = localizedPokemonName,
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .aspectRatio(1f),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Spacer(modifier = Modifier.size(60.dp))
-                }
-                Text(
-                    text = localizedPokemonName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = colorTexto,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    lineHeight = 14.sp
-                )
-                builtEvolutionCondition?.let { condition ->
-                    Spacer(Modifier.height(2.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (itemSpriteUrl != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(itemSpriteUrl)
-                                    .crossfade(true)
-                                    .size(64)
-                                    .build(),
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp).padding(end = 2.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else if (conditionIcon.isNotEmpty()) {
-                            Text(text = conditionIcon, fontSize = 11.sp, modifier = Modifier.padding(end = 2.dp))
-                        }
-                        Text(
-                            text = condition,
-                            fontSize = 10.sp,
-                            color = colorTexto.copy(alpha = 0.7f),
-                            lineHeight = 12.sp,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
-                    }
-                }
-            }
-        } else {
-            // Layout normal horizontal (portrait)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(10.dp)
-            ) {
-                if (pokemonId != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(getPokemonSpriteUrl(pokemonId))
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = localizedPokemonName,
-                        modifier = Modifier.size(90.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Spacer(modifier = Modifier.size(90.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = localizedPokemonName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = colorTexto
-                    )
-                    builtEvolutionCondition?.let { condition ->
-                        Spacer(Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (itemSpriteUrl != null) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(itemSpriteUrl)
-                                        .crossfade(true)
-                                        .size(64)
-                                        .build(),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp).padding(end = 4.dp),
-                                    contentScale = ContentScale.Fit
-                                )
-                            } else if (conditionIcon.isNotEmpty()) {
-                                Text(
-                                    text = conditionIcon,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(end = 4.dp)
-                                )
-                            }
-                            Text(
-                                text = condition,
-                                fontSize = 12.sp,
-                                color = colorTexto.copy(alpha = 0.7f),
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-                }
-            }
+        if (itemUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
+                contentDescription = null, modifier = Modifier.size(18.dp).padding(end = 3.dp), contentScale = ContentScale.Fit
+            )
+        } else if (icon.isNotEmpty()) {
+            Text(text = icon, fontSize = 12.sp, modifier = Modifier.padding(end = 3.dp))
+        }
+        condition?.let {
+            Text(it, fontSize = 10.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 12.sp, textAlign = TextAlign.Center, maxLines = 2)
         }
     }
 }
@@ -416,6 +344,7 @@ fun PokemonEvolutionChainView(
     evolutionChainResponse: EvolutionChainDetailResponse?,
     onPokemonClick: (pokemonName: String) -> Unit,
     viewModel: PokemonViewModel = viewModel(),
+    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData> = emptyMap(),
     color1: Color = MaterialTheme.colorScheme.surfaceVariant,
     color2: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
@@ -423,6 +352,12 @@ fun PokemonEvolutionChainView(
 ) {
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var isExpanded by remember { mutableStateOf(true) }
+
+    // Helper para obtener tipos de un ChainLink
+    fun getTypesForChainLink(link: ChainLink): List<String> {
+        val speciesId = getPokemonIdFromSpeciesUrl(link.species.url)
+        return evoChainMap[speciesId]?.detail?.types?.map { it.type.name } ?: emptyList()
+    }
 
     if (evolutionChainResponse == null) {
         Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -509,8 +444,7 @@ fun PokemonEvolutionChainView(
                 ) {
                     if (isLinear && linearEvolutionPath.isNotEmpty()) {
                         if (isLandscape) {
-                            // LINEAL LANDSCAPE: Row horizontal, cards se reparten el ancho
-                            val evoCount = linearEvolutionPath.size
+                            // LINEAL LANDSCAPE: Row horizontal
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -519,36 +453,28 @@ fun PokemonEvolutionChainView(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
-                                    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-                                        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-                                    }
-                                    EvolutionStageView(
+                                linearEvolutionPath.forEachIndexed { index, (chainLink, _) ->
+                                    EvolutionStageCard(
                                         chainLink = chainLink,
-                                        builtEvolutionCondition = condition,
-                                        conditionIcon = getConditionIcon(evolutionDetail),
-                                        itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
+                                        typeNames = getTypesForChainLink(chainLink),
                                         onClick = onPokemonClick,
-                                        viewModel = viewModel,
-                                        color = color2,
-                                        colorTexto = colorTexto,
-                                        staggerIndex = index,
-                                        compact = true,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    if (index < evoCount - 1) {
-                                        EnergyFlowConnector(
-                                            color = colorTexto.copy(alpha = 0.6f),
+                                    if (index < linearEvolutionPath.size - 1) {
+                                        val nextDetail = linearEvolutionPath[index + 1].second
+                                        EvolutionConnectorWithCondition(
+                                            evolutionDetail = nextDetail,
+                                            viewModel = viewModel,
+                                            connectorColor = colorTexto.copy(alpha = 0.6f),
+                                            textColor = colorTexto,
                                             horizontal = true,
-                                            modifier = Modifier
-                                                .width(32.dp)
-                                                .height(24.dp)
+                                            modifier = Modifier.width(32.dp).height(24.dp)
                                         )
                                     }
                                 }
                             }
                         } else {
-                            // LINEAL PORTRAIT: lista vertical con conectores animados entre cards
+                            // LINEAL PORTRAIT: LazyColumn vertical
                             LazyColumn(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -556,43 +482,34 @@ fun PokemonEvolutionChainView(
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                linearEvolutionPath.forEachIndexed { index, (chainLink, evolutionDetail) ->
+                                linearEvolutionPath.forEachIndexed { index, (chainLink, _) ->
                                     item(key = "evo_${chainLink.species.name}") {
-                                        val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-                                            value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-                                        }
-                                        EvolutionStageView(
+                                        EvolutionStageCard(
                                             chainLink = chainLink,
-                                            builtEvolutionCondition = condition,
-                                            conditionIcon = getConditionIcon(evolutionDetail),
-                                            itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
+                                            typeNames = getTypesForChainLink(chainLink),
                                             onClick = onPokemonClick,
-                                            viewModel = viewModel,
-                                            color = color2,
-                                            colorTexto = colorTexto,
-                                            staggerIndex = index,
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                     if (index < linearEvolutionPath.size - 1) {
                                         item(key = "connector_$index") {
-                                            EnergyFlowConnector(
-                                                color = colorTexto.copy(alpha = 0.6f),
-                                                modifier = Modifier
-                                                    .width(24.dp)
-                                                    .height(36.dp)
+                                            val nextDetail = linearEvolutionPath[index + 1].second
+                                            EvolutionConnectorWithCondition(
+                                                evolutionDetail = nextDetail,
+                                                viewModel = viewModel,
+                                                connectorColor = colorTexto.copy(alpha = 0.6f),
+                                                textColor = colorTexto
                                             )
                                         }
                                     }
                                 }
 
-                                // Ramas regionales al final de la cadena
                                 item(key = "regional_branches") {
                                     RegionalEvolutionBranches(
                                         chainSpeciesNames = chainSpeciesNames,
                                         onPokemonClick = onPokemonClick,
                                         viewModel = viewModel,
-                                        cardColor = color2,
+                                        evoMap = evoChainMap,
                                         textColor = colorTexto,
                                         connectorColor = colorTexto.copy(alpha = 0.6f)
                                     )
@@ -614,20 +531,19 @@ fun PokemonEvolutionChainView(
                                     step = branchedEvolutionData[index],
                                     onPokemonClick = onPokemonClick,
                                     viewModel = viewModel,
-                                    cardColor = color2,
+                                    evoMap = evoChainMap,
                                     textColor = colorTexto,
                                     connectorColor = colorTexto.copy(alpha = 0.6f),
                                     baseStaggerIndex = index * 3
                                 )
                             }
 
-                            // Ramas regionales al final
                             item(key = "regional_branches") {
                                 RegionalEvolutionBranches(
                                     chainSpeciesNames = chainSpeciesNames,
                                     onPokemonClick = onPokemonClick,
                                     viewModel = viewModel,
-                                    cardColor = color2,
+                                    evoMap = evoChainMap,
                                     textColor = colorTexto,
                                     connectorColor = colorTexto.copy(alpha = 0.6f)
                                 )
@@ -648,42 +564,36 @@ fun EvolutionStepDisplay(
     step: EvolutionStep,
     onPokemonClick: (String) -> Unit,
     viewModel: PokemonViewModel = viewModel(),
-    cardColor: Color,
+    evoMap: Map<Int, PokemonViewModel.PreloadedPokemonData>,
     textColor: Color,
     connectorColor: Color,
     baseStaggerIndex: Int = 0,
     modifier: Modifier = Modifier
 ) {
+    fun getTypes(link: ChainLink): List<String> {
+        val id = getPokemonIdFromSpeciesUrl(link.species.url)
+        return evoMap[id]?.detail?.types?.map { it.type.name } ?: emptyList()
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth()
     ) {
         // Pokemon base de este paso
-        val fromCondition by produceState<String?>(initialValue = null, step.fromPokemonEvolutionDetail) {
-            value = step.fromPokemonEvolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-        }
-        EvolutionStageView(
+        EvolutionStageCard(
             chainLink = step.fromPokemon,
-            builtEvolutionCondition = fromCondition,
-            conditionIcon = getConditionIcon(step.fromPokemonEvolutionDetail),
-            itemSpriteUrl = getConditionItemSpriteUrl(step.fromPokemonEvolutionDetail),
+            typeNames = getTypes(step.fromPokemon),
             onClick = onPokemonClick,
-            viewModel = viewModel,
-            color = cardColor,
-            colorTexto = textColor,
-            staggerIndex = baseStaggerIndex,
             modifier = Modifier.fillMaxWidth()
         )
 
         if (step.toEvolutions.isNotEmpty()) {
             EnergyFlowConnector(
                 color = connectorColor,
-                modifier = Modifier
-                    .width(24.dp)
-                    .height(36.dp)
+                modifier = Modifier.width(24.dp).height(36.dp)
             )
 
-            // Evoluciones: 2 columnas si hay varias
+            // Evoluciones: FlowRow como en el original
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -691,21 +601,22 @@ fun EvolutionStepDisplay(
                 maxItemsInEachRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
             ) {
                 step.toEvolutions.forEachIndexed { i, (evolutionLink, evolutionDetail) ->
-                    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-                        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-                    }
-                    EvolutionStageView(
-                        chainLink = evolutionLink,
-                        builtEvolutionCondition = condition,
-                        conditionIcon = getConditionIcon(evolutionDetail),
-                        itemSpriteUrl = getConditionItemSpriteUrl(evolutionDetail),
-                        onClick = onPokemonClick,
-                        viewModel = viewModel,
-                        color = cardColor,
-                        colorTexto = textColor,
-                        staggerIndex = baseStaggerIndex + 1 + i,
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
-                    )
+                    ) {
+                        // Condicion encima del card
+                        EvolutionConditionLabel(
+                            evolutionDetail = evolutionDetail,
+                            viewModel = viewModel,
+                            textColor = textColor
+                        )
+                        EvolutionStageCard(
+                            chainLink = evolutionLink,
+                            typeNames = getTypes(evolutionLink),
+                            onClick = onPokemonClick
+                        )
+                    }
                 }
             }
         }
@@ -740,7 +651,7 @@ fun RegionalEvolutionBranches(
     chainSpeciesNames: List<String>,
     onPokemonClick: (String) -> Unit,
     viewModel: PokemonViewModel = viewModel(),
-    cardColor: Color,
+    evoMap: Map<Int, PokemonViewModel.PreloadedPokemonData> = emptyMap(),
     textColor: Color,
     connectorColor: Color
 ) {
@@ -797,19 +708,14 @@ fun RegionalEvolutionBranches(
             if (index > 0) {
                 EnergyFlowConnector(
                     color = connectorColor,
-                    modifier = Modifier
-                        .width(24.dp)
-                        .height(28.dp)
+                    modifier = Modifier.width(24.dp).height(28.dp)
                 )
             }
-
+            val formTypes = evoMap[form.pokemonId]?.detail?.types?.map { it.type.name } ?: emptyList()
             RegionalFormCard(
                 formEntry = form,
-                onClick = onPokemonClick,
-                viewModel = viewModel,
-                color = cardColor,
-                colorTexto = textColor,
-                staggerIndex = staggerOffset + index
+                typeNames = formTypes,
+                onClick = onPokemonClick
             )
         }
         staggerOffset += branch.forms.size
@@ -819,93 +725,23 @@ fun RegionalEvolutionBranches(
 @Composable
 private fun RegionalFormCard(
     formEntry: RegionalFormEntry,
-    onClick: (String) -> Unit,
-    viewModel: PokemonViewModel,
-    color: Color,
-    colorTexto: Color,
-    staggerIndex: Int
+    typeNames: List<String>,
+    onClick: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(staggerIndex * 120L)
-        appeared = true
+    val summary = remember(formEntry, typeNames) {
+        PokemonSummary(
+            id = formEntry.pokemonId,
+            name = formEntry.pokemonName,
+            spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${formEntry.pokemonId}.png",
+            types = typeNames,
+            colorName = null
+        )
     }
-    val appearAlpha by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(300), label = "regAlpha"
+
+    PokemonListItemCard(
+        pokemonSummary = summary,
+        onRecallAndNavigate = { onClick(formEntry.pokemonId.toString()) }
     )
-    val appearSlide by animateFloatAsState(
-        targetValue = if (appeared) 0f else 20f,
-        animationSpec = tween(300), label = "regSlide"
-    )
-
-    var localizedName by remember(formEntry.pokemonName) {
-        mutableStateOf(formatApiName(formEntry.pokemonName))
-    }
-    LaunchedEffect(formEntry.pokemonName) {
-        try {
-            localizedName = viewModel.fetchLocalizedName(
-                resourceUrl = "https://pokeapi.co/api/v2/pokemon-species/${formEntry.pokemonName.substringBefore("-")}/",
-                fallbackApiName = formEntry.pokemonName,
-                resourceTypeHint = "pokemon-species"
-            )
-            // Append region suffix
-            val regionSuffix = REGIONAL_SUFFIXES.entries.firstOrNull { formEntry.pokemonName.contains(it.key) }?.value
-            if (regionSuffix != null && !localizedName.contains(regionSuffix, ignoreCase = true)) {
-                localizedName = "$localizedName de $regionSuffix"
-            }
-        } catch (_: Exception) { }
-    }
-
-    ElevatedCard(
-        onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick(formEntry.pokemonId.toString())
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .graphicsLayer { alpha = appearAlpha; translationY = appearSlide },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = color)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(10.dp)
-        ) {
-            val homeUrl = remember(formEntry) {
-                getPokemonHomeSpriteUrl(formEntry.speciesId, formEntry.formIndex)
-            }
-            val fallbackUrl = remember(formEntry) {
-                "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${formEntry.pokemonId}.png"
-            }
-            var spriteUrl by remember(formEntry.pokemonId) { mutableStateOf(homeUrl) }
-
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(spriteUrl)
-                    .crossfade(true)
-                    .listener(onError = { _, _ ->
-                        if (spriteUrl == homeUrl) spriteUrl = fallbackUrl
-                    })
-                    .build(),
-                contentDescription = localizedName,
-                modifier = Modifier.size(90.dp),
-                contentScale = ContentScale.Fit
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = localizedName,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = colorTexto
-            )
-        }
-    }
 }
 
 // ==================== DATOS Y ALGORITMOS ====================

@@ -448,6 +448,9 @@ fun PokemonDetailsView(
         femaleResourceId != 0 || pokemon.sprites.frontFemale != null
     }
 
+    // Mapa pre-cargado de la cadena evolutiva (tipos, sprites, etc.)
+    val evoChainMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
+
     // Estado de imagen expandida
     var isImageExpanded by remember { mutableStateOf(false) }
 
@@ -506,6 +509,7 @@ fun PokemonDetailsView(
                 selectedSection = selectedSection,
                 onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
                 onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
+                evoChainMap = evoChainMap,
                 onFormSwap = { resName, displayName, types ->
                     overrideResourceName = resName
                     overrideFormDisplayName = displayName

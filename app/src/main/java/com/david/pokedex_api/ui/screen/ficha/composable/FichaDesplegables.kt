@@ -127,6 +127,7 @@ fun DetallesDesplegables(
     selectedSection: String = SectionPage.DESC.name,
     onSectionSelected: (String) -> Unit = {},
     onAvailableSectionsChanged: (List<String>) -> Unit = {},
+    evoChainMap: Map<Int, com.david.pokedex_api.api.viewModel.PokemonViewModel.PreloadedPokemonData> = emptyMap(),
     onFormSwap: (resourceName: String, displayName: String, types: List<String>?) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -515,6 +516,7 @@ fun DetallesDesplegables(
                                 PokemonEvolutionChainView(
                                     evolutionChainResponse = evolutionChainDetailResponse,
                                     onPokemonClick = onEvolutionPokemonClick,
+                                    evoChainMap = evoChainMap,
                                     color1 = colorSoft,
                                     color2 = colorSurface,
                                     colorTexto = colorTexto,
