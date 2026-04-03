@@ -638,8 +638,11 @@ fun PokemonFormsView(
                 val formTypes = formTypeMap[formSuffix]?.let { listOf(it) }
                 if (addedNames.add(apiName)) {
                     allForms.add(SpecialForm(apiName, displayName, spriteUrl,
+                        fallbackSpriteUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
+                            ?: pokemon.sprites.frontDefault,
                         localResourceName = resName,
                         overrideTypes = formTypes,
+                        pokemonId = pokemon.id,
                         types = formTypes ?: pokemon.types.map { it.type.name }))
                 }
             }

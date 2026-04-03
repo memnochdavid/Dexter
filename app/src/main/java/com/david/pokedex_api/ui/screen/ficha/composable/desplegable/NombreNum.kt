@@ -67,9 +67,10 @@ fun NombreNumAlturaPeso(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val displayName = remember(nombre) {
-        adaptaNombre(transformPokemonNameToResourceName(nombre))
-    }
+    // nombre ya es el nombre localizado de la especie (ej. "Unown", "Vivillon").
+    // No pasar por transformPokemonNameToResourceName porque mapea a nombres de
+    // recurso gráfico (ej. "unown" → "unown_a", "vivillon" → "vivillon_vergel").
+    val displayName = nombre
     val formattedNum = remember(numero) { "#${numero.toString().padStart(3, '0')}" }
 
     val darkerFondo = Color(
