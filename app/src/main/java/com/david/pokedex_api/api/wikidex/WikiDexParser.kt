@@ -96,6 +96,53 @@ class LocationParser : WikiDexParser<List<Pair<String, String>>> {
 }
 
 /**
+ * Extrae sprites HOME de la sección "Formas" de WikiDex.
+ * Retorna mapa: clave normalizada (nombre de fichero sin _HOME.png, lowercase) → URL de la imagen.
+ * Ejemplo: "arceus_fuego" → "https://images.wikidexcdn.net/.../Arceus_fuego_HOME.png/120px-..."
+ */
+class FormSpritesParser : WikiDexParser<Map<String, String>> {
+
+    override fun parse(doc: Document): Map<String, String>? {
+        // Buscar encabezado "Formas" (h2 o h3)
+        val formasHeading = doc.select("h2, h3").firstOrNull { heading ->
+            heading.select(".mw-headline").text().equals("Formas", ignoreCase = true)
+        } ?: return null
+
+        // Recoger imágenes _HOME.png entre este heading y el siguiente h2/h3
+        val result = mutableMapOf<String, String>()
+        var sibling = formasHeading.nextElementSibling()
+        while (sibling != null && !sibling.tagName().matches(Regex("h[23]"))) {
+            for (img in sibling.select("img")) {
+                val src = img.attr("src")
+                if (!src.contains("_HOME.png", ignoreCase = true)) continue
+                // Ignorar iconos pequeños (48px o menos) y tipos/tablas
+                val widthAttr = img.attr("width").toIntOrNull() ?: 0
+                if (widthAttr in 1..60) continue
+
+                // Extraer nombre de fichero del src
+                // Formato: .../Arceus_fuego_HOME.png/120px-Arceus_fuego_HOME.png
+                val fileName = src.substringAfterLast("/")       // "120px-Arceus_fuego_HOME.png"
+                    .replace(Regex("^\\d+px-"), "")              // "Arceus_fuego_HOME.png"
+                val key = fileName
+                    .removeSuffix(".png")                        // "Arceus_fuego_HOME"
+                    .removeSuffix("_HOME")                       // "Arceus_fuego"
+                    .lowercase()                                 // "arceus_fuego"
+                    .let { java.net.URLDecoder.decode(it, "UTF-8") } // decode %C3%B3n → ón
+
+                // URL a mayor resolución (120px)
+                val url = src.replace(Regex("/\\d+px-"), "/120px-")
+
+                if (key.isNotBlank() && !result.containsKey(key)) {
+                    result[key] = url
+                }
+            }
+            sibling = sibling.nextElementSibling()
+        }
+        return result.ifEmpty { null }
+    }
+}
+
+/**
  * Convierte nombres de edicion de WikiDex a identificadores de version de PokeAPI.
  */
 object WikiDexGameMapper {

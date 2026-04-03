@@ -190,8 +190,8 @@ private val fullNameMap = mapOf(
     // --- Nombres compuestos (sin forma, el guión es parte del nombre) ---
     // Unown (forma base = A)
     "unown" to "unown_a",
-    "unown-exclamation" to "unown_exclamacion",
-    "unown-question" to "unown_pregunta",
+    "unown-exclamation" to "unown_!",
+    "unown-question" to "unown_?",
 
     // --- Formas base que no tienen webp sin sufijo ---
     "cherrim" to "cherrim_encapotado",
@@ -462,35 +462,35 @@ private val fullNameMap = mapOf(
     // --- Vivillon ---
     "vivillon-meadow" to "vivillon_vergel",
     "vivillon-icy-snow" to "vivillon_polar",
-    "vivillon-polar" to "vivillon_polar",
+    "vivillon-polar" to "vivillon_taiga",
     "vivillon-tundra" to "vivillon_tundra",
     "vivillon-continental" to "vivillon_continental",
     "vivillon-garden" to "vivillon_floral",
-    "vivillon-elegant" to "vivillon_estepa",
+    "vivillon-elegant" to "vivillon_oriental",
     "vivillon-modern" to "vivillon_moderno",
     "vivillon-marine" to "vivillon_marino",
-    "vivillon-archipelago" to "vivillon_isleno",
-    "vivillon-high-plains" to "vivillon_oasis",
+    "vivillon-archipelago" to "vivillon_isleño",
+    "vivillon-high-plains" to "vivillon_estepa",
     "vivillon-sandstorm" to "vivillon_desierto",
-    "vivillon-river" to "vivillon_oceano",
-    "vivillon-monsoon" to "vivillon_monzon",
-    "vivillon-savanna" to "vivillon_jungla",
+    "vivillon-river" to "vivillon_pantano",
+    "vivillon-monsoon" to "vivillon_monzón",
+    "vivillon-savanna" to "vivillon_oasis",
     "vivillon-sun" to "vivillon_solar",
-    "vivillon-ocean" to "vivillon_oceano",
+    "vivillon-ocean" to "vivillon_océano",
     "vivillon-jungle" to "vivillon_jungla",
-    "vivillon-fancy" to "vivillon_fantasia",
-    "vivillon-poke-ball" to "vivillon_poke_ball",
+    "vivillon-fancy" to "vivillon_fantasía",
+    "vivillon-poke-ball" to "vivillon_poké_ball",
 
     // --- Furfrou ---
-    "furfrou-heart" to "furfrou_corazon",
+    "furfrou-heart" to "furfrou_corazón",
     "furfrou-star" to "furfrou_estrella",
     "furfrou-diamond" to "furfrou_rombo",
     "furfrou-debutante" to "furfrou_dama",
-    "furfrou-matron" to "furfrou_senorita",
+    "furfrou-matron" to "furfrou_señorita",
     "furfrou-dandy" to "furfrou_caballero",
-    "furfrou-la-reine" to "furfrou_aristocratico",
+    "furfrou-la-reine" to "furfrou_aristocrático",
     "furfrou-kabuki" to "furfrou_kabuki",
-    "furfrou-pharaoh" to "furfrou_faraonico",
+    "furfrou-pharaoh" to "furfrou_faraónico",
 
     // --- Deerling / Sawsbuck ---
     "deerling-spring" to "deerling_primavera",
@@ -585,15 +585,7 @@ private val fullNameMap = mapOf(
     "silvally-water" to "silvally_agua",
 
     // --- Alcremie sabores (los más comunes) ---
-    "alcremie-vanilla-cream" to "alcremie_crema_rosa",
-    "alcremie-ruby-cream" to "alcremie_crema_rosa",
-    "alcremie-matcha-cream" to "alcremie_crema_rosa",
-    "alcremie-mint-cream" to "alcremie_crema_rosa",
-    "alcremie-lemon-cream" to "alcremie_crema_de_limon",
-    "alcremie-salted-cream" to "alcremie_crema_salada",
-    "alcremie-ruby-swirl" to "alcremie_mezcla_rosa",
-    "alcremie-caramel-swirl" to "alcremie_mezcla_caramelo",
-    "alcremie-rainbow-swirl" to "alcremie_tres_sabores",
+    // Alcremie: las 63 formas (crema×confite) se manejan en transformPokemonNameToResourceName
 )
 
 fun transformPokemonNameToResourceName(pokemonInputName: String): String {
@@ -641,6 +633,42 @@ fun transformPokemonNameToResourceName(pokemonInputName: String): String {
                 }
             }
             return "${partes[0]}_de_paldea"
+        }
+    }
+
+    // Alcremie: forma compuesta crema + confite (5 partes: alcremie-cream-type-sweet-type)
+    if (partes[0] == "alcremie" && partes.size == 5) {
+        val creamMap = mapOf(
+            "vanilla-cream" to "crema_de_vainilla",
+            "ruby-cream" to "crema_rosa",
+            "matcha-cream" to "crema_de_té",
+            "mint-cream" to "crema_de_menta",
+            "lemon-cream" to "crema_de_limón",
+            "salted-cream" to "crema_salada",
+            "ruby-swirl" to "mezcla_rosa",
+            "caramel-swirl" to "mezcla_caramelo",
+            "rainbow-swirl" to "tres_sabores",
+        )
+        val toppingMap = mapOf(
+            "strawberry-sweet" to "",
+            "berry-sweet" to "fruto",
+            "love-sweet" to "corazón",
+            "star-sweet" to "estrella",
+            "clover-sweet" to "trébol",
+            "flower-sweet" to "flor",
+            "ribbon-sweet" to "lazo",
+        )
+        val cream = "${partes[1]}-${partes[2]}"
+        val topping = "${partes[3]}-${partes[4]}"
+        val spanishCream = creamMap[cream]
+        val spanishTopping = toppingMap[topping]
+        if (spanishCream != null && spanishTopping != null) {
+            // Forma por defecto (vainilla + fresa) → solo "alcremie"
+            if (cream == "vanilla-cream" && topping == "strawberry-sweet") return "alcremie"
+            val parts = mutableListOf("alcremie")
+            parts.add(spanishCream)
+            if (spanishTopping.isNotEmpty()) parts.add(spanishTopping)
+            return parts.joinToString("_")
         }
     }
 

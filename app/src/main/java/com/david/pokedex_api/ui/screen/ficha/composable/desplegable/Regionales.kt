@@ -538,6 +538,8 @@ fun PokemonFormsView(
     pokemon: PokemonDetailResponse,
     pokemonSpeciesUrl: String,
     pokemonApiService: PokeApiService,
+    spanishPokemonName: String? = null,
+    fetchFormSprites: (suspend (String) -> Map<String, String>)? = null,
     cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
@@ -645,6 +647,21 @@ fun PokemonFormsView(
                         pokemonId = pokemon.id,
                         types = formTypes ?: pokemon.types.map { it.type.name }))
                 }
+            }
+
+            // Para Pokémon con muchas formas: intentar obtener sprites
+            // HOME individuales desde WikiDex
+            if (isManyForms && fetchFormSprites != null && !spanishPokemonName.isNullOrBlank()) {
+                try {
+                    val wikiSprites = fetchFormSprites(spanishPokemonName)
+                    if (wikiSprites.isNotEmpty()) {
+                        allForms.replaceAll { form ->
+                            val resName = form.localResourceName ?: transformPokemonNameToResourceName(form.formName)
+                            val wikiUrl = wikiSprites[resName.lowercase()]
+                            if (wikiUrl != null) form.copy(spriteUrl = wikiUrl) else form
+                        }
+                    }
+                } catch (_: Exception) { /* silenciar: los sprites base siguen como fallback */ }
             }
 
             formsList = allForms

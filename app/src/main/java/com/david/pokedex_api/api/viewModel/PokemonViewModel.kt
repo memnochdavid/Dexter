@@ -37,6 +37,10 @@ class PokemonViewModel : ViewModel() {
     private val pokemonDao = DexterApplication.database.pokemonDao()
     private val wikiDexRepository = WikiDexRepository(pokemonDao)
 
+    /** Sprites HOME de formas desde WikiDex (para Pokémon con muchas formas). */
+    suspend fun getWikiDexFormSprites(spanishName: String): Map<String, String> =
+        wikiDexRepository.getFormSprites(spanishName)
+
     // --- Card recall: trackea que Pokemon esta "dentro de la pokeball" ---
     val recalledPokemonId = MutableStateFlow<Int?>(null)
 

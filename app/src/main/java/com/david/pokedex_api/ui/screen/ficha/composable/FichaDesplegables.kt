@@ -129,6 +129,8 @@ fun DetallesDesplegables(
     onAvailableSectionsChanged: (List<String>) -> Unit = {},
     evoChainMap: Map<Int, com.david.pokedex_api.api.viewModel.PokemonViewModel.PreloadedPokemonData> = emptyMap(),
     onFormSwap: (resourceName: String, displayName: String, types: List<String>?) -> Unit = { _, _, _ -> },
+    spanishPokemonName: String? = null,
+    fetchFormSprites: (suspend (String) -> Map<String, String>)? = null,
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
@@ -593,6 +595,8 @@ fun DetallesDesplegables(
                             pokemon = pokemon,
                             pokemonSpeciesUrl = pokemon.species.url,
                             pokemonApiService = pokemonApiService,
+                            spanishPokemonName = spanishPokemonName,
+                            fetchFormSprites = fetchFormSprites,
                             onFormClick = { _, formApiName -> onEvolutionPokemonClick(formApiName) },
                             onFormSwap = onFormSwap,
                             cardColor = colorSoft,

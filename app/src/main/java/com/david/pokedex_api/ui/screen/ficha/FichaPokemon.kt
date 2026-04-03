@@ -606,6 +606,8 @@ fun PokemonDetailsView(
                     overrideFormDisplayName = displayName
                     overrideTypes = types
                 },
+                spanishPokemonName = spanishPokemonName,
+                fetchFormSprites = { name -> pokemonViewModel.getWikiDexFormSprites(name) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
