@@ -129,7 +129,14 @@ fun PokemonRegionalFormsView(
                             "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokeId.png"
                         else null
 
-                        SpecialForm(formApiName, displayName, homeUrl, fallbackSpriteUrl = fallbackUrl)
+                        // Tipos de la forma regional
+                        val formTypes = try {
+                            val detailResp = pokemonApiService.getPokemonDetails(formApiName)
+                            detailResp.body()?.types?.map { it.type.name } ?: emptyList()
+                        } catch (_: Exception) { emptyList() }
+
+                        SpecialForm(formApiName, displayName, homeUrl, fallbackSpriteUrl = fallbackUrl,
+                            pokemonId = pokeId, types = formTypes)
                     }
 
                     regionalForms = formsFound
@@ -602,7 +609,9 @@ fun PokemonFormsView(
                 if (addedNames.add(apiName)) {
                     allForms.add(SpecialForm(apiName, displayName, homeUrl,
                         fallbackSpriteUrl = fallbackUrl,
-                        localResourceName = if (isManyForms) resName else null))
+                        localResourceName = if (isManyForms) resName else null,
+                        pokemonId = pokeId,
+                        types = pokemon.types.map { it.type.name }))
                 }
             }
 
@@ -630,7 +639,8 @@ fun PokemonFormsView(
                 if (addedNames.add(apiName)) {
                     allForms.add(SpecialForm(apiName, displayName, spriteUrl,
                         localResourceName = resName,
-                        overrideTypes = formTypes))
+                        overrideTypes = formTypes,
+                        types = formTypes ?: pokemon.types.map { it.type.name }))
                 }
             }
 

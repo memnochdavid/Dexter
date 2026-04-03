@@ -50,11 +50,12 @@ fun PokemonListItemCard(
     pokemonSummary: PokemonSummary,
     isRecalled: Boolean = false,
     onRecallAndNavigate: () -> Unit,
+    simpleClick: Boolean = false,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+    val sharedTransitionScope = if (!simpleClick) LocalSharedTransitionScope.current else null
+    val animatedVisibilityScope = if (!simpleClick) LocalAnimatedVisibilityScope.current else null
     var isPressed by remember { mutableStateOf(false) }
     var isRecalling by remember { mutableStateOf(false) }
 
@@ -64,8 +65,8 @@ fun PokemonListItemCard(
         label = "scale"
     )
 
-    // Animaciones solo activas cuando el card esta en recall/return
-    val isAnimating = isRecalling || isRecalled
+    // Animaciones solo activas cuando el card esta en recall/return (no en simpleClick)
+    val isAnimating = !simpleClick && (isRecalling || isRecalled)
     val contentScale by animateFloatAsState(
         targetValue = if (isAnimating) 0f else 1f,
         animationSpec = tween(if (isRecalling) 250 else 300),
@@ -86,8 +87,14 @@ fun PokemonListItemCard(
     // Recall completo → navegar (una sola vez)
     LaunchedEffect(isRecalling) {
         if (isRecalling) {
-            snapshotFlow { contentScale }.first { it < 0.05f }
-            onRecallAndNavigate()
+            if (simpleClick) {
+                onRecallAndNavigate()
+                isRecalling = false
+                isPressed = false
+            } else {
+                snapshotFlow { contentScale }.first { it < 0.05f }
+                onRecallAndNavigate()
+            }
         }
     }
 

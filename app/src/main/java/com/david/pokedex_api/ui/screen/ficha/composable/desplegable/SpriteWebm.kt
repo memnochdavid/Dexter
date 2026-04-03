@@ -234,6 +234,7 @@ private val fullNameMap = mapOf(
     "ho-oh" to "ho_oh",
     "porygon-z" to "porygon_z",
     "mr-mime" to "mr_mime",
+    "mr-mime-galar" to "mr_mime_de_galar",
     "mime-jr" to "mime_jr",
     "mr-rime" to "mr_rime",
     "hakamo-o" to "hakamo_o",

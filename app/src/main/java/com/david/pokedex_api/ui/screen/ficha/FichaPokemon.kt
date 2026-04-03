@@ -104,7 +104,9 @@ import com.david.pokedex_api.ui.theme.rojo_pokeball
 import com.david.pokedex_api.util.AnimatedPokeball
 import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.ShinySparkleEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // Nueva pantalla para los detalles del Pokémon, para manejar la carga y la UI de detalles.
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -260,6 +262,8 @@ fun PokemonDetailScreen(
                     pageCount = { navList.size }
                 )
 
+                val pagerCoroutineScope = rememberCoroutineScope()
+
                 // Cuando cambia la pagina, cargar extras (encuentros, wikidex, movimientos)
                 LaunchedEffect(pagerState) {
                     snapshotFlow { pagerState.settledPage }
@@ -297,7 +301,19 @@ fun PokemonDetailScreen(
                             evolutionChainDetailResponse = evolutionChain,
                             isLoadingEvolutionChain = isLoadingEvolutionChain,
                             onEvolutionPokemonClick = { clickedName ->
-                                pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                                // Buscar el pokemon en el pager por nombre o ID
+                                val targetId = clickedName.toIntOrNull()
+                                    ?: evoMap.entries.firstOrNull { it.value.detail.name == clickedName }?.key
+                                    ?: evoMap.entries.firstOrNull { it.value.detail.species.name == clickedName }?.key
+                                val targetIndex = if (targetId != null) navList.indexOf(targetId) else -1
+
+                                if (targetIndex >= 0) {
+                                    // Pokemon esta en el pager: scroll animado
+                                    pagerCoroutineScope.launch { pagerState.animateScrollToPage(targetIndex) }
+                                } else {
+                                    // Pokemon no esta en el pager (mega, gmax, regional diferente): fetch completo
+                                    pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                                }
                             },
                             pokemonViewModel = pokemonViewModel,
                             moveDetailsMap = moveDetailsMap,

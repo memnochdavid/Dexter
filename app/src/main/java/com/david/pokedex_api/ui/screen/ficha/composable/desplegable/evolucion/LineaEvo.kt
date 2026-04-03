@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -71,9 +70,6 @@ private fun getPokemonIdFromSpeciesUrl(url: String): Int? =
 
 private fun getPokemonSpriteUrl(pokemonId: Int): String =
     "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonId.toString().padStart(4, '0')}_f00_s0.png"
-
-private fun getPokemonHomeSpriteUrl(speciesId: Int, formIndex: Int): String =
-    "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${formIndex.toString().padStart(2, '0')}_s0.png"
 
 // ==================== ICONOS DE CONDICION ====================
 
@@ -211,15 +207,31 @@ fun EnergyFlowConnector(
 
 // ==================== CARD DE UN POKEMON EN LA CADENA ====================
 
+/** Busca los datos pre-cargados de un ChainLink en el evoMap.
+ *  Busca primero por species ID directo, luego por species name (para regionales reemplazados). */
+private fun findPreloadedForChainLink(
+    chainLink: ChainLink,
+    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData>
+): PokemonViewModel.PreloadedPokemonData? {
+    val speciesId = getPokemonIdFromSpeciesUrl(chainLink.species.url)
+    return evoChainMap[speciesId]
+        ?: evoChainMap.values.firstOrNull { it.detail.species.name == chainLink.species.name }
+}
+
 /** Construye un PokemonSummary desde un ChainLink + datos pre-cargados */
 private fun buildSummaryFromChain(
     chainLink: ChainLink,
-    typeNames: List<String>
+    typeNames: List<String>,
+    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData>
 ): PokemonSummary? {
-    val id = getPokemonIdFromSpeciesUrl(chainLink.species.url) ?: return null
+    val preloaded = findPreloadedForChainLink(chainLink, evoChainMap)
+    val id = preloaded?.detail?.id
+        ?: getPokemonIdFromSpeciesUrl(chainLink.species.url)
+        ?: return null
+    val name = preloaded?.detail?.name ?: chainLink.species.name
     return PokemonSummary(
         id = id,
-        name = chainLink.species.name,
+        name = name,
         spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$id.png",
         types = typeNames,
         colorName = null
@@ -230,15 +242,19 @@ private fun buildSummaryFromChain(
 fun EvolutionStageCard(
     chainLink: ChainLink,
     typeNames: List<String>,
+    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData> = emptyMap(),
     onClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val summary = remember(chainLink, typeNames) { buildSummaryFromChain(chainLink, typeNames) } ?: return
+    val summary = remember(chainLink, typeNames, evoChainMap) {
+        buildSummaryFromChain(chainLink, typeNames, evoChainMap)
+    } ?: return
 
     Box(modifier = modifier) {
         PokemonListItemCard(
             pokemonSummary = summary,
-            onRecallAndNavigate = { onClick(chainLink.species.name) }
+            onRecallAndNavigate = { onClick(chainLink.species.name) },
+            simpleClick = true
         )
     }
 }
@@ -355,8 +371,8 @@ fun PokemonEvolutionChainView(
 
     // Helper para obtener tipos de un ChainLink
     fun getTypesForChainLink(link: ChainLink): List<String> {
-        val speciesId = getPokemonIdFromSpeciesUrl(link.species.url)
-        return evoChainMap[speciesId]?.detail?.types?.map { it.type.name } ?: emptyList()
+        return findPreloadedForChainLink(link, evoChainMap)
+            ?.detail?.types?.map { it.type.name } ?: emptyList()
     }
 
     if (evolutionChainResponse == null) {
@@ -364,17 +380,6 @@ fun PokemonEvolutionChainView(
             Text("Loading evolution chain...", color = colorTexto)
         }
         return
-    }
-
-    // Nombres de species para descubrir formas regionales
-    val chainSpeciesNames = remember(evolutionChainResponse.chain) {
-        val names = mutableListOf<String>()
-        fun collectNames(link: ChainLink) {
-            names.add(link.species.name)
-            link.evolvesTo.forEach { collectNames(it) }
-        }
-        collectNames(evolutionChainResponse.chain)
-        names
     }
 
     val branchedEvolutionData = remember(evolutionChainResponse.chain) {
@@ -457,6 +462,7 @@ fun PokemonEvolutionChainView(
                                     EvolutionStageCard(
                                         chainLink = chainLink,
                                         typeNames = getTypesForChainLink(chainLink),
+                                        evoChainMap = evoChainMap,
                                         onClick = onPokemonClick,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -487,6 +493,7 @@ fun PokemonEvolutionChainView(
                                         EvolutionStageCard(
                                             chainLink = chainLink,
                                             typeNames = getTypesForChainLink(chainLink),
+                                            evoChainMap = evoChainMap,
                                             onClick = onPokemonClick,
                                             modifier = Modifier.fillMaxWidth()
                                         )
@@ -504,16 +511,6 @@ fun PokemonEvolutionChainView(
                                     }
                                 }
 
-                                item(key = "regional_branches") {
-                                    RegionalEvolutionBranches(
-                                        chainSpeciesNames = chainSpeciesNames,
-                                        onPokemonClick = onPokemonClick,
-                                        viewModel = viewModel,
-                                        evoMap = evoChainMap,
-                                        textColor = colorTexto,
-                                        connectorColor = colorTexto.copy(alpha = 0.6f)
-                                    )
-                                }
                             }
                         }
                     } else {
@@ -535,17 +532,6 @@ fun PokemonEvolutionChainView(
                                     textColor = colorTexto,
                                     connectorColor = colorTexto.copy(alpha = 0.6f),
                                     baseStaggerIndex = index * 3
-                                )
-                            }
-
-                            item(key = "regional_branches") {
-                                RegionalEvolutionBranches(
-                                    chainSpeciesNames = chainSpeciesNames,
-                                    onPokemonClick = onPokemonClick,
-                                    viewModel = viewModel,
-                                    evoMap = evoChainMap,
-                                    textColor = colorTexto,
-                                    connectorColor = colorTexto.copy(alpha = 0.6f)
                                 )
                             }
                         }
@@ -571,8 +557,8 @@ fun EvolutionStepDisplay(
     modifier: Modifier = Modifier
 ) {
     fun getTypes(link: ChainLink): List<String> {
-        val id = getPokemonIdFromSpeciesUrl(link.species.url)
-        return evoMap[id]?.detail?.types?.map { it.type.name } ?: emptyList()
+        return findPreloadedForChainLink(link, evoMap)
+            ?.detail?.types?.map { it.type.name } ?: emptyList()
     }
 
     Column(
@@ -583,6 +569,7 @@ fun EvolutionStepDisplay(
         EvolutionStageCard(
             chainLink = step.fromPokemon,
             typeNames = getTypes(step.fromPokemon),
+            evoChainMap = evoMap,
             onClick = onPokemonClick,
             modifier = Modifier.fillMaxWidth()
         )
@@ -614,6 +601,7 @@ fun EvolutionStepDisplay(
                         EvolutionStageCard(
                             chainLink = evolutionLink,
                             typeNames = getTypes(evolutionLink),
+                            evoChainMap = evoMap,
                             onClick = onPokemonClick
                         )
                     }
@@ -621,127 +609,6 @@ fun EvolutionStepDisplay(
             }
         }
     }
-}
-
-// ==================== FORMAS REGIONALES EN LA CADENA ====================
-
-data class RegionalBranch(
-    val regionLabel: String, // ej: "Galar", "Alola"
-    val forms: List<RegionalFormEntry> // formas en orden evolutivo
-)
-
-data class RegionalFormEntry(
-    val pokemonName: String, // ej: "mr-mime-galar"
-    val pokemonId: Int,
-    val speciesId: Int, // ID de la species base (para URL HOME)
-    val formIndex: Int, // indice de la variedad en la lista de varieties
-    val displayName: String // se resuelve async
-)
-
-private val REGIONAL_SUFFIXES = mapOf(
-    "-alola" to "Alola", "-galar" to "Galar", "-hisui" to "Hisui", "-paldea" to "Paldea"
-)
-
-/**
- * Composable que muestra ramas de evolucion regionales.
- * Descubre varieties regionales de las species de la cadena y las muestra como ramas adicionales.
- */
-@Composable
-fun RegionalEvolutionBranches(
-    chainSpeciesNames: List<String>,
-    onPokemonClick: (String) -> Unit,
-    viewModel: PokemonViewModel = viewModel(),
-    evoMap: Map<Int, PokemonViewModel.PreloadedPokemonData> = emptyMap(),
-    textColor: Color,
-    connectorColor: Color
-) {
-    // Descubrir formas regionales de todas las species de la cadena
-    val regionalBranches by produceState<List<RegionalBranch>>(initialValue = emptyList(), chainSpeciesNames) {
-        if (chainSpeciesNames.isEmpty()) return@produceState
-
-        val allRegionalForms = mutableMapOf<String, MutableList<RegionalFormEntry>>() // region -> forms
-
-        chainSpeciesNames.forEach { speciesName ->
-            try {
-                val resp = viewModel.pokemonApiService.getPokemonSpeciesDetails(speciesName)
-                if (resp.isSuccessful) {
-                    val body = resp.body() ?: return@forEach
-                    val speciesId = body.id
-                    val varieties = body.varieties
-                    varieties.forEachIndexed { index, variety ->
-                        if (variety.isDefault) return@forEachIndexed
-                        val name = variety.pokemon.name
-                        val matchedRegion = REGIONAL_SUFFIXES.entries.firstOrNull { name.contains(it.key) }
-                        if (matchedRegion != null) {
-                            val formId = variety.pokemon.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull() ?: return@forEachIndexed
-                            val region = matchedRegion.value
-                            allRegionalForms.getOrPut(region) { mutableListOf() }.add(
-                                RegionalFormEntry(name, formId, speciesId, index, name)
-                            )
-                        }
-                    }
-                }
-            } catch (_: Exception) { }
-        }
-
-        value = allRegionalForms.map { (region, forms) ->
-            RegionalBranch(region, forms.sortedBy { it.pokemonId })
-        }.sortedBy { it.regionLabel }
-    }
-
-    if (regionalBranches.isEmpty()) return
-
-    var staggerOffset = 0
-    regionalBranches.forEach { branch ->
-        Spacer(Modifier.height(12.dp))
-
-        // Header de la region
-        Text(
-            text = "Formas de ${branch.regionLabel}",
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = textColor.copy(alpha = 0.7f),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        branch.forms.forEachIndexed { index, form ->
-            if (index > 0) {
-                EnergyFlowConnector(
-                    color = connectorColor,
-                    modifier = Modifier.width(24.dp).height(28.dp)
-                )
-            }
-            val formTypes = evoMap[form.pokemonId]?.detail?.types?.map { it.type.name } ?: emptyList()
-            RegionalFormCard(
-                formEntry = form,
-                typeNames = formTypes,
-                onClick = onPokemonClick
-            )
-        }
-        staggerOffset += branch.forms.size
-    }
-}
-
-@Composable
-private fun RegionalFormCard(
-    formEntry: RegionalFormEntry,
-    typeNames: List<String>,
-    onClick: (String) -> Unit
-) {
-    val summary = remember(formEntry, typeNames) {
-        PokemonSummary(
-            id = formEntry.pokemonId,
-            name = formEntry.pokemonName,
-            spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${formEntry.pokemonId}.png",
-            types = typeNames,
-            colorName = null
-        )
-    }
-
-    PokemonListItemCard(
-        pokemonSummary = summary,
-        onRecallAndNavigate = { onClick(formEntry.pokemonId.toString()) }
-    )
 }
 
 // ==================== DATOS Y ALGORITMOS ====================
