@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -60,10 +61,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+// import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.vectorResource
+// import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -96,18 +97,17 @@ import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonEncou
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.PokemonFormsView
 import com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion.descripcionesMegasGigas
 
-enum class SectionPage(val label: String, val iconRes: Int) {
-    DESC("Descripción", R.drawable.ic_description),
-    SPRITES("Sprites", R.drawable.ic_sprites),
-    STATS("Stats", R.drawable.ic_stats),
-    EVOS("Evolución", R.drawable.ic_evolution),
-    SPECIAL_FORMS("Megas / Gigas", R.drawable.ic_mega),
-    MOVES("Movimientos", R.drawable.ic_moves),
-    ABILITY("Habilidades", R.drawable.ic_ability),
-    INTER("Tipos", R.drawable.ic_types),
-    FORM("Formas", R.drawable.ic_forms),
-    INFO("Info", R.drawable.ic_info),
-    ENCOUNTERS("Ubicaciones", R.drawable.ic_location)
+enum class SectionPage(val label: String) {
+    DESC("Descripción"),
+    EVOS("Evolución"),
+    FORM("Formas"),
+    STATS("Stats"),
+    ABILITY("Habilidades"),
+    MOVES("Movimientos"),
+    INTER("Tipos"),
+    INFO("Info"),
+    ENCOUNTERS("Ubicaciones"),
+    SPRITES("Sprites"),
 }
 
 @Composable
@@ -127,7 +127,7 @@ fun DetallesDesplegables(
     selectedSection: String = SectionPage.DESC.name,
     onSectionSelected: (String) -> Unit = {},
     onAvailableSectionsChanged: (List<String>) -> Unit = {},
-    onFormSwap: (resourceName: String, displayName: String) -> Unit = { _, _ -> },
+    onFormSwap: (resourceName: String, displayName: String, types: List<String>?) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val typeName = pokemon.types[0].type.name
@@ -163,11 +163,11 @@ fun DetallesDesplegables(
             SectionPage.DESC -> true
             SectionPage.SPRITES -> true
             SectionPage.STATS -> pokemon.stats.isNotEmpty()
-            SectionPage.EVOS -> evolutionChainDetailResponse != null || isLoadingEvolutionChain
-            SectionPage.SPECIAL_FORMS -> pokemonSpecies?.varieties?.any { v ->
-                val name = v.pokemon.name
-                !v.isDefault && (name.contains("-mega") || name.contains("-gmax"))
-            } == true
+            SectionPage.EVOS -> evolutionChainDetailResponse != null || isLoadingEvolutionChain ||
+                pokemonSpecies?.varieties?.any { v ->
+                    val name = v.pokemon.name
+                    !v.isDefault && (name.contains("-mega") || name.contains("-gmax"))
+                } == true
             SectionPage.MOVES -> pokemon.moves.isNotEmpty()
             SectionPage.ABILITY -> pokemon.abilities.isNotEmpty()
             SectionPage.INTER -> pokemon.types.isNotEmpty()
@@ -215,49 +215,38 @@ fun DetallesDesplegables(
     }
 
     Column(modifier = modifier) {
-        // Barra horizontal de secciones
+        // Barra horizontal de secciones — chips/pills con texto
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .nestedScroll(consumeHorizontalScroll)
-                .background(Brush.verticalGradient(listOf(colorDark.copy(alpha = 0.82f), colorDarker)))
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp)
+                .background(colorComponentBg)
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp)
         ) {
             items(availableSections.size) { index ->
                 val section = availableSections[index]
                 val isSelected = section == currentSection
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                Text(
+                    text = section.label,
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else colorTexto.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .background(
-                            if (isSelected) Color.White.copy(alpha = 0.2f)
-                            else Color.Transparent
+                            if (isSelected) colorDark
+                            else Color(0xFFE8E8E8)
                         )
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSectionSelected(section.name)
                         }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = section.iconRes),
-                        contentDescription = section.label,
-                        modifier = Modifier.size(20.dp),
-                        tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = section.label,
-                        fontSize = 9.sp,
-                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
-                    )
-                }
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                )
             }
         }
 
@@ -476,36 +465,78 @@ fun DetallesDesplegables(
                 }
 
                 SectionPage.EVOS -> {
-                    if (isLoadingEvolutionChain && evolutionChainDetailResponse == null) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
+                    val hasMegasGigas = pokemonSpecies?.varieties?.any { v ->
+                        val name = v.pokemon.name
+                        !v.isDefault && (name.contains("-mega") || name.contains("-gmax"))
+                    } == true
+
+                    var showSpecials by remember { mutableStateOf(false) }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Sub-selector (solo si hay megas/gigas)
+                        if (hasMegasGigas) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf(false to "Línea Evolutiva", true to "Especiales").forEach { (isSpecial, label) ->
+                                    val isSelected = showSpecials == isSpecial
+                                    Text(
+                                        text = label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else colorTexto.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(if (isSelected) colorDark else Color(0xFFE8E8E8))
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                showSpecials = isSpecial
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
                         }
-                    } else if (evolutionChainDetailResponse != null) {
-                        PokemonEvolutionChainView(
-                            evolutionChainResponse = evolutionChainDetailResponse,
-                            onPokemonClick = onEvolutionPokemonClick,
-                            color1 = colorSoft,
-                            color2 = colorSurface,
-                            colorTexto = colorTexto,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                            Text("No se pudieron cargar los datos de evolucion.", color = colorTexto)
+
+                        // Contenido
+                        if (!showSpecials) {
+                            if (isLoadingEvolutionChain && evolutionChainDetailResponse == null) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(48.dp))
+                                }
+                            } else if (evolutionChainDetailResponse != null) {
+                                PokemonEvolutionChainView(
+                                    evolutionChainResponse = evolutionChainDetailResponse,
+                                    onPokemonClick = onEvolutionPokemonClick,
+                                    color1 = colorSoft,
+                                    color2 = colorSurface,
+                                    colorTexto = colorTexto,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    Text("No se pudieron cargar los datos de evolución.", color = colorTexto)
+                                }
+                            }
+                        } else {
+                            PokemonSpecialFormsView(
+                                pokemonSpeciesUrl = pokemon.species.url,
+                                pokemonApiService = pokemonApiService,
+                                onFormClick = { onEvolutionPokemonClick(it) },
+                                cardColor = colorSoft,
+                                itemCardColor = colorSurface,
+                                colorTexto = colorTexto,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
-                }
-
-                SectionPage.SPECIAL_FORMS -> {
-                    PokemonSpecialFormsView(
-                        pokemonSpeciesUrl = pokemon.species.url,
-                        pokemonApiService = pokemonApiService,
-                        onFormClick = { onEvolutionPokemonClick(it) },
-                        cardColor = colorSoft,
-                        itemCardColor = colorSurface,
-                        colorTexto = colorTexto,
-                        modifier = Modifier.fillMaxSize()
-                    )
                 }
 
                 SectionPage.MOVES -> {

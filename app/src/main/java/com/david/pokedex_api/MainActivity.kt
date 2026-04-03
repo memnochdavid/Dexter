@@ -401,6 +401,8 @@ fun PokedexApp(
                             val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
                             val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
                             val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
+                            val showLegendaries by pokemonViewModel.pokemonShowLegendaries.collectAsState()
+                            val showMythicals by pokemonViewModel.pokemonShowMythicals.collectAsState()
                             PokemonSearchMenu(
                                 searchQuery = sq,
                                 selectedType1 = t1,
@@ -409,6 +411,8 @@ fun PokedexApp(
                                 showMegas = showMegas,
                                 showGigamax = showGigamax,
                                 showRegionals = showRegionals,
+                                showLegendaries = showLegendaries,
+                                showMythicals = showMythicals,
                                 onSearchQueryChanged = { pokemonViewModel.pokemonSearchQuery.value = it },
                                 onType1Changed = { pokemonViewModel.pokemonSelectedType1.value = it },
                                 onType2Changed = { pokemonViewModel.pokemonSelectedType2.value = it },
@@ -423,6 +427,12 @@ fun PokedexApp(
                                 onShowRegionalsChanged = {
                                     pokemonViewModel.pokemonShowRegionals.value = it
                                     if (it) pokemonViewModel.fetchSpecialForms()
+                                },
+                                onShowLegendariesChanged = {
+                                    pokemonViewModel.pokemonShowLegendaries.value = it
+                                },
+                                onShowMythicalsChanged = {
+                                    pokemonViewModel.pokemonShowMythicals.value = it
                                 }
                             )
                         }
@@ -559,14 +569,19 @@ private fun DetailSectionSheet(
             ) {
                 rowSections.forEach { section ->
                     val isSelected = section.name == selectedSection
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    Text(
+                        text = section.label,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else contentColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
                         modifier = Modifier
                             .weight(1f)
                             .padding(4.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(
-                                if (isSelected) background_app.copy(alpha = 0.5f)
+                                if (isSelected) background_app.copy(alpha = 0.7f)
                                 else Color.Transparent
                             )
                             .clickable {
@@ -575,23 +590,7 @@ private fun DetailSectionSheet(
                                 onSectionSelected()
                             }
                             .padding(vertical = 10.dp, horizontal = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(id = section.iconRes),
-                            contentDescription = section.label,
-                            modifier = Modifier.size(24.dp),
-                            tint = contentColor
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = section.label,
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                            color = contentColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
-                        )
-                    }
+                    )
                 }
                 repeat(columns - rowSections.size) {
                     Spacer(Modifier.weight(1f).padding(4.dp))

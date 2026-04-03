@@ -7,6 +7,9 @@ import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -65,6 +68,8 @@ fun GenerationPagerScreen(
     val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
     val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
     val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
+    val showLegendaries by pokemonViewModel.pokemonShowLegendaries.collectAsState()
+    val showMythicals by pokemonViewModel.pokemonShowMythicals.collectAsState()
     val specialForms by pokemonViewModel.specialFormsSummaries.observeAsState(emptyList())
     val isGridView by pokemonViewModel.pokemonIsGridView.collectAsState()
 
@@ -81,13 +86,24 @@ fun GenerationPagerScreen(
         }
     }
 
-    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals
-    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2, showMegas, showGigamax, showRegionals, specialForms) {
+    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED ||
+        showMegas || showGigamax || showRegionals || showLegendaries || showMythicals
+    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2,
+        showMegas, showGigamax, showRegionals, showLegendaries, showMythicals, specialForms) {
         if (!isSearching) emptyList()
         else {
             val showingOnlySpecialForms = showMegas || showGigamax || showRegionals
-            val basePokemon = if (!showingOnlySpecialForms) {
-                pokemonByGenerationCache.values.flatten().distinctBy { it.id }
+            val showingLegendaryMythical = showLegendaries || showMythicals
+            val allBasePokemon = pokemonByGenerationCache.values.flatten().distinctBy { it.id }
+
+            val basePokemon = if (!showingOnlySpecialForms && !showingLegendaryMythical) {
+                allBasePokemon
+            } else if (showingLegendaryMythical && !showingOnlySpecialForms) {
+                // Filtrar base pokemon por legendario/singular
+                allBasePokemon.filter { p ->
+                    (showLegendaries && p.id in pokemonViewModel.legendaryIds) ||
+                    (showMythicals && p.id in pokemonViewModel.mythicalIds)
+                }
             } else {
                 emptyList()
             }
@@ -147,6 +163,10 @@ fun PokemonLazyList(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val gridColumns = if (isLandscape) 5 else 3
 
+    // Padding inferior dinámico: barra de navegación del sistema + espacio para el bottom bar de la app
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomPadding = navBarBottom + 80.dp
+
     Crossfade(
         targetState = isGridView,
         animationSpec = tween(300),
@@ -156,7 +176,7 @@ fun PokemonLazyList(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(gridColumns),
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, bottomPadding),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -174,7 +194,7 @@ fun PokemonLazyList(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(items = list, key = { it.id }) { pokemon ->

@@ -194,6 +194,7 @@ private val fullNameMap = mapOf(
     "unown-question" to "unown_pregunta",
 
     // --- Formas base que no tienen webp sin sufijo ---
+    "cherrim" to "cherrim_encapotado",
     "ogerpon" to "ogerpon_mascara_turquesa",
     "terapagos" to "terapagos_normal",
     "gimmighoul" to "gimmighoul_andante",
@@ -258,6 +259,8 @@ private val fullNameMap = mapOf(
     "mimikyu-disguised" to "mimikyu",
     "eiscue-ice" to "eiscue",
     "zygarde-50" to "zygarde",
+    "zygarde-10-power-construct" to "zygarde_diez",
+    "zygarde-50-power-construct" to "zygarde",
     "shaymin-land" to "shaymin_tierra",
     "meloetta-aria" to "meloetta_lirica",
     "wishiwashi-solo" to "wishiwashi_individual",
@@ -277,9 +280,11 @@ private val fullNameMap = mapOf(
     "cherrim-sunshine" to "cherrim_soleado",
 
     // --- Burmy / Wormadam ---
+    "burmy" to "burmy_planta",
     "burmy-plant" to "burmy_planta",
     "burmy-sandy" to "burmy_arena",
     "burmy-trash" to "burmy_basura",
+    "wormadam" to "wormadam_planta",
     "wormadam-plant" to "wormadam_planta",
     "wormadam-sandy" to "wormadam_arena",
     "wormadam-trash" to "wormadam_basura",
@@ -384,7 +389,9 @@ private val fullNameMap = mapOf(
     "urshifu-rapid-strike" to "urshifu_fluido",
 
     // --- Calyrex ---
+    "calyrex-ice" to "calyrex_jinete_glacial",
     "calyrex-ice-rider" to "calyrex_jinete_glacial",
+    "calyrex-shadow" to "calyrex_jinete_espectral",
     "calyrex-shadow-rider" to "calyrex_jinete_espectral",
 
     // --- Necrozma ---

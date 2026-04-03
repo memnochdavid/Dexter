@@ -41,7 +41,11 @@
       "Bash(python3 -c \":*)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f[''''name'''']\\) for f in d[''''forms'''']]\")",
       "Bash(ls C:/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/vivillon*)",
-      "Bash(find C:UsersdavduDesktopPokedex_APIappsrcmainresdrawable -name ic_*.xml)"
+      "Bash(find C:UsersdavduDesktopPokedex_APIappsrcmainresdrawable -name ic_*.xml)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(curl -s \"https://www.wikidex.net/api.php?action=query&list=search&srsearch=Farfetch+HOME+webm&srnamespace=6&format=json&srlimit=20\")",
+      "Bash(echo \"=== Calyrex ===\" ls C:/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/calyrex*)"
     ]
   }
 }

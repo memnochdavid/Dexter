@@ -178,13 +178,13 @@ fun PokemonSpecialFormsView(
 
     Card(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
             // No es necesario .background(cardColor) aquí ya que se define en CardDefaults
         ) {
             Row( // Encabezado clickeable

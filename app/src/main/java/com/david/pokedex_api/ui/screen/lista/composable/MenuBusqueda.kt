@@ -61,17 +61,22 @@ fun PokemonSearchMenu(
     showMegas: Boolean = false,
     showGigamax: Boolean = false,
     showRegionals: Boolean = false,
+    showLegendaries: Boolean = false,
+    showMythicals: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
     onType1Changed: (String) -> Unit,
     onType2Changed: (String) -> Unit,
     onShowMegasChanged: (Boolean) -> Unit = {},
     onShowGigamaxChanged: (Boolean) -> Unit = {},
     onShowRegionalsChanged: (Boolean) -> Unit = {},
+    onShowLegendariesChanged: (Boolean) -> Unit = {},
+    onShowMythicalsChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val hasActiveFilters = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED ||
-            selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals
+            selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals ||
+            showLegendaries || showMythicals
 
     Box(
         modifier = modifier
@@ -110,6 +115,9 @@ fun PokemonSearchMenu(
                             onType2Changed(NO_TYPE_SELECTED)
                             onShowMegasChanged(false)
                             onShowGigamaxChanged(false)
+                            onShowRegionalsChanged(false)
+                            onShowLegendariesChanged(false)
+                            onShowMythicalsChanged(false)
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = Color.White.copy(alpha = 0.15f),
@@ -181,6 +189,27 @@ fun PokemonSearchMenu(
                     checked = showRegionals,
                     onCheckedChange = onShowRegionalsChanged,
                     activeColor = Color(0xFF4ECDC4),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // ── Chips Legendarios / Singulares ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilterChipToggle(
+                    label = "Legendarios",
+                    checked = showLegendaries,
+                    onCheckedChange = onShowLegendariesChanged,
+                    activeColor = Color(0xFFB8860B),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChipToggle(
+                    label = "Singulares",
+                    checked = showMythicals,
+                    onCheckedChange = onShowMythicalsChanged,
+                    activeColor = Color(0xFF9B59B6),
                     modifier = Modifier.weight(1f)
                 )
             }

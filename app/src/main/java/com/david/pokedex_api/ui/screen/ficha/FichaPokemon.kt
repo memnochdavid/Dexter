@@ -151,9 +151,12 @@ fun PokemonDetailScreen(
             }
             traverse(chain)
 
-            // Fase 2: expandir con formas regionales (Alola, Galar, Hisui, Paldea)
-            // Cada regional se inserta justo despues de su species base
-            val expandedIds = pokemonViewModel.expandChainWithRegionalForms(chainOrderIds)
+            // Fase 2: adaptar cadena a la región del Pokémon actual
+            // Si es regional, reemplaza especies base por sus equivalentes regionales
+            // Si es base, devuelve la cadena tal cual
+            val expandedIds = pokemonViewModel.buildChainForCurrentPokemon(
+                chainOrderIds, pokemonDetail?.name ?: pokemonName
+            )
 
             // Fase 3: incluir el pokemon actual si no esta (megas, gigas, etc.)
             val finalIds = expandedIds.toMutableList()
@@ -423,12 +426,14 @@ fun PokemonDetailsView(
         }
     }
 
-    val type1 = pokemon.types[0].type.name
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Estado de swap de forma (para formas locales sin navegación)
     var overrideResourceName by remember { mutableStateOf<String?>(null) }
     var overrideFormDisplayName by remember { mutableStateOf<String?>(null) }
+    var overrideTypes by remember { mutableStateOf<List<String>?>(null) }
+
+    val type1 = overrideTypes?.firstOrNull() ?: pokemon.types[0].type.name
 
     // Estado de género (dimorfismo sexual)
     var isFemale by remember { mutableStateOf(false) }
@@ -476,6 +481,10 @@ fun PokemonDetailsView(
                 tipo = pokemon.types[0].type.name,
                 cryUrl = pokemon.cries?.latest,
                 regionTag = regionTag,
+                isLegendary = pokemonSpecies?.isLegendary == true,
+                isMythical = pokemonSpecies?.isMythical == true,
+                isMega = pokemon.name.contains("-mega"),
+                isGigamax = pokemon.name.contains("-gmax"),
                 hasFemale = hasFemaleSprite,
                 isFemale = isFemale,
                 onToggleGender = { female -> isFemale = female }
@@ -497,9 +506,10 @@ fun PokemonDetailsView(
                 selectedSection = selectedSection,
                 onSectionSelected = { pokemonViewModel.selectedDetailSection.value = it },
                 onAvailableSectionsChanged = { pokemonViewModel.availableDetailSections.value = it },
-                onFormSwap = { resName, displayName ->
+                onFormSwap = { resName, displayName, types ->
                     overrideResourceName = resName
                     overrideFormDisplayName = displayName
+                    overrideTypes = types
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -526,6 +536,7 @@ fun PokemonDetailsView(
                 nombreSpanish = spanishPokemonName,
                 isFemale = isFemale,
                 overrideResourceName = overrideResourceName,
+                overrideTypes = overrideTypes,
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(0.35f + imageWeight * 0.65f)
@@ -558,6 +569,7 @@ fun PokemonDetailsView(
                 nombreSpanish = spanishPokemonName,
                 isFemale = isFemale,
                 overrideResourceName = overrideResourceName,
+                overrideTypes = overrideTypes,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.35f + imageWeight * 0.65f)
@@ -588,6 +600,7 @@ fun ComponenteImagen(
     nombreSpanish: String = "",
     isFemale: Boolean = false,
     overrideResourceName: String? = null,
+    overrideTypes: List<String>? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -673,8 +686,8 @@ fun ComponenteImagen(
         }
     }
 
-    val type1Name = pokemon.types.getOrNull(0)?.type?.name
-    val type2Name = pokemon.types.getOrNull(1)?.type?.name
+    val type1Name = overrideTypes?.firstOrNull() ?: pokemon.types.getOrNull(0)?.type?.name
+    val type2Name = if (overrideTypes != null) overrideTypes.getOrNull(1) else pokemon.types.getOrNull(1)?.type?.name
 
     // Gradientes por tipo, oscurecidos para la ficha
     fun Color.darken(factor: Float = 0.75f): Color =

@@ -69,6 +69,7 @@ fun PokemonRegionalFormsView(
     onFormClick: (pokemonName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var regionalForms by remember { mutableStateOf<List<SpecialForm>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -104,51 +105,32 @@ fun PokemonRegionalFormsView(
                         }
                     }
 
-                    val formsFound = regionalVarieties.map { variety ->
-                        async {
-                            val formApiName = variety.pokemon.name
-                            var identifiedRegion: String? = null
+                    // speciesId para construir URL de HOME sprites
+                    val speciesId = speciesDetail.id
+                    // Construir índice de cada variedad para HOME sprite URL
+                    val varietyIndexMap = speciesDetail.varieties.mapIndexed { index, v ->
+                        v.pokemon.name to index
+                    }.toMap()
 
-                            for (region in knownRegions) {
-                                if (formApiName.contains("-$region")) {
-                                    identifiedRegion = region
-                                    break
-                                }
-                            }
+                    val formsFound = regionalVarieties.mapNotNull { variety ->
+                        val formApiName = variety.pokemon.name
+                        val resName = transformPokemonNameToResourceName(formApiName)
+                        val displayName = adaptaNombre(resName)
 
-                            if (identifiedRegion != null) {
-                                val pokemonNamePart = basePokemonName.replaceFirstChar { it.titlecase(
-                                    java.util.Locale.getDefault()) }
-                                val regionTitleCase = identifiedRegion.replaceFirstChar { it.titlecase(
-                                    java.util.Locale.getDefault()) }
-                                var displayName = "$regionTitleCase $pokemonNamePart"
+                        // Sprite: URL de HOME (consistente con evolución)
+                        val formIndex = varietyIndexMap[formApiName] ?: 0
+                        val homeUrl = "https://resource.pokemon-home.com/battledata/img/pokei128/icon${
+                            speciesId.toString().padStart(4, '0')
+                        }_f${formIndex.toString().padStart(2, '0')}_s0.png"
 
-                                if (identifiedRegion == "paldea" && formApiName.contains("-breed")) {
-                                    val breed = formApiName.substringAfterLast("-").takeIf { it != "breed" }?.replaceFirstChar { it.titlecase(
-                                        java.util.Locale.getDefault()) }
-                                    if (breed != null) {
-                                        displayName += " ($breed Breed)"
-                                    }
-                                } else if (!formApiName.endsWith("-$identifiedRegion")) {
-                                    val suffix = formApiName.substringAfter("-$identifiedRegion").replace("-", " ")
-                                    if (suffix.isNotBlank() && suffix != " breed") {
-                                        displayName += suffix.split(" ")
-                                            .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
-                                            .let { " ($it)"}
-                                    }
-                                }
+                        // Fallback a official-artwork
+                        val pokeId = variety.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                        val fallbackUrl = if (pokeId != null)
+                            "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokeId.png"
+                        else null
 
-                                try {
-                                    val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
-                                    val sprite = if (formDetailsResponse.isSuccessful) {
-                                        formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
-                                            ?: formDetailsResponse.body()?.sprites?.frontDefault
-                                    } else null
-                                    SpecialForm(formApiName, displayName.trim(), sprite)
-                                } catch (e: Exception) { null }
-                            } else null
-                        }
-                    }.awaitAll().filterNotNull()
+                        SpecialForm(formApiName, displayName, homeUrl, fallbackSpriteUrl = fallbackUrl)
+                    }
 
                     regionalForms = formsFound
                 } else {
@@ -553,7 +535,7 @@ fun PokemonFormsView(
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
     onFormClick: (pokemonName: String, formApiName: String) -> Unit,
-    onFormSwap: (resourceName: String, displayName: String) -> Unit = { _, _ -> },
+    onFormSwap: (resourceName: String, displayName: String, types: List<String>?) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val knownRegions = listOf("alola", "galar", "hisui", "paldea")
@@ -590,208 +572,69 @@ fun PokemonFormsView(
             val nonDefaultForms = pokemon.forms.filter { it.name != pokemon.name }
             val totalForms = otherVarieties.size + nonDefaultForms.size
 
-            if (totalForms >= 6) {
-                // === MODO LOCAL: construir desde webp sin llamadas API ===
-                isManyForms = true
-                val allForms = mutableListOf<SpecialForm>()
-                val pkg = context.packageName
+            // === Lógica unificada: nombre y sprite consistentes ===
+            // Nombre: transformPokemonNameToResourceName + adaptaNombre
+            // Sprite: HOME sprite (consistente con evolución) + fallback official-artwork
+            // Para >=6 formas: swap local sin navegación
+            isManyForms = totalForms >= 6
 
-                // Varieties
-                otherVarieties.forEach { variety ->
-                    val apiName = variety.pokemon.name
-                    val resName = transformPokemonNameToResourceName(apiName)
-                    val pokeId = variety.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
-                    val spriteUrl = if (pokeId != null)
-                        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$pokeId.png"
-                    else pokemon.sprites.frontDefault
-                    val displayName = adaptaNombre(resName)
-                    allForms.add(SpecialForm(apiName, displayName, spriteUrl, localResourceName = resName))
+            val allForms = mutableListOf<SpecialForm>()
+            val addedNames = mutableSetOf<String>()
+            val pkg = context.packageName
+            val speciesId = species?.id ?: 0
+            val varietyIndexMap = species?.varieties?.mapIndexed { index, v ->
+                v.pokemon.name to index
+            }?.toMap() ?: emptyMap()
+
+            // Varieties
+            otherVarieties.forEach { variety ->
+                val apiName = variety.pokemon.name
+                val resName = transformPokemonNameToResourceName(apiName)
+                val displayName = adaptaNombre(resName)
+                val formIndex = varietyIndexMap[apiName] ?: 0
+                val homeUrl = "https://resource.pokemon-home.com/battledata/img/pokei128/icon${
+                    speciesId.toString().padStart(4, '0')
+                }_f${formIndex.toString().padStart(2, '0')}_s0.png"
+                val pokeId = variety.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                val fallbackUrl = if (pokeId != null)
+                    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokeId.png"
+                else null
+                if (addedNames.add(apiName)) {
+                    allForms.add(SpecialForm(apiName, displayName, homeUrl,
+                        fallbackSpriteUrl = fallbackUrl,
+                        localResourceName = if (isManyForms) resName else null))
                 }
+            }
 
-                // Forms — usar webp local como URI, fallback al sprite base
-                nonDefaultForms.forEach { formResource ->
-                    val apiName = formResource.name
-                    val resName = transformPokemonNameToResourceName(apiName)
-                    val resId = context.resources.getIdentifier(resName, "raw", pkg)
-                    val spriteUrl = if (resId != 0)
-                        "android.resource://$pkg/$resId"
-                    else pokemon.sprites.frontDefault
-                    val displayName = adaptaNombre(resName)
-                    allForms.add(SpecialForm(apiName, displayName, spriteUrl, localResourceName = resName))
+            // Forms (no-default)
+            // Mapeo sufijo de form → tipo (para Arceus, Silvally y similares)
+            val formTypeMap = mapOf(
+                "bug" to "bug", "dark" to "dark", "dragon" to "dragon",
+                "electric" to "electric", "fairy" to "fairy", "fighting" to "fighting",
+                "fire" to "fire", "flying" to "flying", "ghost" to "ghost",
+                "grass" to "grass", "ground" to "ground", "ice" to "ice",
+                "poison" to "poison", "psychic" to "psychic", "rock" to "rock",
+                "steel" to "steel", "water" to "water", "normal" to "normal",
+            )
+            nonDefaultForms.forEach { formResource ->
+                val apiName = formResource.name
+                val resName = transformPokemonNameToResourceName(apiName)
+                val displayName = adaptaNombre(resName)
+                val resId = context.resources.getIdentifier(resName, "raw", pkg)
+                val spriteUrl = if (resId != 0)
+                    "android.resource://$pkg/$resId"
+                else pokemon.sprites.frontDefault
+                // Detectar tipo de la forma (sufijo después del nombre base)
+                val formSuffix = apiName.removePrefix("${baseName}-")
+                val formTypes = formTypeMap[formSuffix]?.let { listOf(it) }
+                if (addedNames.add(apiName)) {
+                    allForms.add(SpecialForm(apiName, displayName, spriteUrl,
+                        localResourceName = resName,
+                        overrideTypes = formTypes))
                 }
+            }
 
-                formsList = allForms
-            } else {
-            // === MODO API: pocas formas, cargar con detalle ===
-            val result = kotlinx.coroutines.withTimeoutOrNull(15_000L) {
-                val allForms = mutableListOf<SpecialForm>()
-                val addedNames = mutableSetOf<String>()
-                val baseName = pokemon.name
-
-                // === Fuente 1: Varieties de la species (pikachu con gorras, etc.) ===
-                val speciesResponse = pokemonApiService.getPokemonSpeciesDetailsByUrl(pokemonSpeciesUrl)
-                if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
-                    val species = speciesResponse.body()!!
-                    val otherVarieties = species.varieties.filter { variety ->
-                        if (variety.isDefault) return@filter false
-                        val name = variety.pokemon.name
-                        // Excluir megas y gigas
-                        if (name.contains("-mega") || name.contains("-gmax")) return@filter false
-                        // Excluir regionales exactos (base-region o base-region-breed para paldea)
-                        val isRegional = knownRegions.any { region ->
-                            name == "$baseName-$region" ||
-                                (region == "paldea" && name.startsWith("$baseName-$region-"))
-                        }
-                        !isRegional
-                    }
-
-                    // Modo ligero para Pokemon con muchas varieties (>10): evitar
-                    // hacer getPokemonDetails + getPokemonFormDetails por cada una.
-                    // Construir sprite URL desde el ID de la variety directamente.
-                    val useLightMode = otherVarieties.size > 10
-
-                    if (useLightMode) {
-                        otherVarieties.forEach { variety ->
-                            val pokeName = variety.pokemon.name
-                            val pokeId = variety.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
-                            val spriteUrl = if (pokeId != null)
-                                "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$pokeId.png"
-                            else null
-                            val suffix = pokeName.removePrefix("$baseName-")
-                                .split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
-                            val displayName = "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($suffix)"
-                            if (addedNames.add(pokeName)) {
-                                allForms.add(SpecialForm(pokeName, displayName, spriteUrl))
-                            }
-                        }
-                    } else {
-                        val varietySemaphore = kotlinx.coroutines.sync.Semaphore(5)
-                        val varietyDeferred = otherVarieties.map { variety ->
-                            async {
-                                varietySemaphore.acquire()
-                                try {
-                                    val pokeName = variety.pokemon.name
-                                    val detailResp = pokemonApiService.getPokemonDetails(pokeName)
-                                    val detail = detailResp.body()
-                                    val spriteUrl = detail?.sprites?.other?.officialArtwork?.frontDefault
-                                        ?: detail?.sprites?.frontDefault
-                                        ?: variety.pokemon.url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
-                                            ?.let { "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$it.png" }
-
-                                    // Intentar obtener nombre localizado
-                                    val lang = Locale.getDefault().language
-                                    val localizedName = detail?.let {
-                                        if (it.forms.isNotEmpty()) {
-                                            val formResp = pokemonApiService.getPokemonFormDetailsByUrl(it.forms[0].url)
-                                            val formDetail = formResp.body()
-                                            val locFormName = formDetail?.localizedFormNames
-                                                ?.firstOrNull { n -> n.language.name == lang }?.name?.takeIf { n -> n.isNotBlank() }
-                                                ?: formDetail?.localizedFormNames
-                                                    ?.firstOrNull { n -> n.language.name == "en" }?.name?.takeIf { n -> n.isNotBlank() }
-                                            val locPokeName = formDetail?.localizedPokemonNames
-                                                ?.firstOrNull { n -> n.language.name == lang }?.name
-                                                ?: formDetail?.localizedPokemonNames
-                                                    ?.firstOrNull { n -> n.language.name == "en" }?.name
-                                            if (locFormName != null && locPokeName != null) {
-                                                "$locPokeName ($locFormName)"
-                                            } else if (locFormName != null) {
-                                                "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($locFormName)"
-                                            } else null
-                                        } else null
-                                    }
-
-                                    val displayName = localizedName
-                                        ?: pokeName.removePrefix(pokemon.name + "-")
-                                            .split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
-                                            .let { suffix -> "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($suffix)" }
-
-                                    SpecialForm(
-                                        formName = pokeName,
-                                        displayName = displayName,
-                                        spriteUrl = spriteUrl
-                                    )
-                                } catch (_: Exception) { null }
-                                finally { varietySemaphore.release() }
-                            }
-                        }
-                        varietyDeferred.awaitAll().filterNotNull().forEach { form ->
-                            if (addedNames.add(form.formName)) allForms.add(form)
-                        }
-                    }
-                }
-
-                // === Fuente 2: Forms del pokemon (formas de Arceus por tipo, Deoxys, Unown, etc.) ===
-                val nonDefaultForms = pokemon.forms.filter { it.name != pokemon.name }
-                if (nonDefaultForms.isNotEmpty()) {
-                    val useFormsLightMode = nonDefaultForms.size > 10
-                    if (useFormsLightMode) {
-                        // Modo ligero: construir display name sin llamada API
-                        nonDefaultForms.forEach { formResource ->
-                            val formName = formResource.name
-                            val formId = formResource.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
-                            val suffix = formName.removePrefix("${pokemon.name}-")
-                                .split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
-                            val displayName = "${pokemon.name.replaceFirstChar { c -> c.titlecase() }} ($suffix)"
-                            val spriteUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
-                                ?: pokemon.sprites.frontDefault
-                            if (addedNames.add(formName)) {
-                                allForms.add(SpecialForm(formName, displayName, spriteUrl))
-                            }
-                        }
-                    } else {
-                        val semaphore = kotlinx.coroutines.sync.Semaphore(5)
-                        val formDeferred = nonDefaultForms.map { formResource ->
-                            async {
-                                semaphore.acquire()
-                                try {
-                                    val formResp = pokemonApiService.getPokemonFormDetailsByUrl(formResource.url)
-                                    val formDetail = formResp.body() ?: return@async null
-                                    if (formDetail.isDefault) return@async null
-
-                                    val lang = Locale.getDefault().language
-                                    val locFormName = formDetail.localizedFormNames
-                                        .firstOrNull { it.language.name == lang }?.name?.takeIf { it.isNotBlank() }
-                                        ?: formDetail.localizedFormNames
-                                            .firstOrNull { it.language.name == "en" }?.name?.takeIf { it.isNotBlank() }
-                                    val locPokeName = formDetail.localizedPokemonNames
-                                        .firstOrNull { it.language.name == lang }?.name
-                                        ?: formDetail.localizedPokemonNames
-                                            .firstOrNull { it.language.name == "en" }?.name
-                                        ?: pokemon.name.replaceFirstChar { it.titlecase() }
-
-                                    val displayName = if (!locFormName.isNullOrBlank()) {
-                                        "$locPokeName ($locFormName)"
-                                    } else {
-                                        val suffix = formDetail.name.removePrefix(pokemon.name + "-")
-                                        if (suffix != formDetail.name && suffix.isNotBlank()) {
-                                            "$locPokeName (${suffix.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }})"
-                                        } else locPokeName
-                                    }
-
-                                    val spriteUrl = formDetail.sprites.frontDefault
-                                        ?: pokemon.sprites.other?.officialArtwork?.frontDefault
-                                        ?: pokemon.sprites.frontDefault
-
-                                    SpecialForm(
-                                        formName = formDetail.name,
-                                        displayName = displayName,
-                                        spriteUrl = spriteUrl
-                                    )
-                                } catch (_: Exception) { null }
-                                finally { semaphore.release() }
-                            }
-                        }
-                        formDeferred.awaitAll().filterNotNull().forEach { form ->
-                            if (addedNames.add(form.formName)) allForms.add(form)
-                        }
-                    }
-                }
-
-                allForms // devuelve resultado del withTimeoutOrNull
-                }
-            formsList = result ?: emptyList()
-            if (result == null) error = "Tiempo de carga agotado"
-            } // cierre del else (modo API)
+            formsList = allForms
         } catch (e: Exception) {
             error = "Error cargando formas: ${e.localizedMessage}"
         } finally {
@@ -863,8 +706,8 @@ fun PokemonFormsView(
                         specialForm = form,
                         backgroundColor = itemCardColor,
                         onClick = {
-                            if (isManyForms && form.localResourceName != null) {
-                                onFormSwap(form.localResourceName, form.displayName)
+                            if (form.localResourceName != null) {
+                                onFormSwap(form.localResourceName, form.displayName, form.overrideTypes)
                             } else {
                                 onFormClick(pokemon.name, form.formName)
                             }

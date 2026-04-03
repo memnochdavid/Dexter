@@ -472,7 +472,7 @@ fun PokemonEvolutionChainView(
     }
 
     Card(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = color1)
     ) {

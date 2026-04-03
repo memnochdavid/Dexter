@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +42,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.david.pokedex_api.R
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NombreNumAlturaPeso(
     colorFondo: Color,
@@ -53,6 +56,10 @@ fun NombreNumAlturaPeso(
     tipo: String,
     cryUrl: String? = null,
     regionTag: String? = null,
+    isLegendary: Boolean = false,
+    isMythical: Boolean = false,
+    isMega: Boolean = false,
+    isGigamax: Boolean = false,
     hasFemale: Boolean = false,
     isFemale: Boolean = false,
     onToggleGender: (Boolean) -> Unit = {},
@@ -72,13 +79,16 @@ fun NombreNumAlturaPeso(
         colorFondo.alpha
     )
 
+    // ¿Hay algún badge que mostrar?
+    val hasBadges = isLegendary || isMythical || regionTag != null || isMega || isGigamax
+
     Column(
         modifier = modifier
             .background(Brush.verticalGradient(listOf(colorFondo, darkerFondo)))
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Nombre + Numero
+        // Línea 1: Nombre + Número
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -98,26 +108,9 @@ fun NombreNumAlturaPeso(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp
             )
-            if (regionTag != null) {
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(colorTexto.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = regionTag,
-                        color = colorTexto,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
         }
 
-        // Genus + Forma
+        // Línea 2: Genus + Forma
         val genusFormText = remember(genus, formName) {
             when {
                 !genus.isNullOrBlank() && !formName.isNullOrBlank() -> "$genus (Forma $formName)"
@@ -137,9 +130,55 @@ fun NombreNumAlturaPeso(
             )
         }
 
+        // Línea 3: Badges (solo los que apliquen)
+        if (hasBadges) {
+            Spacer(Modifier.height(6.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isLegendary) {
+                    InfoBadge(
+                        text = "Legendario",
+                        bgColor = Color(0xFFB8860B).copy(alpha = 0.35f),
+                        textColor = Color(0xFFFFD700)
+                    )
+                }
+                if (isMythical) {
+                    InfoBadge(
+                        text = "Singular",
+                        bgColor = Color(0xFF9B59B6).copy(alpha = 0.35f),
+                        textColor = Color(0xFFD8A8F0)
+                    )
+                }
+                if (regionTag != null) {
+                    InfoBadge(
+                        text = regionTag,
+                        bgColor = Color(0xFF4ECDC4).copy(alpha = 0.35f),
+                        textColor = Color(0xFFA8F0EC)
+                    )
+                }
+                if (isMega) {
+                    InfoBadge(
+                        text = "Mega",
+                        bgColor = Color(0xFFFF6B6B).copy(alpha = 0.35f),
+                        textColor = Color(0xFFFFAAAA)
+                    )
+                }
+                if (isGigamax) {
+                    InfoBadge(
+                        text = "Gigamax",
+                        bgColor = Color(0xFFFF9F43).copy(alpha = 0.35f),
+                        textColor = Color(0xFFFFD0A0)
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
 
-        // Altura + Peso + Botones (género + cry)
+        // Línea 4: Altura + Peso + Botones (género + cry)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -157,16 +196,15 @@ fun NombreNumAlturaPeso(
                 colorTexto = colorTexto
             )
 
-            // Separador flexible para empujar botones a la derecha
             Spacer(Modifier.weight(1f))
 
             // Botones de género (solo si hay dimorfismo sexual)
             if (hasFemale) {
                 GenderButton(
-                    symbol = "\u2642", // ♂
+                    symbol = "\u2642",
                     isSelected = !isFemale,
                     colorTexto = colorTexto,
-                    selectedColor = Color(0xFF6CB4EE), // azul
+                    selectedColor = Color(0xFF6CB4EE),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onToggleGender(false)
@@ -174,10 +212,10 @@ fun NombreNumAlturaPeso(
                 )
                 Spacer(Modifier.width(4.dp))
                 GenderButton(
-                    symbol = "\u2640", // ♀
+                    symbol = "\u2640",
                     isSelected = isFemale,
                     colorTexto = colorTexto,
-                    selectedColor = Color(0xFFFF6B8A), // rosa
+                    selectedColor = Color(0xFFFF6B8A),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onToggleGender(true)
@@ -208,6 +246,24 @@ fun NombreNumAlturaPeso(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoBadge(text: String, bgColor: Color, textColor: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(bgColor)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp
+        )
     }
 }
 

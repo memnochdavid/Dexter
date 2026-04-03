@@ -386,7 +386,8 @@ data class SpecialForm(
     val displayName: String, // ej: "Mega Charizard X"
     val spriteUrl: String?,
     val fallbackSpriteUrl: String? = null,
-    val localResourceName: String? = null // nombre del recurso webp local (para swap sin navegación)
+    val localResourceName: String? = null, // nombre del recurso webp local (para swap sin navegación)
+    val overrideTypes: List<String>? = null // tipos override para forms que cambian tipo (Arceus, Silvally)
 )
 
 data class TypeListResponse(

@@ -48,12 +48,40 @@ class PokemonViewModel : ViewModel() {
     var pokemonShowMegas = MutableStateFlow(false)
     var pokemonShowGigamax = MutableStateFlow(false)
     var pokemonShowRegionals = MutableStateFlow(false)
+    var pokemonShowLegendaries = MutableStateFlow(false)
+    var pokemonShowMythicals = MutableStateFlow(false)
     var pokemonIsGridView = MutableStateFlow(false)
 
     // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
     private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
     val specialFormsSummaries: LiveData<List<PokemonSummary>> = _specialFormsSummaries
     private var specialFormsLoaded = false
+
+    // IDs de legendarios y singulares (datos estáticos de PokeAPI)
+    val legendaryIds = setOf(
+        144, 145, 146, 150, // Articuno, Zapdos, Moltres, Mewtwo
+        243, 244, 245, 249, 250, // Raikou, Entei, Suicune, Lugia, Ho-Oh
+        377, 378, 379, 380, 381, 382, 383, 384, // Regis, Lati@s, Weather trio
+        480, 481, 482, 483, 484, 485, 486, 487, 488, // Lake trio, Creation trio, Heatran, Regigigas, Giratina, Cresselia
+        638, 639, 640, 641, 642, 643, 644, 645, 646, // Swords, Forces, Tao trio
+        716, 717, 718, // Xerneas, Yveltal, Zygarde
+        772, 773, // Type: Null, Silvally
+        785, 786, 787, 788, 789, 790, 791, 792, 800, // Tapus, Cosmog line, Necrozma
+        888, 889, 890, 891, 892, 895, 896, 897, 898, // Zacian, Zamazenta, Eternatus, Kubfu, Urshifu, Regidrago, Regieleki, Spectrier, Glastrier, Calyrex
+        905, // Enamorus
+        1001, 1002, 1003, 1004, 1007, 1008, 1014, 1015, 1016, 1017, 1024, // Paldea legendaries
+    )
+    val mythicalIds = setOf(
+        151, // Mew
+        251, // Celebi
+        385, 386, // Jirachi, Deoxys
+        489, 490, 491, 492, 493, // Phione, Manaphy, Darkrai, Shaymin, Arceus
+        494, 647, 648, 649, // Victini, Keldeo, Meloetta, Genesect
+        719, 720, 721, // Diancie, Hoopa, Volcanion
+        801, 802, 807, 808, 809, // Magearna, Marshadow, Zeraora, Meltan, Melmetal
+        893, // Zarude
+        1025, // Pecharunt
+    )
 
     fun fetchSpecialForms() {
         if (specialFormsLoaded) return
@@ -247,27 +275,58 @@ class PokemonViewModel : ViewModel() {
      * Para cada species, inserta las varieties regionales justo despues del base.
      * Retorna la lista expandida manteniendo el orden de la cadena.
      */
-    suspend fun expandChainWithRegionalForms(chainOrderIds: List<Int>): List<Int> = coroutineScope {
-        val regionalSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+    /**
+     * Construye la cadena evolutiva adaptada a la región del Pokémon actual.
+     * - Si el Pokémon actual NO es regional → devuelve la cadena base tal cual.
+     * - Si ES regional → reemplaza cada especie base por su variedad regional.
+     *   Especies sin variedad regional en ninguna región se mantienen (ej: Perrserker, Obstagoon).
+     *   Especies con variedad regional pero NO de esta región se excluyen (ej: Persian en cadena Galar).
+     */
+    suspend fun buildChainForCurrentPokemon(
+        chainOrderIds: List<Int>,
+        currentPokemonName: String
+    ): List<Int> = coroutineScope {
+        val allRegionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+        val currentRegion = allRegionSuffixes.firstOrNull { currentPokemonName.contains(it) }
+
+        // Si no es regional, devolver la cadena base
+        if (currentRegion == null) return@coroutineScope chainOrderIds
 
         val results = chainOrderIds.map { speciesId ->
             async(Dispatchers.IO) {
-                speciesId to try {
+                try {
                     val resp = pokemonApiService.getPokemonSpeciesDetailsById(speciesId)
-                    resp.body()?.varieties?.filter { !it.isDefault }
-                        ?.filter { v -> regionalSuffixes.any { s -> v.pokemon.name.contains(s) } }
-                        ?.mapNotNull { v -> v.pokemon.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull() }
-                        ?: emptyList()
-                } catch (_: Exception) { emptyList<Int>() }
+                    val varieties = resp.body()?.varieties ?: return@async speciesId // fallback
+
+                    // Buscar variedad de esta región
+                    val regionalVariety = varieties.firstOrNull { v ->
+                        v.pokemon.name.contains(currentRegion)
+                    }
+                    if (regionalVariety != null) {
+                        // Tiene variedad de esta región → usar su ID
+                        return@async regionalVariety.pokemon.url
+                            .trimEnd('/').substringAfterLast('/').toIntOrNull() ?: speciesId
+                    }
+
+                    // ¿Tiene variedades regionales de OTRAS regiones?
+                    val hasAnyRegional = varieties.any { v ->
+                        !v.isDefault && allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }
+                    }
+
+                    if (!hasAnyRegional) {
+                        // No tiene regionales en ninguna región → es especie exclusiva
+                        // (ej: Perrserker, Obstagoon, Runerigus) → incluir
+                        speciesId
+                    } else {
+                        // Tiene regionales de otra región pero no de esta → excluir
+                        // (ej: Persian tiene Alola pero no Galar → no va en cadena Galar)
+                        null
+                    }
+                } catch (_: Exception) { speciesId }
             }
         }.awaitAll()
 
-        val expanded = mutableListOf<Int>()
-        results.forEach { (speciesId, regionalIds) ->
-            expanded.add(speciesId)
-            expanded.addAll(regionalIds)
-        }
-        expanded
+        results.filterNotNull()
     }
 
     fun preloadEvolutionChain(pokemonIds: List<Int>) {
