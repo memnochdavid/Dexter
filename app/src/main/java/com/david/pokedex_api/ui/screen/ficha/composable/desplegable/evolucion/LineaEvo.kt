@@ -207,53 +207,28 @@ fun EnergyFlowConnector(
 
 // ==================== CARD DE UN POKEMON EN LA CADENA ====================
 
-/** Busca los datos pre-cargados de un ChainLink en el evoMap.
- *  Busca primero por species ID directo, luego por species name (para regionales reemplazados). */
-private fun findPreloadedForChainLink(
-    chainLink: ChainLink,
-    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData>
-): PokemonViewModel.PreloadedPokemonData? {
-    val speciesId = getPokemonIdFromSpeciesUrl(chainLink.species.url)
-    return evoChainMap[speciesId]
-        ?: evoChainMap.values.firstOrNull { it.detail.species.name == chainLink.species.name }
-}
-
-/** Construye un PokemonSummary desde un ChainLink + datos pre-cargados */
-private fun buildSummaryFromChain(
-    chainLink: ChainLink,
-    typeNames: List<String>,
-    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData>
-): PokemonSummary? {
-    val preloaded = findPreloadedForChainLink(chainLink, evoChainMap)
-    val id = preloaded?.detail?.id
-        ?: getPokemonIdFromSpeciesUrl(chainLink.species.url)
-        ?: return null
-    val name = preloaded?.detail?.name ?: chainLink.species.name
+/** Construye un PokemonSummary directamente desde PreloadedPokemonData */
+private fun preloadedToSummary(data: PokemonViewModel.PreloadedPokemonData): PokemonSummary {
+    val d = data.detail
     return PokemonSummary(
-        id = id,
-        name = name,
-        spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/$id.png",
-        types = typeNames,
+        id = d.id,
+        name = d.name,
+        spriteUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${d.id}.png",
+        types = d.types.map { it.type.name },
         colorName = null
     )
 }
 
 @Composable
-fun EvolutionStageCard(
-    chainLink: ChainLink,
-    typeNames: List<String>,
-    evoChainMap: Map<Int, PokemonViewModel.PreloadedPokemonData> = emptyMap(),
+fun EvolutionSummaryCard(
+    summary: PokemonSummary,
     onClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val summary = remember(chainLink, typeNames, evoChainMap) {
-        buildSummaryFromChain(chainLink, typeNames, evoChainMap)
-    } ?: return
-
     Box(modifier = modifier) {
         PokemonListItemCard(
             pokemonSummary = summary,
-            onRecallAndNavigate = { onClick(chainLink.species.name) },
+            onRecallAndNavigate = { onClick(summary.name) },
             simpleClick = true
         )
     }
@@ -369,11 +344,14 @@ fun PokemonEvolutionChainView(
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var isExpanded by remember { mutableStateOf(true) }
 
-    // Helper para obtener tipos de un ChainLink
-    fun getTypesForChainLink(link: ChainLink): List<String> {
-        return findPreloadedForChainLink(link, evoChainMap)
-            ?.detail?.types?.map { it.type.name } ?: emptyList()
+    // Mapa species name → PokemonSummary (resuelve regionales automáticamente)
+    val summaryBySpecies = remember(evoChainMap) {
+        evoChainMap.values.associate { data ->
+            data.detail.species.name to preloadedToSummary(data)
+        }
     }
+
+    fun summaryFor(link: ChainLink): PokemonSummary? = summaryBySpecies[link.species.name]
 
     if (evolutionChainResponse == null) {
         Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -459,13 +437,14 @@ fun PokemonEvolutionChainView(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 linearEvolutionPath.forEachIndexed { index, (chainLink, _) ->
-                                    EvolutionStageCard(
-                                        chainLink = chainLink,
-                                        typeNames = getTypesForChainLink(chainLink),
-                                        evoChainMap = evoChainMap,
-                                        onClick = onPokemonClick,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    val summary = summaryFor(chainLink)
+                                    if (summary != null) {
+                                        EvolutionSummaryCard(
+                                            summary = summary,
+                                            onClick = onPokemonClick,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                     if (index < linearEvolutionPath.size - 1) {
                                         val nextDetail = linearEvolutionPath[index + 1].second
                                         EvolutionConnectorWithCondition(
@@ -489,14 +468,15 @@ fun PokemonEvolutionChainView(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 linearEvolutionPath.forEachIndexed { index, (chainLink, _) ->
-                                    item(key = "evo_${chainLink.species.name}") {
-                                        EvolutionStageCard(
-                                            chainLink = chainLink,
-                                            typeNames = getTypesForChainLink(chainLink),
-                                            evoChainMap = evoChainMap,
-                                            onClick = onPokemonClick,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                                    val summary = summaryFor(chainLink)
+                                    if (summary != null) {
+                                        item(key = "evo_${summary.id}") {
+                                            EvolutionSummaryCard(
+                                                summary = summary,
+                                                onClick = onPokemonClick,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
                                     }
                                     if (index < linearEvolutionPath.size - 1) {
                                         item(key = "connector_$index") {
@@ -528,10 +508,9 @@ fun PokemonEvolutionChainView(
                                     step = branchedEvolutionData[index],
                                     onPokemonClick = onPokemonClick,
                                     viewModel = viewModel,
-                                    evoMap = evoChainMap,
+                                    summaryBySpecies = summaryBySpecies,
                                     textColor = colorTexto,
-                                    connectorColor = colorTexto.copy(alpha = 0.6f),
-                                    baseStaggerIndex = index * 3
+                                    connectorColor = colorTexto.copy(alpha = 0.6f)
                                 )
                             }
                         }
@@ -550,29 +529,24 @@ fun EvolutionStepDisplay(
     step: EvolutionStep,
     onPokemonClick: (String) -> Unit,
     viewModel: PokemonViewModel = viewModel(),
-    evoMap: Map<Int, PokemonViewModel.PreloadedPokemonData>,
+    summaryBySpecies: Map<String, PokemonSummary>,
     textColor: Color,
     connectorColor: Color,
-    baseStaggerIndex: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    fun getTypes(link: ChainLink): List<String> {
-        return findPreloadedForChainLink(link, evoMap)
-            ?.detail?.types?.map { it.type.name } ?: emptyList()
-    }
+    val baseSummary = summaryBySpecies[step.fromPokemon.species.name]
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth()
     ) {
-        // Pokemon base de este paso
-        EvolutionStageCard(
-            chainLink = step.fromPokemon,
-            typeNames = getTypes(step.fromPokemon),
-            evoChainMap = evoMap,
-            onClick = onPokemonClick,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (baseSummary != null) {
+            EvolutionSummaryCard(
+                summary = baseSummary,
+                onClick = onPokemonClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         if (step.toEvolutions.isNotEmpty()) {
             EnergyFlowConnector(
@@ -580,7 +554,6 @@ fun EvolutionStepDisplay(
                 modifier = Modifier.width(24.dp).height(36.dp)
             )
 
-            // Evoluciones: FlowRow como en el original
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -588,22 +561,22 @@ fun EvolutionStepDisplay(
                 maxItemsInEachRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
             ) {
                 step.toEvolutions.forEachIndexed { i, (evolutionLink, evolutionDetail) ->
+                    val evoSummary = summaryBySpecies[evolutionLink.species.name]
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
-                        // Condicion encima del card
                         EvolutionConditionLabel(
                             evolutionDetail = evolutionDetail,
                             viewModel = viewModel,
                             textColor = textColor
                         )
-                        EvolutionStageCard(
-                            chainLink = evolutionLink,
-                            typeNames = getTypes(evolutionLink),
-                            evoChainMap = evoMap,
-                            onClick = onPokemonClick
-                        )
+                        if (evoSummary != null) {
+                            EvolutionSummaryCard(
+                                summary = evoSummary,
+                                onClick = onPokemonClick
+                            )
+                        }
                     }
                 }
             }
