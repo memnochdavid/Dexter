@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -234,6 +238,113 @@ fun EvolutionSummaryCard(
     }
 }
 
+/** Card estilo grid para ramas evolutivas — misma apariencia que PokemonGridItemCard pero con click simple */
+@Composable
+fun EvolutionCompactCard(
+    summary: PokemonSummary,
+    onClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val type1 = summary.types.getOrNull(0)
+    val type2 = summary.types.getOrNull(1)
+    val color1 = if (type1 != null) com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear(type1) else Color.Gray
+    val color2 = if (type2 != null) com.david.pokedex_api.ui.screen.comun.getPokemonTypeColorClear(type2) else color1
+    val gradientPair = if (type1 != null) com.david.pokedex_api.ui.screen.comun.getPokemonTypeGradientColors(type1) else Color.Gray to Color.DarkGray
+
+    val backgroundBrush = remember(summary.types) {
+        if (summary.types.size >= 2) Brush.linearGradient(listOf(color1, color2))
+        else Brush.linearGradient(listOf(gradientPair.first, gradientPair.second))
+    }
+
+    val isDark = remember(summary.types) {
+        summary.types.isNotEmpty() && com.david.pokedex_api.ui.screen.comun.esTipoColorOscuro(summary.types[0])
+    }
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
+    Card(
+        modifier = modifier
+            .width(105.dp)
+            .aspectRatio(0.75f)
+            .clickable { onClick(summary.name) },
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .background(backgroundBrush)
+                .fillMaxSize()
+                .padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Imagen
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val homeUrl = remember(summary.id) {
+                    "https://resource.pokemon-home.com/battledata/img/pokei128/icon${summary.id.toString().padStart(4, '0')}_f00_s0.png"
+                }
+                val primaryUrl = if (summary.id < 10000) homeUrl else (summary.spriteUrl ?: homeUrl)
+                val fallbackUrl = if (summary.id < 10000) summary.spriteUrl else summary.fallbackSpriteUrl
+                var imageUrl by remember(summary.id) { mutableStateOf(primaryUrl) }
+
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(imageUrl)
+                        .memoryCacheKey("pkmn_${summary.id}")
+                        .diskCacheKey("pkmn_${summary.id}")
+                        .size(128)
+                        .listener(onError = { _, _ ->
+                            if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
+                                imageUrl = fallbackUrl
+                            }
+                        })
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+
+            // Número
+            Text(
+                text = "#${summary.id.toString().padStart(3, '0')}",
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.7f)
+            )
+
+            // Nombre
+            Text(
+                text = com.david.pokedex_api.ui.screen.ficha.composable.desplegable.adaptaNombre(
+                    com.david.pokedex_api.ui.screen.ficha.composable.desplegable.transformPokemonNameToResourceName(summary.name)
+                ),
+                color = textColor,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Tipos (solo icono en grid)
+            Spacer(Modifier.height(3.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                summary.types.forEach { type ->
+                    com.david.pokedex_api.ui.screen.comun.PokemonTypeChipIcon(typeName = type)
+                }
+            }
+        }
+    }
+}
+
 // ==================== CONDICION EVOLUTIVA ====================
 
 /** Conector vertical con condición (para LazyColumn portrait) */
@@ -344,11 +455,16 @@ fun PokemonEvolutionChainView(
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var isExpanded by remember { mutableStateOf(true) }
 
-    // Mapa species name → PokemonSummary (resuelve regionales automáticamente)
+    // Mapa nombre → PokemonSummary: indexado por pokemon name Y species name
+    // para resolver tanto el chain base (species names) como el expandido (pokemon names regionales)
     val summaryBySpecies = remember(evoChainMap) {
-        evoChainMap.values.associate { data ->
-            data.detail.species.name to preloadedToSummary(data)
+        val map = mutableMapOf<String, PokemonSummary>()
+        evoChainMap.values.forEach { data ->
+            val summary = preloadedToSummary(data)
+            map[data.detail.name] = summary              // por pokemon name (ej: "mr-mime-galar")
+            map.putIfAbsent(data.detail.species.name, summary) // por species name (ej: "mr-mime"), sin sobreescribir
         }
+        map.toMap()
     }
 
     fun summaryFor(link: ChainLink): PokemonSummary? = summaryBySpecies[link.species.name]
@@ -360,26 +476,33 @@ fun PokemonEvolutionChainView(
         return
     }
 
-    val branchedEvolutionData = remember(evolutionChainResponse.chain) {
-        getEvolutionSteps(evolutionChainResponse.chain)
+    // Filtrar el chain para eliminar ramas sin datos precargados (evita huecos visuales
+    // cuando buildChainForCurrentPokemon excluye especies de otra región)
+    val filteredChain = remember(evolutionChainResponse.chain, summaryBySpecies) {
+        if (summaryBySpecies.isEmpty()) evolutionChainResponse.chain
+        else filterChainByAvailableData(evolutionChainResponse.chain, summaryBySpecies.keys)
+    }
+
+    val branchedEvolutionData = remember(filteredChain) {
+        getEvolutionSteps(filteredChain)
     }
 
     val isLinear = remember(branchedEvolutionData) {
         isChainPredominantlyLinear(branchedEvolutionData)
     }
 
-    val linearEvolutionPath = remember(evolutionChainResponse.chain, isLinear) {
-        if (isLinear) flattenEvolutionChainForLinearDisplay(evolutionChainResponse.chain)
+    val linearEvolutionPath = remember(filteredChain, isLinear) {
+        if (isLinear) flattenEvolutionChainForLinearDisplay(filteredChain)
         else emptyList()
     }
 
-    if (branchedEvolutionData.isEmpty() && linearEvolutionPath.isEmpty() && evolutionChainResponse.chain.evolvesTo.isEmpty()) {
+    if (branchedEvolutionData.isEmpty() && linearEvolutionPath.isEmpty() && filteredChain.evolvesTo.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            val baseName by produceState(initialValue = formatApiName(evolutionChainResponse.chain.species.name)) {
-                if (evolutionChainResponse.chain.species.url.isNotBlank()) {
+            val baseName by produceState(initialValue = formatApiName(filteredChain.species.name)) {
+                if (filteredChain.species.url.isNotBlank()) {
                     value = viewModel.fetchLocalizedName(
-                        resourceUrl = evolutionChainResponse.chain.species.url,
-                        fallbackApiName = evolutionChainResponse.chain.species.name,
+                        resourceUrl = filteredChain.species.url,
+                        fallbackApiName = filteredChain.species.name,
                         resourceTypeHint = "pokemon-species"
                     )
                 }
@@ -554,28 +677,60 @@ fun EvolutionStepDisplay(
                 modifier = Modifier.width(24.dp).height(36.dp)
             )
 
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
-            ) {
-                step.toEvolutions.forEachIndexed { i, (evolutionLink, evolutionDetail) ->
-                    val evoSummary = summaryBySpecies[evolutionLink.species.name]
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        EvolutionConditionLabel(
-                            evolutionDetail = evolutionDetail,
-                            viewModel = viewModel,
-                            textColor = textColor
-                        )
-                        if (evoSummary != null) {
-                            EvolutionSummaryCard(
-                                summary = evoSummary,
-                                onClick = onPokemonClick
+            val useCompactCards = step.toEvolutions.size > 1
+
+            if (useCompactCards) {
+                // Ramas: cards compactas estilo grid, centradas
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    maxItemsInEachRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
+                ) {
+                    step.toEvolutions.forEach { (evolutionLink, evolutionDetail) ->
+                        val evoSummary = summaryBySpecies[evolutionLink.species.name]
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(105.dp)
+                        ) {
+                            EvolutionConditionLabel(
+                                evolutionDetail = evolutionDetail,
+                                viewModel = viewModel,
+                                textColor = textColor
                             )
+                            if (evoSummary != null) {
+                                EvolutionCompactCard(
+                                    summary = evoSummary,
+                                    onClick = onPokemonClick
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Single evolution: card estilo lista completa
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    step.toEvolutions.forEach { (evolutionLink, evolutionDetail) ->
+                        val evoSummary = summaryBySpecies[evolutionLink.species.name]
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            EvolutionConditionLabel(
+                                evolutionDetail = evolutionDetail,
+                                viewModel = viewModel,
+                                textColor = textColor
+                            )
+                            if (evoSummary != null) {
+                                EvolutionSummaryCard(
+                                    summary = evoSummary,
+                                    onClick = onPokemonClick
+                                )
+                            }
                         }
                     }
                 }
@@ -642,4 +797,30 @@ fun flattenEvolutionChainForLinearDisplay(baseChainLink: ChainLink): List<Pair<C
     }
     traverse(baseChainLink, null)
     return path
+}
+
+/**
+ * Filtra un ChainLink tree para eliminar ramas cuyas especies no están en [availableSpecies].
+ * - Si la especie raíz no está disponible, se busca en sus hijos un sustituto.
+ * - En cada nivel, solo se mantienen las ramas (evolvesTo) cuyas especies SÍ están disponibles.
+ * Esto evita huecos visuales cuando buildChainForCurrentPokemon excluye especies de otra región.
+ */
+fun filterChainByAvailableData(chain: ChainLink, availableSpecies: Set<String>): ChainLink {
+    fun filterLink(link: ChainLink): ChainLink? {
+        // Filtrar recursivamente los hijos
+        val filteredChildren = link.evolvesTo.mapNotNull { child ->
+            filterLink(child)
+        }
+        // Si esta especie está disponible, mantenerla con hijos filtrados
+        if (link.species.name in availableSpecies) {
+            return link.copy(evolvesTo = filteredChildren)
+        }
+        // Si no está disponible pero tiene exactamente un hijo, "saltarla"
+        // (conectar el padre directamente al nieto)
+        if (filteredChildren.size == 1) return filteredChildren[0]
+        // Si no está disponible y tiene 0 o varios hijos, eliminar esta rama
+        return null
+    }
+    // La raíz siempre se mantiene (aunque no tenga datos todavía)
+    return filterLink(chain) ?: chain
 }

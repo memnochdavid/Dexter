@@ -143,39 +143,42 @@ fun PokemonDetailScreen(
     }
 
     // Cuando llega la cadena evolutiva, expandir con formas regionales y pre-cargar
+    // Almacena el chain expandido para pasarlo al rendering (incluye ramas regionales)
+    var expandedChain by remember { mutableStateOf<com.david.pokedex_api.api.model.ChainLink?>(null) }
+
     LaunchedEffect(evolutionChain, pokemonDetail?.id) {
         evolutionChain?.chain?.let { chain ->
-            // Fase 1: recorrer la cadena en ORDEN EVOLUTIVO (no numerico)
-            val chainOrderIds = mutableListOf<Int>()
+            // Fase 1: expandir chain con variantes regionales como ramas
+            val (expanded, allIds) = pokemonViewModel.expandChainWithRegionals(chain)
+            expandedChain = expanded
+
+            // Fase 2: incluir el pokemon actual si no esta (megas, gigas, etc.)
+            val finalIds = allIds.toMutableList()
+            val currentId = pokemonDetail?.id
+            if (currentId != null && !finalIds.contains(currentId)) {
+                finalIds.add(currentId)
+            }
+
+            // Fase 3: construir lista de navegación (pager) desde el chain original
+            // El pager usa la cadena simple para swipe (sin duplicar regionales)
+            val navIds = mutableListOf<Int>()
             fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
-                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { chainOrderIds.add(it) }
+                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { navIds.add(it) }
                 link.evolvesTo.forEach { traverse(it) }
             }
             traverse(chain)
-
-            // Fase 2: adaptar cadena a la región del Pokémon actual
-            // Si es regional, reemplaza especies base por sus equivalentes regionales
-            // Si es base, devuelve la cadena tal cual
-            val expandedIds = pokemonViewModel.buildChainForCurrentPokemon(
-                chainOrderIds, pokemonDetail?.name ?: pokemonName
-            )
-
-            // Fase 3: incluir el pokemon actual si no esta (megas, gigas, etc.)
-            val finalIds = expandedIds.toMutableList()
-            val currentId = pokemonDetail?.id
-            if (currentId != null && !finalIds.contains(currentId)) {
-                // Insertar cerca de su species base si es posible
+            // Si el pokemon actual no está en la nav list base (es regional), añadirlo
+            if (currentId != null && !navIds.contains(currentId)) {
                 val speciesUrl = pokemonDetail?.species?.url
                 val baseSpeciesId = speciesUrl?.trimEnd('/')?.split("/")?.lastOrNull()?.toIntOrNull()
                 val insertIdx = if (baseSpeciesId != null) {
-                    val baseIdx = finalIds.indexOf(baseSpeciesId)
-                    if (baseIdx >= 0) baseIdx + 1 else finalIds.size
-                } else finalIds.size
-                finalIds.add(insertIdx, currentId)
+                    val baseIdx = navIds.indexOf(baseSpeciesId)
+                    if (baseIdx >= 0) baseIdx + 1 else navIds.size
+                } else navIds.size
+                navIds.add(insertIdx, currentId)
             }
 
-            // NO sort — el orden de la cadena es el correcto
-            pokemonViewModel.setNavigationList(finalIds)
+            pokemonViewModel.setNavigationList(navIds)
             pokemonViewModel.preloadEvolutionChain(finalIds)
         }
     }
@@ -212,6 +215,17 @@ fun PokemonDetailScreen(
             val navList by pokemonViewModel.navigationList.observeAsState(emptyList())
             val evoMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
             val allPreloaded = navList.size > 1 && evoMap.size >= navList.size
+
+            // Chain expandido con ramas regionales (para la visualización de línea evolutiva)
+            val displayChain = remember(expandedChain, evolutionChain) {
+                if (expandedChain != null) {
+                    com.david.pokedex_api.api.model.EvolutionChainDetailResponse(
+                        id = evolutionChain?.id ?: 0,
+                        babyTriggerItem = evolutionChain?.babyTriggerItem,
+                        chain = expandedChain!!
+                    )
+                } else evolutionChain
+            }
 
             if (pokemonDetail == null) {
                 val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -298,7 +312,7 @@ fun PokemonDetailScreen(
                             pokemon = preloaded.detail,
                             pokemonSpecies = preloaded.species,
                             description = null,
-                            evolutionChainDetailResponse = evolutionChain,
+                            evolutionChainDetailResponse = displayChain,
                             isLoadingEvolutionChain = isLoadingEvolutionChain,
                             onEvolutionPokemonClick = { clickedName ->
                                 // Buscar el pokemon en el pager por nombre o ID
@@ -337,7 +351,7 @@ fun PokemonDetailScreen(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,
                     description = pokemonDescription,
-                    evolutionChainDetailResponse = evolutionChain,
+                    evolutionChainDetailResponse = displayChain,
                     isLoadingEvolutionChain = isLoadingEvolutionChain,
                     onEvolutionPokemonClick = { pokemonNameClicked ->
                         pokemonViewModel.fetchPokemonDetailsByName(pokemonNameClicked, "es")
