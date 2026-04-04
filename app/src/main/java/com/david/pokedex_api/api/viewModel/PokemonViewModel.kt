@@ -920,11 +920,12 @@ class PokemonViewModel : ViewModel() {
         val moveTypeDef = detail.knownMoveType?.let { async { fetchLocalizedName(it.url, it.name, "type") } }
         val locationDef = detail.location?.let { async { fetchLocalizedName(it.url, it.name, "location") } }
 
-        var cond = trigger
+        // Si el trigger es "use-item", no mostrar "Objeto" (ya se muestra el icono del item)
+        var cond = if (detail.trigger.name == "use-item") "" else trigger
         detail.minLevel?.let { cond += " $it" }
 
-        itemDef?.await()?.let { cond += "\nUsando $it" }
-        heldItemDef?.await()?.let { cond += "\nCon $it equipado" }
+        itemDef?.await()?.let { cond += if (cond.isBlank()) it else "\nUsando $it" }
+        heldItemDef?.await()?.let { cond += if (cond.isBlank()) "$it equipado" else "\nCon $it equipado" }
 
         detail.minHappiness?.let { cond += "\nFelicidad mín.: $it" }
         detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let {

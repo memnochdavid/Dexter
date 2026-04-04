@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -347,7 +348,7 @@ fun EvolutionCompactCard(
 
 // ==================== CONDICION EVOLUTIVA ====================
 
-/** Conector vertical con condición (para LazyColumn portrait) */
+/** Conector con condición evolutiva — chip integrado en la línea de flujo */
 @Composable
 private fun EvolutionConnectorWithCondition(
     evolutionDetail: EvolutionDetail?,
@@ -370,43 +371,67 @@ private fun EvolutionConnectorWithCondition(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                if (itemUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
-                        contentDescription = null, modifier = Modifier.size(16.dp), contentScale = ContentScale.Fit
-                    )
-                } else if (icon.isNotEmpty()) {
-                    Text(text = icon, fontSize = 11.sp)
-                }
-            }
-            condition?.let {
-                Text(it, fontSize = 9.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 11.sp, textAlign = TextAlign.Center, maxLines = 2)
-            }
-            EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(14.dp))
+            EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(10.dp))
+            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context)
+            EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(10.dp))
         }
     } else {
         Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                if (itemUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
-                        contentDescription = null, modifier = Modifier.size(20.dp).padding(end = 4.dp), contentScale = ContentScale.Fit
-                    )
-                } else if (icon.isNotEmpty()) {
-                    Text(text = icon, fontSize = 13.sp, modifier = Modifier.padding(end = 4.dp))
-                }
-                condition?.let {
-                    Text(it, fontSize = 11.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
-                }
-            }
-            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(16.dp))
+            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(14.dp))
+            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context)
+            EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(14.dp))
         }
     }
 }
 
-/** Solo la etiqueta de condición (sin conector), para mostrar encima de un card en FlowRow */
+/** Chip visual para condición evolutiva */
+@Composable
+private fun ConditionChip(
+    itemUrl: String?,
+    icon: String,
+    condition: String?,
+    textColor: Color,
+    context: android.content.Context
+) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+        shadowElevation = 2.dp,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            if (itemUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(96).build(),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(Modifier.width(6.dp))
+            } else if (icon.isNotEmpty()) {
+                Text(text = icon, fontSize = 18.sp)
+                Spacer(Modifier.width(5.dp))
+            }
+            condition?.let {
+                Text(
+                    text = it,
+                    fontSize = 11.sp,
+                    color = textColor.copy(alpha = 0.85f),
+                    lineHeight = 14.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 3
+                )
+            }
+        }
+    }
+}
+
+/** Etiqueta de condición compacta para bifurcaciones (encima de compact cards) */
 @Composable
 private fun EvolutionConditionLabel(
     evolutionDetail: EvolutionDetail?,
@@ -420,21 +445,36 @@ private fun EvolutionConditionLabel(
     val icon = getConditionIcon(evolutionDetail)
     val itemUrl = getConditionItemSpriteUrl(evolutionDetail)
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
+        modifier = Modifier.padding(vertical = 3.dp)
     ) {
-        if (itemUrl != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(64).build(),
-                contentDescription = null, modifier = Modifier.size(18.dp).padding(end = 3.dp), contentScale = ContentScale.Fit
-            )
-        } else if (icon.isNotEmpty()) {
-            Text(text = icon, fontSize = 12.sp, modifier = Modifier.padding(end = 3.dp))
-        }
-        condition?.let {
-            Text(it, fontSize = 10.sp, color = textColor.copy(alpha = 0.7f), lineHeight = 12.sp, textAlign = TextAlign.Center, maxLines = 2)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+        ) {
+            if (itemUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(96).build(),
+                    contentDescription = null,
+                    modifier = Modifier.size(26.dp),
+                    contentScale = ContentScale.Fit
+                )
+            } else if (icon.isNotEmpty()) {
+                Text(text = icon, fontSize = 16.sp)
+            }
+            condition?.let {
+                Text(
+                    text = it,
+                    fontSize = 9.sp,
+                    color = textColor.copy(alpha = 0.8f),
+                    lineHeight = 11.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 3
+                )
+            }
         }
     }
 }
@@ -680,29 +720,38 @@ fun EvolutionStepDisplay(
             val useCompactCards = step.toEvolutions.size > 1
 
             if (useCompactCards) {
-                // Ramas: cards compactas estilo grid, centradas
-                FlowRow(
+                // Ramas: cards compactas, alineadas por filas con IntrinsicSize
+                val maxPerRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
+                val chunks = step.toEvolutions.chunked(maxPerRow)
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = if (step.toEvolutions.size > 2) 2 else step.toEvolutions.size
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    step.toEvolutions.forEach { (evolutionLink, evolutionDetail) ->
-                        val evoSummary = summaryBySpecies[evolutionLink.species.name]
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.width(105.dp)
+                    chunks.forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            EvolutionConditionLabel(
-                                evolutionDetail = evolutionDetail,
-                                viewModel = viewModel,
-                                textColor = textColor
-                            )
-                            if (evoSummary != null) {
-                                EvolutionCompactCard(
-                                    summary = evoSummary,
-                                    onClick = onPokemonClick
-                                )
+                            rowItems.forEach { (evolutionLink, evolutionDetail) ->
+                                val evoSummary = summaryBySpecies[evolutionLink.species.name]
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Bottom,
+                                    modifier = Modifier.width(105.dp).fillMaxHeight()
+                                ) {
+                                    EvolutionConditionLabel(
+                                        evolutionDetail = evolutionDetail,
+                                        viewModel = viewModel,
+                                        textColor = textColor
+                                    )
+                                    if (evoSummary != null) {
+                                        EvolutionCompactCard(
+                                            summary = evoSummary,
+                                            onClick = onPokemonClick
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
