@@ -274,8 +274,16 @@ fun PokemonDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             val navList by pokemonViewModel.navigationList.observeAsState(emptyList())
+            val specialFormIds by pokemonViewModel.specialFormNavIds.observeAsState(emptyList())
             val evoMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
-            val allPreloaded = navList.size > 1 && evoMap.size >= navList.size
+            val swipeablePageCount = navList.size
+            // Slot único para forma especial activa (mega/gmax) — solo existe 1 página extra
+            var specialFormTarget by remember { mutableStateOf<Int?>(null) }
+            val fullNavList = remember(navList, specialFormTarget) {
+                navList + listOfNotNull(specialFormTarget)
+            }
+            val allPreloaded = navList.size > 1 && navList.all { evoMap.containsKey(it) }
+                    && specialFormIds.all { evoMap.containsKey(it) }
 
             // Chain expandido con ramas regionales (para la visualización de línea evolutiva)
             val displayChain = remember(expandedChain, evolutionChain) {
@@ -329,29 +337,35 @@ fun PokemonDetailScreen(
                     // Zona inferior (65%): placeholder vacio
                     Spacer(modifier = Modifier.fillMaxWidth().weight(0.65f))
                 }
-            } else if (allPreloaded && navList.contains(pokemonDetail!!.id)) {
-                // Pager por linea evolutiva: cada pagina con sus propios datos
-                val initialPage = navList.indexOf(pokemonDetail!!.id).coerceAtLeast(0)
+            } else if (allPreloaded && (navList.contains(pokemonDetail!!.id) || specialFormIds.contains(pokemonDetail!!.id))) {
+                // Pager: línea evolutiva + 1 slot extra para forma especial activa
+                val isInitialSpecial = specialFormIds.contains(pokemonDetail!!.id)
+                if (isInitialSpecial) specialFormTarget = pokemonDetail!!.id
+                val initialPage = if (isInitialSpecial) swipeablePageCount else navList.indexOf(pokemonDetail!!.id).coerceAtLeast(0)
                 val pagerState = rememberPagerState(
                     initialPage = initialPage,
-                    pageCount = { navList.size }
+                    pageCount = { swipeablePageCount + (if (specialFormTarget != null) 1 else 0) }
                 )
 
                 val pagerCoroutineScope = rememberCoroutineScope()
 
-                // Cuando cambia la pagina, cargar extras (encuentros, wikidex, movimientos)
+                // Cuando cambia la pagina, cargar datos y limpiar slot especial si volvió
                 LaunchedEffect(pagerState) {
                     snapshotFlow { pagerState.settledPage }
                         .distinctUntilChanged()
                         .collect { page ->
-                            pokemonViewModel.switchToPreloadedPokemon(navList[page])
+                            val id = fullNavList.getOrNull(page) ?: return@collect
+                            pokemonViewModel.switchToPreloadedPokemon(id)
+                            if (page < swipeablePageCount) {
+                                specialFormTarget = null
+                            }
                         }
                 }
 
                 // Pre-cachear imagenes de artwork para swipe fluido
                 val imageLoader = remember { coil.ImageLoader(context) }
                 LaunchedEffect(allPreloaded) {
-                    navList.forEach { id ->
+                    (navList + specialFormIds).forEach { id ->
                         evoMap[id]?.detail?.sprites?.other?.officialArtwork?.frontDefault?.let { url ->
                             val request = coil.request.ImageRequest.Builder(context)
                                 .data(url)
@@ -367,7 +381,7 @@ fun PokemonDetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     beyondViewportPageCount = 1
                 ) { page ->
-                    val preloaded = evoMap[navList[page]]
+                    val preloaded = fullNavList.getOrNull(page)?.let { evoMap[it] }
                     if (preloaded != null) {
                         PokemonDetailsView(
                             pokemon = preloaded.detail,
@@ -380,13 +394,23 @@ fun PokemonDetailScreen(
                                 val targetId = clickedName.toIntOrNull()
                                     ?: evoMap.entries.firstOrNull { it.value.detail.name == clickedName }?.key
                                     ?: evoMap.entries.firstOrNull { it.value.detail.species.name == clickedName }?.key
-                                val targetIndex = if (targetId != null) navList.indexOf(targetId) else -1
 
-                                if (targetIndex >= 0) {
-                                    // Pokemon esta en el pager: scroll animado
-                                    pagerCoroutineScope.launch { pagerState.animateScrollToPage(targetIndex) }
+                                // ¿Es forma especial (mega/gmax)?
+                                val isSpecial = targetId != null && specialFormIds.contains(targetId)
+                                // ¿Está en la línea evolutiva regular?
+                                val regularIndex = if (targetId != null) navList.indexOf(targetId) else -1
+
+                                if (isSpecial && targetId != null) {
+                                    // Abrir slot especial con este form y scroll a la última página
+                                    specialFormTarget = targetId
+                                    pagerCoroutineScope.launch {
+                                        snapshotFlow { pagerState.pageCount }.first { it > swipeablePageCount }
+                                        pagerState.animateScrollToPage(swipeablePageCount)
+                                    }
+                                } else if (regularIndex >= 0) {
+                                    pagerCoroutineScope.launch { pagerState.animateScrollToPage(regularIndex) }
                                 } else {
-                                    // Pokemon no esta en el pager (mega, gmax, regional diferente): fetch completo
+                                    // Pokemon no esta en el pager: fetch completo
                                     pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
                                 }
                             },
@@ -407,7 +431,7 @@ fun PokemonDetailScreen(
                 // Vista simple: transitoria (cadena aun cargando) o definitiva (pokemon sin pager)
                 // Es definitiva si la cadena ya cargo pero este pokemon no entrara en el pager
                 val chainLoaded = evolutionChain != null && !isLoadingEvolutionChain
-                val pagerWillTakeOver = !chainLoaded || (navList.size > 1 && navList.contains(pokemonDetail!!.id))
+                val pagerWillTakeOver = !chainLoaded || (navList.size > 1 && (navList.contains(pokemonDetail!!.id) || fullNavList.contains(pokemonDetail!!.id)))
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,

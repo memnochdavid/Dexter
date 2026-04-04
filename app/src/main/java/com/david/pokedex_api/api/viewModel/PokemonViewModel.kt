@@ -274,6 +274,10 @@ class PokemonViewModel : ViewModel() {
     private val _evoChainPokemonMap = MutableStateFlow<Map<Int, PreloadedPokemonData>>(emptyMap())
     val evoChainPokemonMap: StateFlow<Map<Int, PreloadedPokemonData>> = _evoChainPokemonMap.asStateFlow()
 
+    // IDs de formas especiales (mega/gmax) para incluir en el pager sin swipe
+    private val _specialFormNavIds = MutableLiveData<List<Int>>(emptyList())
+    val specialFormNavIds: LiveData<List<Int>> = _specialFormNavIds
+
     /**
      * Expande un ChainLink tree añadiendo ramas para variantes regionales.
      *
@@ -521,7 +525,18 @@ class PokemonViewModel : ViewModel() {
             chain.copy(evolvesTo = expandedChildren)
         }
 
-        Pair(finalChain, allPokemonIds.distinct())
+        // Recopilar IDs de megas/gmax de todas las especies del chain
+        val specialFormIds = mutableListOf<Int>()
+        speciesInfoMap.values.forEach { info ->
+            info.varieties.forEach { v ->
+                if (!v.isDefault && (v.pokemon.name.contains("-mega") || v.pokemon.name.contains("-gmax"))) {
+                    v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { specialFormIds.add(it) }
+                }
+            }
+        }
+        _specialFormNavIds.postValue(specialFormIds.distinct())
+
+        Pair(finalChain, (allPokemonIds + specialFormIds).distinct())
     }
 
     /**
@@ -1034,6 +1049,7 @@ class PokemonViewModel : ViewModel() {
         _wikiDexLocations.value = emptyMap()
         _pokemonEncounters.value = emptyList()
         _navigationList.value = emptyList()
+        _specialFormNavIds.value = emptyList()
         _evoChainPokemonMap.value = emptyMap()
         animatedPokemonIds.clear()
         selectedDetailSection.value = "DESC"
