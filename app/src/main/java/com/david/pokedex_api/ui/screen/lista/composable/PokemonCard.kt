@@ -51,6 +51,7 @@ fun PokemonListItemCard(
     isRecalled: Boolean = false,
     onRecallAndNavigate: () -> Unit,
     simpleClick: Boolean = false,
+    useProvidedSprite: Boolean = false,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -160,15 +161,20 @@ fun PokemonListItemCard(
                         val homeUrl = remember(pokemonSummary.id) {
                             "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png"
                         }
-                        val primaryUrl = if (pokemonSummary.id < 10000) homeUrl else (pokemonSummary.spriteUrl ?: homeUrl)
-                        val fallbackUrl = if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl else pokemonSummary.fallbackSpriteUrl
-                        var imageUrl by remember(pokemonSummary.id) { mutableStateOf(primaryUrl) }
+                        val primaryUrl = if (useProvidedSprite && pokemonSummary.spriteUrl != null) pokemonSummary.spriteUrl
+                            else if (pokemonSummary.id < 10000) homeUrl
+                            else (pokemonSummary.spriteUrl ?: homeUrl)
+                        val fallbackUrl = if (useProvidedSprite) (pokemonSummary.fallbackSpriteUrl ?: homeUrl)
+                            else if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl
+                            else pokemonSummary.fallbackSpriteUrl
+                        val cacheKey = "pkmn_${pokemonSummary.id}_${primaryUrl.hashCode()}"
+                        var imageUrl by remember(cacheKey) { mutableStateOf(primaryUrl) }
 
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(imageUrl)
-                                .memoryCacheKey("pkmn_${pokemonSummary.id}")
-                                .diskCacheKey("pkmn_${pokemonSummary.id}")
+                                .memoryCacheKey(cacheKey)
+                                .diskCacheKey(cacheKey)
                                 .size(128)
                                 .listener(onError = { _, _ ->
                                     if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
@@ -256,6 +262,7 @@ fun PokemonGridItemCard(
     pokemonSummary: PokemonSummary,
     isRecalled: Boolean = false,
     onRecallAndNavigate: () -> Unit,
+    useProvidedSprite: Boolean = false,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -363,15 +370,20 @@ fun PokemonGridItemCard(
                     val homeUrl = remember(pokemonSummary.id) {
                         "https://resource.pokemon-home.com/battledata/img/pokei128/icon${pokemonSummary.id.toString().padStart(4, '0')}_f00_s0.png"
                     }
-                    val primaryUrl = if (pokemonSummary.id < 10000) homeUrl else (pokemonSummary.spriteUrl ?: homeUrl)
-                    val fallbackUrl = if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl else pokemonSummary.fallbackSpriteUrl
-                    var imageUrl by remember(pokemonSummary.id) { mutableStateOf(primaryUrl) }
+                    val primaryUrl = if (useProvidedSprite && pokemonSummary.spriteUrl != null) pokemonSummary.spriteUrl
+                        else if (pokemonSummary.id < 10000) homeUrl
+                        else (pokemonSummary.spriteUrl ?: homeUrl)
+                    val fallbackUrl = if (useProvidedSprite) (pokemonSummary.fallbackSpriteUrl ?: homeUrl)
+                        else if (pokemonSummary.id < 10000) pokemonSummary.spriteUrl
+                        else pokemonSummary.fallbackSpriteUrl
+                    val cacheKey = "pkmn_${pokemonSummary.id}_${primaryUrl.hashCode()}"
+                    var imageUrl by remember(cacheKey) { mutableStateOf(primaryUrl) }
 
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(imageUrl)
-                            .memoryCacheKey("pkmn_${pokemonSummary.id}")
-                            .diskCacheKey("pkmn_${pokemonSummary.id}")
+                            .memoryCacheKey(cacheKey)
+                            .diskCacheKey(cacheKey)
                             .size(128)
                             .listener(onError = { _, _ ->
                                 if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {

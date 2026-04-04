@@ -48,7 +48,8 @@
       "Bash(echo \"=== Calyrex ===\" ls C:/Users/davdu/Desktop/Pokedex_API/app/src/main/res/raw/calyrex*)",
       "Bash(rm -rf app/build/.intermediates/apk_from_bundle)",
       "Bash(rm -rf app/build/intermediates/incremental/packageDebug)",
-      "Bash(rm -rf app/build/outputs/apk)"
+      "Bash(rm -rf app/build/outputs/apk)",
+      "Bash(find:*)"
     ]
   }
 }

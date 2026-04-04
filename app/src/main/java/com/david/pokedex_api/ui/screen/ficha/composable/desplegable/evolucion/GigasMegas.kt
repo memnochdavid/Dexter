@@ -262,7 +262,8 @@ fun SpecialFormItemView(
     PokemonListItemCard(
         pokemonSummary = summary,
         onRecallAndNavigate = onClick,
-        simpleClick = true
+        simpleClick = true,
+        useProvidedSprite = true
     )
 }
 

@@ -631,17 +631,25 @@ fun PokemonFormsView(
                 val apiName = formResource.name
                 val resName = transformPokemonNameToResourceName(apiName)
                 val displayName = adaptaNombre(resName)
+                val formIndex = pokemon.forms.indexOfFirst { it.name == apiName }.takeIf { it >= 0 }
+                val homeUrl = if (formIndex != null) {
+                    "https://resource.pokemon-home.com/battledata/img/pokei128/icon${
+                        speciesId.toString().padStart(4, '0')
+                    }_f${formIndex.toString().padStart(2, '0')}_s0.png"
+                } else null
                 val resId = context.resources.getIdentifier(resName, "raw", pkg)
-                val spriteUrl = if (resId != 0)
-                    "android.resource://$pkg/$resId"
-                else pokemon.sprites.frontDefault
+                val spriteUrl = homeUrl
+                    ?: if (resId != 0) "android.resource://$pkg/$resId"
+                    else pokemon.sprites.frontDefault
                 // Detectar tipo de la forma (sufijo después del nombre base)
                 val formSuffix = apiName.removePrefix("${baseName}-")
                 val formTypes = formTypeMap[formSuffix]?.let { listOf(it) }
+                val fallback = if (homeUrl != null && resId != 0) "android.resource://$pkg/$resId"
+                    else pokemon.sprites.other?.officialArtwork?.frontDefault
+                        ?: pokemon.sprites.frontDefault
                 if (addedNames.add(apiName)) {
                     allForms.add(SpecialForm(apiName, displayName, spriteUrl,
-                        fallbackSpriteUrl = pokemon.sprites.other?.officialArtwork?.frontDefault
-                            ?: pokemon.sprites.frontDefault,
+                        fallbackSpriteUrl = fallback,
                         localResourceName = resName,
                         overrideTypes = formTypes,
                         pokemonId = pokemon.id,
@@ -656,6 +664,8 @@ fun PokemonFormsView(
                     val wikiSprites = fetchFormSprites(spanishPokemonName)
                     if (wikiSprites.isNotEmpty()) {
                         allForms.replaceAll { form ->
+                            // No sobreescribir si ya tiene URL HOME válida con form index
+                            if (form.spriteUrl?.contains("pokemon-home.com") == true) return@replaceAll form
                             val resName = form.localResourceName ?: transformPokemonNameToResourceName(form.formName)
                             val wikiUrl = wikiSprites[resName.lowercase()]
                             if (wikiUrl != null) form.copy(spriteUrl = wikiUrl) else form
