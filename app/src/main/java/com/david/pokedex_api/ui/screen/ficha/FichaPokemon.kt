@@ -114,6 +114,18 @@ import kotlinx.coroutines.launch
  * - Si no → intenta la cadena base; si el pokémon no está en ella (exclusivo de
  *   región, ej. Obstagoon), busca en qué rama regional se encuentra.
  */
+private fun romanToInt(roman: String): Int? {
+    val values = mapOf('i' to 1, 'v' to 5, 'x' to 10)
+    val s = roman.lowercase()
+    var result = 0
+    for (i in s.indices) {
+        val curr = values[s[i]] ?: return null
+        val next = if (i + 1 < s.length) values[s[i + 1]] ?: 0 else 0
+        result += if (curr < next) -curr else curr
+    }
+    return if (result > 0) result else null
+}
+
 private fun filterChainForPokemon(
     expanded: com.david.pokedex_api.api.model.ChainLink,
     currentPokemonName: String
@@ -598,6 +610,9 @@ fun PokemonDetailsView(
                 modifier = Modifier.fillMaxWidth(),
                 tipo = pokemon.types[0].type.name,
                 cryUrl = pokemon.cries?.latest,
+                generationNum = pokemonSpecies?.generation?.name
+                    ?.removePrefix("generation-")
+                    ?.let { romanToInt(it) },
                 regionTag = regionTag,
                 isLegendary = pokemonSpecies?.isLegendary == true,
                 isMythical = pokemonSpecies?.isMythical == true,

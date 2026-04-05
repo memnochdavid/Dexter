@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Flecha expansión hacia arriba / growth arrow -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,20L8,20L8,14L4,14ZM10,20L14,20L14,8L10,8ZM16,20L20,20L20,4L16,4Z"/>
+</vector>
