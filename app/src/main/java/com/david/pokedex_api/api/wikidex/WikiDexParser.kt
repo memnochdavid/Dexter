@@ -29,7 +29,7 @@ class FlavorTextParser : WikiDexParser<List<Pair<String, String>>> {
             val descCell = cells.last() ?: continue
             val editionCell = cells[cells.size - 2]
 
-            val description = descCell.text().trim()
+            val description = descCell.html().trim()
             if (description.isBlank()) continue
             // Filtrar entradas vacias tipo "No hay entrada de..." o "no aparece en..."
             if (description.contains("No hay entrada de", ignoreCase = true) ||
@@ -74,7 +74,7 @@ class LocationParser : WikiDexParser<List<Pair<String, String>>> {
             val locationCell = cells.last() ?: continue
             val editionCell = cells[cells.size - 2]
 
-            val locationText = locationCell.text().trim()
+            val locationText = locationCell.html().trim()
             if (locationText.isBlank()) continue
             if (locationText.contains("no aparece en", ignoreCase = true)) continue
 
