@@ -49,7 +49,23 @@
       "Bash(rm -rf app/build/.intermediates/apk_from_bundle)",
       "Bash(rm -rf app/build/intermediates/incremental/packageDebug)",
       "Bash(rm -rf app/build/outputs/apk)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/349/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/592/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/593/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/585/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/423/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/670/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/669/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon/592/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon/585/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon/585/forms/\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/evolution-chain/18/\")",
+      "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/frillish\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['varieties'], indent=2\\)\\)\")",
+      "Bash(curl:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(v['pokemon']['name'], v['is_default']\\) for v in d['varieties']]\")"
     ]
   }
 }

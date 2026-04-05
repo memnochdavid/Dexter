@@ -810,6 +810,20 @@ class PokemonViewModel : ViewModel() {
                     }
                 }
 
+                // Si el pokemon detail falla pero la species tiene éxito (ej: frillish →
+                // PokeAPI nombra la variedad default "frillish-male"), reintentar con el
+                // nombre de la variedad default de la species
+                var dRes2 = dRes
+                if (!dRes2.isSuccessful && sRes.isSuccessful) {
+                    val defaultVarietyName = sRes.body()?.varieties
+                        ?.firstOrNull { it.isDefault }?.pokemon?.name
+                    if (defaultVarietyName != null && defaultVarietyName != name.lowercase().trim()) {
+                        dRes2 = withContext(Dispatchers.IO) {
+                            pokemonApiService.getPokemonDetails(defaultVarietyName)
+                        }
+                    }
+                }
+
                 if (sRes.isSuccessful) {
                     val species = sRes.body()
                     _pokemonSpeciesDetails.value = species
@@ -842,8 +856,8 @@ class PokemonViewModel : ViewModel() {
                     }
                 }
 
-                if (dRes.isSuccessful) {
-                    val details = dRes.body()
+                if (dRes2.isSuccessful) {
+                    val details = dRes2.body()
                     _pokemonDetails.value = details
                     // Carga masiva y reactiva de movimientos
                     details?.let { fetchMovesDetailsParallel(it.moves) }

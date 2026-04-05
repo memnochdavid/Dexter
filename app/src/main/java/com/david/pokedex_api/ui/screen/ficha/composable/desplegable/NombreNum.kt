@@ -339,10 +339,11 @@ private fun playCry(context: Context, url: String) {
 
 fun adaptaNombre(nombre: String): String {
     val partes = nombre.split("_")
+    val isUnown = partes.firstOrNull()?.equals("unown", ignoreCase = true) == true
     return partes.joinToString(" ") { parte ->
         when {
-            parte.equals("m", ignoreCase = true) -> "\u2642"
-            parte.equals("f", ignoreCase = true) -> "\u2640"
+            !isUnown && parte.equals("m", ignoreCase = true) -> "\u2642"
+            !isUnown && parte.equals("f", ignoreCase = true) -> "\u2640"
             else -> parte.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }

@@ -578,7 +578,7 @@ fun PokemonFormsView(
                 }
                 !isRegional
             } ?: emptyList()
-            val nonDefaultForms = pokemon.forms.filter { it.name != pokemon.name }
+            val nonDefaultForms = pokemon.forms.drop(1)
             val totalForms = otherVarieties.size + nonDefaultForms.size
 
             // === Lógica unificada: nombre y sprite consistentes ===
@@ -638,13 +638,15 @@ fun PokemonFormsView(
                     }_f${formIndex.toString().padStart(2, '0')}_s0.png"
                 } else null
                 val resId = context.resources.getIdentifier(resName, "raw", pkg)
-                val spriteUrl = homeUrl
-                    ?: if (resId != 0) "android.resource://$pkg/$resId"
-                    else pokemon.sprites.frontDefault
+                // Preferir webp local (siempre correcto, sin red) > HOME > sprite API
+                val spriteUrl = if (resId != 0) "android.resource://$pkg/$resId"
+                    else homeUrl ?: pokemon.sprites.frontDefault
                 // Detectar tipo de la forma (sufijo después del nombre base)
                 val formSuffix = apiName.removePrefix("${baseName}-")
                 val formTypes = formTypeMap[formSuffix]?.let { listOf(it) }
-                val fallback = if (homeUrl != null && resId != 0) "android.resource://$pkg/$resId"
+                val fallback = if (resId != 0 && homeUrl != null) homeUrl
+                    else if (resId != 0) pokemon.sprites.other?.officialArtwork?.frontDefault
+                        ?: pokemon.sprites.frontDefault
                     else pokemon.sprites.other?.officialArtwork?.frontDefault
                         ?: pokemon.sprites.frontDefault
                 if (addedNames.add(apiName)) {

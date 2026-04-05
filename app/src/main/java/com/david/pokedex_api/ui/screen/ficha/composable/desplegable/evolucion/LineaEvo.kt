@@ -210,6 +210,86 @@ fun EnergyFlowConnector(
     }
 }
 
+// ==================== CONECTOR EN Y (BIFURCACIÓN) ====================
+
+/**
+ * Dibuja un conector que se bifurca desde un punto central superior
+ * hacia N puntos inferiores distribuidos uniformemente.
+ * Usa curvas bézier cuadráticas para un aspecto suave.
+ */
+@Composable
+fun BranchingConnector(
+    branchCount: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "branchFlow")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 40f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "branchFlowPhase"
+    )
+
+    Canvas(modifier = modifier) {
+        val centerX = size.width / 2f
+        val topY = 0f
+        val bottomY = size.height
+        val midY = size.height * 0.45f
+
+        // Tronco vertical central (desde arriba hasta el punto de bifurcación)
+        drawLine(
+            brush = Brush.verticalGradient(
+                colors = listOf(color.copy(alpha = 0.3f), color.copy(alpha = 0.8f)),
+                startY = topY, endY = midY
+            ),
+            start = Offset(centerX, topY),
+            end = Offset(centerX, midY),
+            strokeWidth = 3.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(centerX, topY + 2.dp.toPx()))
+
+        // Ramas: curvas bézier desde el punto de bifurcación hasta cada destino
+        val dashEffect = PathEffect.dashPathEffect(
+            intervals = floatArrayOf(8.dp.toPx(), 12.dp.toPx()),
+            phase = -phase.dp.toPx()
+        )
+
+        for (i in 0 until branchCount) {
+            val targetX = if (branchCount == 1) centerX
+            else size.width * (i.toFloat() / (branchCount - 1).toFloat())
+
+            val path = Path().apply {
+                moveTo(centerX, midY)
+                quadraticBezierTo(centerX, bottomY * 0.7f, targetX, bottomY)
+            }
+
+            // Línea base de la rama
+            drawPath(
+                path = path,
+                brush = Brush.verticalGradient(
+                    colors = listOf(color.copy(alpha = 0.6f), color.copy(alpha = 0.3f)),
+                    startY = midY, endY = bottomY
+                ),
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Dashes animados
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(width = 2.dp.toPx(), pathEffect = dashEffect, cap = StrokeCap.Round)
+            )
+
+            drawCircle(color = color, radius = 4.dp.toPx(), center = Offset(targetX, bottomY - 2.dp.toPx()))
+        }
+    }
+}
+
 // ==================== CARD DE UN POKEMON EN LA CADENA ====================
 
 /** Construye un PokemonSummary directamente desde PreloadedPokemonData */
@@ -712,10 +792,52 @@ fun EvolutionStepDisplay(
         }
 
         if (step.toEvolutions.isNotEmpty()) {
-            EnergyFlowConnector(
-                color = connectorColor,
-                modifier = Modifier.width(24.dp).height(36.dp)
-            )
+            // Si hay middlePokemon (step fusionado), renderizar el intermedio + conector Y
+            if (step.middlePokemon != null) {
+                val middleSummary = summaryBySpecies[step.middlePokemon.species.name]
+
+                // Conector from → middle con condición
+                EvolutionConnectorWithCondition(
+                    evolutionDetail = step.middleEvolutionDetail,
+                    viewModel = viewModel,
+                    connectorColor = connectorColor,
+                    textColor = textColor
+                )
+
+                // Card del Pokémon intermedio
+                if (middleSummary != null) {
+                    EvolutionSummaryCard(
+                        summary = middleSummary,
+                        onClick = onPokemonClick,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Conector Y hacia las ramas
+                BranchingConnector(
+                    branchCount = step.toEvolutions.size.coerceIn(2, 4),
+                    color = connectorColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(48.dp)
+                )
+            } else if (step.toEvolutions.size > 1) {
+                // Bifurcación sin fusión (ej: Mime Jr.) → conector Y
+                BranchingConnector(
+                    branchCount = step.toEvolutions.size.coerceIn(2, 4),
+                    color = connectorColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(48.dp)
+                )
+            } else {
+                EnergyFlowConnector(
+                    color = connectorColor,
+                    modifier = Modifier.width(24.dp).height(36.dp)
+                )
+            }
 
             val useCompactCards = step.toEvolutions.size > 1
 
@@ -793,7 +915,10 @@ fun EvolutionStepDisplay(
 data class EvolutionStep(
     val fromPokemon: ChainLink,
     val fromPokemonEvolutionDetail: EvolutionDetail?,
-    val toEvolutions: List<Pair<ChainLink, EvolutionDetail?>>
+    val toEvolutions: List<Pair<ChainLink, EvolutionDetail?>>,
+    // Step fusionado: Pokémon intermedio entre from y la bifurcación
+    val middlePokemon: ChainLink? = null,
+    val middleEvolutionDetail: EvolutionDetail? = null
 )
 
 fun getEvolutionSteps(baseChainLink: ChainLink): List<EvolutionStep> {
@@ -828,7 +953,37 @@ fun getEvolutionSteps(baseChainLink: ChainLink): List<EvolutionStep> {
             currentLink.evolvesTo.forEach { queue.add(Pair(it, it.evolutionDetails.firstOrNull())) }
         }
     }
-    return steps
+
+    // Fusión: si un step tiene 1 destino y el siguiente step tiene ese destino como base
+    // con bifurcación (>1 evoluciones), fusionar ambos steps.
+    // Ej: [Oddish→Gloom] + [Gloom→Vileplume,Bellossom] → [Oddish→Gloom→(Vileplume,Bellossom)]
+    val merged = mutableListOf<EvolutionStep>()
+    var i = 0
+    while (i < steps.size) {
+        val current = steps[i]
+        if (current.toEvolutions.size == 1) {
+            val singleTarget = current.toEvolutions[0].first
+            val nextStep = steps.getOrNull(i + 1)
+            if (nextStep != null
+                && nextStep.fromPokemon.species.name == singleTarget.species.name
+                && nextStep.toEvolutions.size > 1
+            ) {
+                // Fusionar: mantener current con un middlePokemon y las evoluciones del next
+                merged.add(EvolutionStep(
+                    fromPokemon = current.fromPokemon,
+                    fromPokemonEvolutionDetail = current.fromPokemonEvolutionDetail,
+                    toEvolutions = nextStep.toEvolutions,
+                    middlePokemon = singleTarget,
+                    middleEvolutionDetail = current.toEvolutions[0].second
+                ))
+                i += 2 // saltar el next
+                continue
+            }
+        }
+        merged.add(current)
+        i++
+    }
+    return merged
 }
 
 fun isChainPredominantlyLinear(evolutionSteps: List<EvolutionStep>): Boolean {
