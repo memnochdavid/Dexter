@@ -14,29 +14,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import kotlin.math.sin
 import kotlin.random.Random
 
-private val OrbColors = listOf(
-    Color(0xFF7B1FA2), // púrpura oscuro
-    Color(0xFF9C27B0), // púrpura
-    Color(0xFF6A1B9A), // violeta profundo
-    Color(0xFFAB47BC), // púrpura claro
-    Color(0xFF4A148C), // índigo oscuro
-)
-
 @Composable
 fun GhostOverlay(modifier: Modifier = Modifier) {
-    val orbs = remember {
-        List(12) {
+    val tendrils = remember {
+        List(8) {
             Particle(
-                x = Random.nextFloat(),
+                x = if (Random.nextBoolean()) 0f else 1f,
                 y = Random.nextFloat(),
-                vx = (Random.nextFloat() - 0.5f) * 0.0008f,
-                vy = (Random.nextFloat() - 0.5f) * 0.0006f,
-                alpha = 0.15f + Random.nextFloat() * 0.2f,
-                size = 0.06f + Random.nextFloat() * 0.08f,
-                life = Random.nextFloat(),
+                vx = 0f, vy = 0f,
+                alpha = 0.2f + Random.nextFloat() * 0.15f,
+                size = 0.3f + Random.nextFloat() * 0.25f,
+                life = 0f,
                 seed = Random.nextFloat()
             )
         }
@@ -47,7 +39,7 @@ fun GhostOverlay(modifier: Modifier = Modifier) {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(8000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "ghostTime"
@@ -57,74 +49,54 @@ fun GhostOverlay(modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
 
-        // Niebla: franjas horizontales que pulsan
-        for (i in 0 until 4) {
-            val fogY = h * (0.1f + i * 0.25f)
-            val fogAlpha = (sin((time + i * 0.3f) * Math.PI.toFloat() * 2f) * 0.5f + 0.5f) * 0.06f
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
+        // Viñeta púrpura pulsante
+        val vignetteAlpha = 0.15f + sin(time * Math.PI.toFloat() * 2f) * 0.05f
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color(0xFF4A148C).copy(alpha = vignetteAlpha * 0.3f),
+                    Color(0xFF4A148C).copy(alpha = vignetteAlpha)
+                ),
+                center = Offset(w * 0.5f, h * 0.5f),
+                radius = w * 0.7f
+            ),
+            size = size
+        )
+
+        // Zarcillos espectrales desde los bordes
+        tendrils.forEach { t ->
+            val fromLeft = t.x < 0.5f
+            val baseX = if (fromLeft) 0f else w
+            val reach = t.size * w * (0.7f + sin((time * 1.2f + t.seed) * Math.PI.toFloat() * 2f) * 0.3f)
+            val cy = t.y * h + sin((time + t.seed * 3f) * Math.PI.toFloat() * 2f) * h * 0.05f
+
+            val thickness = h * 0.09f * t.alpha
+            val path = Path().apply {
+                moveTo(baseX, cy - thickness)
+                val mid1x = if (fromLeft) reach * 0.3f else w - reach * 0.3f
+                val mid2x = if (fromLeft) reach * 0.65f else w - reach * 0.65f
+                val wave1 = sin((time + t.seed) * Math.PI.toFloat() * 4f) * h * 0.03f
+                val wave2 = sin((time + t.seed + 0.5f) * Math.PI.toFloat() * 3f) * h * 0.02f
+
+                cubicTo(mid1x, cy - thickness + wave1, mid2x, cy + wave2, if (fromLeft) reach else w - reach, cy)
+                cubicTo(mid2x, cy + wave2, mid1x, cy + thickness + wave1, baseX, cy + thickness)
+                close()
+            }
+
+            drawPath(
+                path,
+                brush = Brush.horizontalGradient(
+                    colors = if (fromLeft) listOf(
+                        Color(0xFF6A1B9A).copy(alpha = t.alpha),
+                        Color(0xFF4A148C).copy(alpha = t.alpha * 0.6f),
+                        Color.Transparent
+                    ) else listOf(
                         Color.Transparent,
-                        Color(0xFF7B1FA2).copy(alpha = fogAlpha),
-                        Color.Transparent
-                    ),
-                    startY = fogY - h * 0.08f,
-                    endY = fogY + h * 0.08f
-                ),
-                size = size
-            )
-        }
-
-        // Orbes flotantes
-        orbs.forEach { orb ->
-            // Movimiento errático lento
-            orb.x += orb.vx + sin((time + orb.seed) * 5f) * 0.0005f
-            orb.y += orb.vy + sin((time + orb.seed * 2f) * 4f) * 0.0004f
-
-            // Wrap around
-            if (orb.x < -0.1f) orb.x = 1.1f
-            if (orb.x > 1.1f) orb.x = -0.1f
-            if (orb.y < -0.1f) orb.y = 1.1f
-            if (orb.y > 1.1f) orb.y = -0.1f
-
-            // Pulsación de opacidad
-            val pulse = sin((time + orb.seed) * Math.PI.toFloat() * 2f * 1.5f) * 0.5f + 0.5f
-            val alpha = orb.alpha * (0.4f + pulse * 0.6f)
-            val radius = orb.size * h * (0.85f + pulse * 0.15f)
-
-            val colorIndex = (orb.seed * OrbColors.size).toInt().coerceIn(0, OrbColors.lastIndex)
-            val color = OrbColors[colorIndex]
-
-            val center = Offset(orb.x * w, orb.y * h)
-
-            // Glow exterior
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        color.copy(alpha = alpha * 0.6f),
-                        color.copy(alpha = alpha * 0.2f),
-                        Color.Transparent
-                    ),
-                    center = center,
-                    radius = radius * 2f
-                ),
-                radius = radius * 2f,
-                center = center
-            )
-
-            // Núcleo
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        color.copy(alpha = alpha),
-                        color.copy(alpha = alpha * 0.3f),
-                        Color.Transparent
-                    ),
-                    center = center,
-                    radius = radius
-                ),
-                radius = radius,
-                center = center
+                        Color(0xFF4A148C).copy(alpha = t.alpha * 0.6f),
+                        Color(0xFF6A1B9A).copy(alpha = t.alpha)
+                    )
+                )
             )
         }
     }
