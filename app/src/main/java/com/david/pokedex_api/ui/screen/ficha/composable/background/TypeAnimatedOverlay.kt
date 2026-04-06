@@ -29,6 +29,7 @@ fun TypeAnimatedOverlay(
         "ground" -> GroundOverlay(modifier)
         "rock" -> RockOverlay(modifier)
         "steel" -> SteelOverlay(modifier)
+        "flying" -> FlyingOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
         // "electric" -> ElectricOverlay(modifier)
         // ...
