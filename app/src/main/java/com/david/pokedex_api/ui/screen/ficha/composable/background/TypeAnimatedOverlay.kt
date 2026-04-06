@@ -27,6 +27,7 @@ fun TypeAnimatedOverlay(
         "poison" -> PoisonOverlay(modifier)
         "fighting" -> FightingOverlay(modifier)
         "ground" -> GroundOverlay(modifier)
+        "rock" -> RockOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
         // "electric" -> ElectricOverlay(modifier)
         // ...
