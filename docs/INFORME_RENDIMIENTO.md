@@ -72,19 +72,6 @@ La app presenta stuttering/jank en el arranque en dispositivos móviles. Se han 
 
 ---
 
-## 5. Eliminar assets raw / usar solo red — `PENDIENTE`
-
-**Problema:** `/res/raw/` contiene 2.930 archivos WebP (2.4 GB). Esto ralentiza la primera instalación/extracción del APK y genera presión de memoria y almacenamiento.
-
-**Solución propuesta:**
-- Eliminar los assets empaquetados
-- Usar exclusivamente URLs del CDN de Pokémon (ya implementado para las tarjetas vía Coil)
-- Coil ya tiene cache de imágenes configurado
-
-**Impacto esperado:** APK mucho más ligero, instalación más rápida, menos presión de almacenamiento.
-
----
-
 ## 6. Reducir concurrencia del dispatcher de red — `IMPLEMENTADO`
 
 **Problema:** `RetrofitClient.kt:26-28` configuraba `maxRequests = 100` y `maxRequestsPerHost = 50`. En móvil con 3G/4G esto causaba agotamiento de sockets, TCP window stalls y timeouts en cascada. Además, el semáforo de coroutines en `PokemonViewModel.kt` estaba a 50, encolando demasiadas peticiones en OkHttp.
