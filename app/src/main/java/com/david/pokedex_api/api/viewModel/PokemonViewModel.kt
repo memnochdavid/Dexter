@@ -44,17 +44,20 @@ class PokemonViewModel : ViewModel() {
     // --- Card recall: trackea que Pokemon esta "dentro de la pokeball" ---
     val recalledPokemonId = MutableStateFlow<Int?>(null)
 
-    // --- Estados de búsqueda/filtro (compartidos con el BottomSheet de MainActivity) ---
-    // Pokemon
-    var pokemonSearchQuery = MutableStateFlow("")
-    var pokemonSelectedType1 = MutableStateFlow("Sin tipo")
-    var pokemonSelectedType2 = MutableStateFlow("Sin tipo")
-    var pokemonShowMegas = MutableStateFlow(false)
-    var pokemonShowGigamax = MutableStateFlow(false)
-    var pokemonShowRegionals = MutableStateFlow(false)
-    var pokemonShowLegendaries = MutableStateFlow(false)
-    var pokemonShowMythicals = MutableStateFlow(false)
-    var pokemonIsGridView = MutableStateFlow(false)
+    // --- Estado consolidado de búsqueda/filtro (compartido con el BottomSheet de MainActivity) ---
+    data class PokemonFilterState(
+        val searchQuery: String = "",
+        val selectedType1: String = "Sin tipo",
+        val selectedType2: String = "Sin tipo",
+        val showMegas: Boolean = false,
+        val showGigamax: Boolean = false,
+        val showRegionals: Boolean = false,
+        val showLegendaries: Boolean = false,
+        val showMythicals: Boolean = false,
+        val isGridView: Boolean = false
+    )
+
+    val pokemonFilters = MutableStateFlow(PokemonFilterState())
 
     // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
     private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
@@ -1037,6 +1040,18 @@ class PokemonViewModel : ViewModel() {
                 val res = withContext(Dispatchers.IO) { pokemonApiService.getGenerationList() }
                 if (res.isSuccessful) _generations.value = res.body()?.results ?: emptyList()
             } finally { _isLoadingGenerations.value = false }
+        }
+    }
+
+    /** Carga en segundo plano todas las generaciones que aún no estén en caché (para búsqueda/filtros). */
+    fun ensureAllGenerationsLoaded() {
+        val gens = _generations.value ?: return
+        val currentCache = _pokemonByGenerationCache.value ?: emptyMap()
+        gens.forEach { gen ->
+            val id = gen.getGenerationIdFromUrl()
+            if (id != null && !currentCache.containsKey(id)) {
+                fetchPokemonForGeneration(id)
+            }
         }
     }
 

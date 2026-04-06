@@ -62,38 +62,27 @@ fun GenerationPagerScreen(
     val pokemonByGenerationCache by pokemonViewModel.pokemonByGenerationCache.observeAsState(emptyMap())
     val isLoadingAnyPokemon by pokemonViewModel.isLoadingPokemonForCurrentGeneration.observeAsState(false)
 
-    val searchQuery by pokemonViewModel.pokemonSearchQuery.collectAsState()
-    val selectedType1 by pokemonViewModel.pokemonSelectedType1.collectAsState()
-    val selectedType2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
-    val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
-    val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
-    val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
-    val showLegendaries by pokemonViewModel.pokemonShowLegendaries.collectAsState()
-    val showMythicals by pokemonViewModel.pokemonShowMythicals.collectAsState()
+    val filters by pokemonViewModel.pokemonFilters.collectAsState()
     val specialForms by pokemonViewModel.specialFormsSummaries.observeAsState(emptyList())
-    val isGridView by pokemonViewModel.pokemonIsGridView.collectAsState()
 
     LaunchedEffect(Unit) {
         if (generations.isEmpty()) pokemonViewModel.fetchGenerations()
     }
 
-    LaunchedEffect(generations) {
-        generations.forEach { gen ->
-            val id = gen.getGenerationIdFromUrl()
-            if (id != null && !pokemonByGenerationCache.containsKey(id)) {
-                pokemonViewModel.fetchPokemonForGeneration(id)
-            }
+    val isSearching = filters.searchQuery.isNotBlank() || filters.selectedType1 != NO_TYPE_SELECTED || filters.selectedType2 != NO_TYPE_SELECTED ||
+        filters.showMegas || filters.showGigamax || filters.showRegionals || filters.showLegendaries || filters.showMythicals
+
+    // Cuando el usuario activa búsqueda/filtros, cargar todas las generaciones en segundo plano
+    LaunchedEffect(isSearching) {
+        if (isSearching) {
+            pokemonViewModel.ensureAllGenerationsLoaded()
         }
     }
-
-    val isSearching = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED || selectedType2 != NO_TYPE_SELECTED ||
-        showMegas || showGigamax || showRegionals || showLegendaries || showMythicals
-    val filteredList = remember(pokemonByGenerationCache, searchQuery, selectedType1, selectedType2,
-        showMegas, showGigamax, showRegionals, showLegendaries, showMythicals, specialForms) {
+    val filteredList = remember(pokemonByGenerationCache, filters, specialForms) {
         if (!isSearching) emptyList()
         else {
-            val showingOnlySpecialForms = showMegas || showGigamax || showRegionals
-            val showingLegendaryMythical = showLegendaries || showMythicals
+            val showingOnlySpecialForms = filters.showMegas || filters.showGigamax || filters.showRegionals
+            val showingLegendaryMythical = filters.showLegendaries || filters.showMythicals
             val allBasePokemon = pokemonByGenerationCache.values.flatten().distinctBy { it.id }
 
             val basePokemon = if (!showingOnlySpecialForms && !showingLegendaryMythical) {
@@ -101,22 +90,22 @@ fun GenerationPagerScreen(
             } else if (showingLegendaryMythical && !showingOnlySpecialForms) {
                 // Filtrar base pokemon por legendario/singular
                 allBasePokemon.filter { p ->
-                    (showLegendaries && p.id in pokemonViewModel.legendaryIds) ||
-                    (showMythicals && p.id in pokemonViewModel.mythicalIds)
+                    (filters.showLegendaries && p.id in pokemonViewModel.legendaryIds) ||
+                    (filters.showMythicals && p.id in pokemonViewModel.mythicalIds)
                 }
             } else {
                 emptyList()
             }
-            val megaForms = if (showMegas) specialForms.filter { it.name.contains("-mega") } else emptyList()
-            val gmaxForms = if (showGigamax) specialForms.filter { it.name.contains("-gmax") } else emptyList()
-            val regionalForms = if (showRegionals) specialForms.filter { it.name.let { n ->
+            val megaForms = if (filters.showMegas) specialForms.filter { it.name.contains("-mega") } else emptyList()
+            val gmaxForms = if (filters.showGigamax) specialForms.filter { it.name.contains("-gmax") } else emptyList()
+            val regionalForms = if (filters.showRegionals) specialForms.filter { it.name.let { n ->
                 n.contains("-alola") || n.contains("-galar") || n.contains("-hisui") || n.contains("-paldea")
             }} else emptyList()
 
             (basePokemon + megaForms + gmaxForms + regionalForms).distinctBy { it.id }.filter { p ->
-                (searchQuery.isBlank() || p.name.contains(searchQuery, true)) &&
-                (selectedType1 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType1, true) }) &&
-                (selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(selectedType2, true) })
+                (filters.searchQuery.isBlank() || p.name.contains(filters.searchQuery, true)) &&
+                (filters.selectedType1 == NO_TYPE_SELECTED || p.types.any { it.equals(filters.selectedType1, true) }) &&
+                (filters.selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(filters.selectedType2, true) })
             }
         }
     }
@@ -126,7 +115,7 @@ fun GenerationPagerScreen(
             if (filteredList.isEmpty() && !isLoadingAnyPokemon) {
                 NoResultsView()
             } else {
-                PokemonLazyList(filteredList, onNavigateToDetails, pokemonViewModel, isGridView)
+                PokemonLazyList(filteredList, onNavigateToDetails, pokemonViewModel, filters.isGridView)
             }
         } else if (generations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -134,6 +123,19 @@ fun GenerationPagerScreen(
             }
         } else {
             val pagerState = rememberPagerState(pageCount = { generations.size })
+
+            // Carga lazy: solo la generación visible + adyacentes (prefetch)
+            val currentPage = pagerState.currentPage
+            LaunchedEffect(currentPage, generations) {
+                val pagesToLoad = listOf(currentPage - 1, currentPage, currentPage + 1)
+                pagesToLoad.forEach { page ->
+                    val genId = generations.getOrNull(page)?.getGenerationIdFromUrl()
+                    if (genId != null) {
+                        pokemonViewModel.fetchPokemonForGeneration(genId)
+                    }
+                }
+            }
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
@@ -143,7 +145,7 @@ fun GenerationPagerScreen(
                 if (list == null) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) { Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(64.dp)) }
                 } else {
-                    PokemonLazyList(list, onNavigateToDetails, pokemonViewModel, isGridView)
+                    PokemonLazyList(list, onNavigateToDetails, pokemonViewModel, filters.isGridView)
                 }
             }
         }
