@@ -31,6 +31,7 @@ fun TypeAnimatedOverlay(
         "steel" -> SteelOverlay(modifier)
         "flying" -> FlyingOverlay(modifier)
         "bug" -> BugOverlay(modifier)
+        "normal" -> NormalOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
         // "electric" -> ElectricOverlay(modifier)
         // ...
