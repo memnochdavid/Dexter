@@ -15,8 +15,8 @@ fun TypeAnimatedOverlay(
 ) {
     when (typeName.lowercase()) {
         "fire" -> FireOverlay(modifier)
+        "water" -> WaterOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
-        // "water" -> WaterOverlay(modifier)
         // "electric" -> ElectricOverlay(modifier)
         // ...
     }
