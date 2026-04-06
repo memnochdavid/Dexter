@@ -102,7 +102,6 @@ import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.ui.theme.rojo_pokeball
 import com.david.pokedex_api.util.AnimatedPokeball
-import com.david.pokedex_api.util.Lottie
 import com.david.pokedex_api.util.ShinySparkleEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
@@ -324,11 +323,6 @@ fun PokemonDetailScreen(
                             .fillMaxWidth()
                             .weight(0.35f)
                     ) {
-                        // Lottie centrado en la zona de imagen
-                        Lottie(
-                            rawResId = R.raw.pokeball,
-                            modifier = Modifier.size(120.dp).align(Alignment.Center),
-                        )
                         // Pokeball en la misma posicion que tendra en ComponenteImagen
                         if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                             with(sharedTransitionScope) {

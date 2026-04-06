@@ -65,7 +65,12 @@
       "Bash(curl -s \"https://pokeapi.co/api/v2/pokemon-species/frillish\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d['varieties'], indent=2\\)\\)\")",
       "Bash(curl:*)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(v['pokemon']['name'], v['is_default']\\) for v in d['varieties']]\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(v['pokemon']['name'], v['is_default']\\) for v in d['varieties']]\")",
+      "Bash(adb devices:*)",
+      "Bash(git checkout:*)",
+      "Bash(file:*)",
+      "Bash(./gradlew assembleRelease)",
+      "Bash(./gradlew --stop)"
     ]
   }
 }

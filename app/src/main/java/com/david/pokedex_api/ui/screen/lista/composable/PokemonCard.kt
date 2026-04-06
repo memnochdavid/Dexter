@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.first
 
 private val CardDShape = DShape()
 
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PokemonListItemCard(
@@ -124,7 +125,7 @@ fun PokemonListItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .then(if (isPressed) Modifier.graphicsLayer { scaleX = scale; scaleY = scale } else Modifier)
             .padding(vertical = 4.dp, horizontal = 8.dp)
             .pointerInput(pokemonSummary.id) {
                 detectTapGestures(
@@ -143,7 +144,7 @@ fun PokemonListItemCard(
                 )
             },
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Contenido del card
@@ -181,6 +182,7 @@ fun PokemonListItemCard(
                                 .data(imageUrl)
                                 .memoryCacheKey(cacheKey)
                                 .diskCacheKey(cacheKey)
+                                .crossfade(150)
                                 .size(128)
                                 .listener(onError = { _, _ ->
                                     if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
@@ -334,7 +336,7 @@ fun PokemonGridItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.75f)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .then(if (isPressed) Modifier.graphicsLayer { scaleX = scale; scaleY = scale } else Modifier)
             .pointerInput(pokemonSummary.id) {
                 detectTapGestures(
                     onPress = {
@@ -352,7 +354,7 @@ fun PokemonGridItemCard(
                 )
             },
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             val contentModifier = if (isAnimating) {
@@ -396,6 +398,7 @@ fun PokemonGridItemCard(
                             .data(imageUrl)
                             .memoryCacheKey(cacheKey)
                             .diskCacheKey(cacheKey)
+                            .crossfade(150)
                             .size(128)
                             .listener(onError = { _, _ ->
                                 if (imageUrl == primaryUrl && fallbackUrl != null && fallbackUrl != primaryUrl) {
