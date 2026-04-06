@@ -17,6 +17,7 @@ fun TypeAnimatedOverlay(
         "fire" -> FireOverlay(modifier)
         "water" -> WaterOverlay(modifier)
         "electric" -> ElectricOverlay(modifier)
+        "ice" -> IceOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
         // "electric" -> ElectricOverlay(modifier)
         // ...
