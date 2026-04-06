@@ -736,7 +736,7 @@ class PokemonViewModel : ViewModel() {
 
                     // MEJORA 4: Semáforo subido a 50 para mayor paralelismo
                     val allSummaries = withContext(Dispatchers.IO) {
-                        val semaphore = Semaphore(50)
+                        val semaphore = Semaphore(15)
                         speciesList.map { resource ->
                             async {
                                 semaphore.withPermit { fetchSinglePokemonSummary(resource) }

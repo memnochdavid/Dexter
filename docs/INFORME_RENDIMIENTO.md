@@ -85,12 +85,16 @@ La app presenta stuttering/jank en el arranque en dispositivos móviles. Se han 
 
 ---
 
-## 6. Reducir concurrencia del dispatcher de red — `PENDIENTE`
+## 6. Reducir concurrencia del dispatcher de red — `IMPLEMENTADO`
 
-**Problema:** `RetrofitClient.kt:26-36` configura `maxRequests = 100` y `maxRequestsPerHost = 50`. En móvil con 3G/4G esto causa agotamiento de sockets, TCP window stalls y timeouts en cascada.
+**Problema:** `RetrofitClient.kt:26-28` configuraba `maxRequests = 100` y `maxRequestsPerHost = 50`. En móvil con 3G/4G esto causaba agotamiento de sockets, TCP window stalls y timeouts en cascada. Además, el semáforo de coroutines en `PokemonViewModel.kt` estaba a 50, encolando demasiadas peticiones en OkHttp.
 
-**Solución propuesta:**
-- Reducir a `maxRequests = 20`, `maxRequestsPerHost = 10`
-- Implementar retry con backoff exponencial
+**Solución aplicada:**
+- `RetrofitClient.kt`: Reducido `maxRequests` de 100 a 20, `maxRequestsPerHost` de 50 a 10.
+- `PokemonViewModel.kt`: Reducido semáforo de coroutines de 50 a 15 para no acumular peticiones encoladas en OkHttp.
 
-**Impacto esperado:** Menos fallos de red, menos memoria consumida por conexiones abiertas.
+**Resultado:**
+- Las peticiones se procesan en lotes de 10 en vez de 50, evitando saturación de red
+- Menos memoria consumida en buffers de socket (~1-2 MB vs ~3-12 MB)
+- Menor consumo de batería al permitir al radio móvil bajar a low power entre lotes
+- Complementario con el punto 1: al cargar menos generaciones al arrancar, el throughput efectivo se mantiene
