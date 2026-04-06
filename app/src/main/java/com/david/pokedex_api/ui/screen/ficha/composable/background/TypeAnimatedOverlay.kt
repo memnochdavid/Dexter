@@ -23,6 +23,7 @@ fun TypeAnimatedOverlay(
         "psychic" -> PsychicOverlay(modifier)
         "dragon" -> DragonOverlay(modifier)
         "dark" -> DarkOverlay(modifier)
+        "fairy" -> FairyOverlay(modifier)
         // Aquí se irán añadiendo el resto de tipos:
         // "electric" -> ElectricOverlay(modifier)
         // ...
