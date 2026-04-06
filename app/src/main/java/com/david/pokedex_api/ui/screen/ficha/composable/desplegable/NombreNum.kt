@@ -3,6 +3,7 @@ package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import com.david.pokedex_api.R
@@ -55,6 +57,7 @@ fun NombreNumAlturaPeso(
     peso: Double,
     tipo: String,
     cryUrl: String? = null,
+    generationNum: Int? = null,
     regionTag: String? = null,
     isLegendary: Boolean = false,
     isMythical: Boolean = false,
@@ -81,7 +84,7 @@ fun NombreNumAlturaPeso(
     )
 
     // ¿Hay algún badge que mostrar?
-    val hasBadges = isLegendary || isMythical || regionTag != null || isMega || isGigamax
+    val hasBadges = generationNum != null || isLegendary || isMythical || regionTag != null || isMega || isGigamax
 
     Column(
         modifier = modifier
@@ -136,42 +139,48 @@ fun NombreNumAlturaPeso(
             Spacer(Modifier.height(6.dp))
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                if (generationNum != null) {
+                    InfoBadge(
+                        text = "G-$generationNum",
+                        accentColor = colorTexto.copy(alpha = 0.6f)
+                    )
+                }
                 if (isLegendary) {
                     InfoBadge(
                         text = "Legendario",
-                        bgColor = Color(0xFFB8860B).copy(alpha = 0.35f),
-                        textColor = Color(0xFFFFD700)
+                        accentColor = Color(0xFFFFD700),
+                        icon = painterResource(id = R.drawable.ic_legendary)
                     )
                 }
                 if (isMythical) {
                     InfoBadge(
                         text = "Singular",
-                        bgColor = Color(0xFF9B59B6).copy(alpha = 0.35f),
-                        textColor = Color(0xFFD8A8F0)
+                        accentColor = Color(0xFFCB8FF7),
+                        icon = painterResource(id = R.drawable.ic_mythical)
                     )
                 }
                 if (regionTag != null) {
                     InfoBadge(
                         text = regionTag,
-                        bgColor = Color(0xFF4ECDC4).copy(alpha = 0.35f),
-                        textColor = Color(0xFFA8F0EC)
+                        accentColor = Color(0xFF4ECDC4),
+                        icon = painterResource(id = R.drawable.ic_region)
                     )
                 }
                 if (isMega) {
                     InfoBadge(
                         text = "Mega",
-                        bgColor = Color(0xFFFF6B6B).copy(alpha = 0.35f),
-                        textColor = Color(0xFFFFAAAA)
+                        accentColor = Color(0xFFFF6B6B),
+                        icon = painterResource(id = R.drawable.ic_mega)
                     )
                 }
                 if (isGigamax) {
                     InfoBadge(
                         text = "Gigamax",
-                        bgColor = Color(0xFFFF9F43).copy(alpha = 0.35f),
-                        textColor = Color(0xFFFFD0A0)
+                        accentColor = Color(0xFFFF9F43),
+                        icon = painterResource(id = R.drawable.ic_gigamax)
                     )
                 }
             }
@@ -251,19 +260,35 @@ fun NombreNumAlturaPeso(
 }
 
 @Composable
-private fun InfoBadge(text: String, bgColor: Color, textColor: Color) {
-    Box(
+private fun InfoBadge(
+    text: String,
+    accentColor: Color,
+    icon: Painter? = null
+) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(shape)
+            .background(accentColor.copy(alpha = 0.12f))
+            .border(width = 1.dp, color = accentColor.copy(alpha = 0.35f), shape = shape)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
+        if (icon != null) {
+            Icon(
+                painter = icon,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = accentColor
+            )
+            Spacer(Modifier.width(5.dp))
+        }
         Text(
-            text = text,
-            color = textColor,
+            text = text.uppercase(),
+            color = accentColor,
             fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
-            letterSpacing = 0.5.sp
+            fontSize = 10.sp,
+            letterSpacing = 1.sp
         )
     }
 }

@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PokemonSummaryEntity::class, MoveSummaryEntity::class, ItemSummaryEntity::class, BerrySummaryEntity::class, WikiDexCacheEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class DexterDatabase : RoomDatabase() {
@@ -53,6 +53,13 @@ abstract class DexterDatabase : RoomDatabase() {
             }
         }
 
+        // Limpiar cache WikiDex para re-descargar con formato HTML
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DELETE FROM wikidex_cache")
+            }
+        }
+
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -91,7 +98,7 @@ abstract class DexterDatabase : RoomDatabase() {
                     DexterDatabase::class.java,
                     "dexter_db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { INSTANCE = it }
             }
         }

@@ -67,6 +67,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 // import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.david.pokedex_api.util.htmlToAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.api.model.EvolutionChainDetailResponse
@@ -286,7 +287,7 @@ fun DetallesDesplegables(
                                 ?: spanishByVersion[version]?.flavorText
                                 ?: englishByVersion[version]?.flavorText
                                 ?: return@mapNotNull null
-                            val cleaned = text.replace("\n", " ").replace("\u000c", " ").replace("POKéMON", "Pokémon")
+                            val cleaned = text.replace("\u000c", " ").replace("POKéMON", "Pokémon")
                             version to cleaned
                         }.sortedBy { getGameReleaseOrder(it.first) }
                     }
@@ -427,7 +428,7 @@ fun DetallesDesplegables(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = selectedText,
+                                        text = htmlToAnnotatedString(selectedText, linkColor = colorAccent),
                                         fontSize = 18.sp,
                                         lineHeight = 27.sp,
                                         color = colorTexto,

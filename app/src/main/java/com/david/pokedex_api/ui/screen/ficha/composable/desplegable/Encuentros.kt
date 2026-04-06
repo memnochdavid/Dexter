@@ -46,6 +46,7 @@ import com.david.pokedex_api.ui.screen.ficha.composable.getGameCoverResId
 import com.david.pokedex_api.ui.screen.ficha.composable.getGameReleaseOrder
 import com.david.pokedex_api.ui.screen.ficha.composable.translateGameVersion
 import com.david.pokedex_api.util.Lottie
+import com.david.pokedex_api.util.htmlToAnnotatedString
 
 @Composable
 fun PokemonEncountersView(
@@ -220,7 +221,7 @@ fun PokemonEncountersView(
                                             .padding(16.dp)
                                     ) {
                                         Text(
-                                            text = wikiDexText,
+                                            text = htmlToAnnotatedString(wikiDexText, linkColor = colorAccent),
                                             fontSize = 15.sp,
                                             lineHeight = 22.sp,
                                             color = colorTexto
