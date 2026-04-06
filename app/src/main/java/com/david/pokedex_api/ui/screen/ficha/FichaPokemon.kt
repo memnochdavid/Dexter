@@ -101,6 +101,7 @@ import com.david.pokedex_api.LocalSharedTransitionScope
 import com.david.pokedex_api.ui.theme.background_app
 import com.david.pokedex_api.ui.theme.background_app_gradient
 import com.david.pokedex_api.ui.theme.rojo_pokeball
+import com.david.pokedex_api.ui.screen.ficha.composable.background.TypeAnimatedOverlay
 import com.david.pokedex_api.util.AnimatedPokeball
 import com.david.pokedex_api.util.ShinySparkleEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -852,6 +853,7 @@ fun ComponenteImagen(
                             .background(Brush.verticalGradient(listOf(g1.first, g1.second))),
                         contentAlignment = Alignment.BottomEnd
                     ) {
+                        TypeAnimatedOverlay(typeName = type1Name ?: "normal", modifier = Modifier.matchParentSize())
                         val iconResId = type1Name?.let { getPokemonTypeToIcon(it) } ?: 0
                         if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                             Image(
@@ -869,6 +871,7 @@ fun ComponenteImagen(
                             .background(Brush.verticalGradient(listOf(g2.first, g2.second))),
                         contentAlignment = Alignment.BottomEnd
                     ) {
+                        TypeAnimatedOverlay(typeName = type2Name ?: "normal", modifier = Modifier.matchParentSize())
                         val iconResId = type2Name?.let { getPokemonTypeToIcon(it) } ?: 0
                         if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                             Image(
@@ -887,6 +890,7 @@ fun ComponenteImagen(
                     .fillMaxSize()
                     .background(Brush.verticalGradient(listOf(g1.first, g1.second)))
             ) {
+                TypeAnimatedOverlay(typeName = type1Name ?: "normal", modifier = Modifier.matchParentSize())
                 val iconResId = type1Name?.let { getPokemonTypeToIcon(it) } ?: 0
                 if (iconResId != 0 && iconResId != R.drawable.pokeball_icon) {
                     Image(
