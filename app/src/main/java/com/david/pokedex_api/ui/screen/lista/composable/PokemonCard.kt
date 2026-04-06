@@ -100,9 +100,11 @@ fun PokemonListItemCard(
     }
 
     val type1 = pokemonSummary.types.getOrNull(0)
-    val type2 = pokemonSummary.types.getOrNull(1)
-    val color1 = if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray
-    val color2 = if (type2 != null) getPokemonTypeColorClear(type2) else color1
+    val color1 = remember(type1) { if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray }
+    val color2 = remember(pokemonSummary.types) {
+        val t2 = pokemonSummary.types.getOrNull(1)
+        if (t2 != null) getPokemonTypeColorClear(t2) else color1
+    }
     val gradientPair = if (type1 != null) getPokemonTypeGradientColors(type1) else Color.Gray to Color.DarkGray
 
     val backgroundBrush = remember(pokemonSummary.types, color1, color2, gradientPair) {
@@ -114,6 +116,10 @@ fun PokemonListItemCard(
         pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(pokemonSummary.types[0])
     }
     val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
+    val displayName = remember(pokemonSummary.name) {
+        adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name))
+    }
 
     Card(
         modifier = Modifier
@@ -215,7 +221,7 @@ fun PokemonListItemCard(
 
                     Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name)),
+                            text = displayName,
                             color = textColor,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
@@ -303,9 +309,11 @@ fun PokemonGridItemCard(
     }
 
     val type1 = pokemonSummary.types.getOrNull(0)
-    val type2 = pokemonSummary.types.getOrNull(1)
-    val color1 = if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray
-    val color2 = if (type2 != null) getPokemonTypeColorClear(type2) else color1
+    val color1 = remember(type1) { if (type1 != null) getPokemonTypeColorClear(type1) else Color.Gray }
+    val color2 = remember(pokemonSummary.types) {
+        val t2 = pokemonSummary.types.getOrNull(1)
+        if (t2 != null) getPokemonTypeColorClear(t2) else color1
+    }
     val gradientPair = if (type1 != null) getPokemonTypeGradientColors(type1) else Color.Gray to Color.DarkGray
 
     val backgroundBrush = remember(pokemonSummary.types, color1, color2, gradientPair) {
@@ -317,6 +325,10 @@ fun PokemonGridItemCard(
         pokemonSummary.types.isNotEmpty() && esTipoColorOscuro(pokemonSummary.types[0])
     }
     val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+
+    val displayName = remember(pokemonSummary.name) {
+        adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name))
+    }
 
     Card(
         modifier = Modifier
@@ -431,7 +443,7 @@ fun PokemonGridItemCard(
 
                 // Nombre
                 Text(
-                    text = adaptaNombre(transformPokemonNameToResourceName(pokemonSummary.name)),
+                    text = displayName,
                     color = textColor,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,

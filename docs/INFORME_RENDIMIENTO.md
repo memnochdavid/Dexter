@@ -35,34 +35,40 @@ La app presenta stuttering/jank en el arranque en dispositivos móviles. Se han 
 
 ---
 
-## 3. Consolidar StateFlow/LiveData — `PENDIENTE`
+## 3. Consolidar StateFlow/LiveData — `IMPLEMENTADO`
 
-**Problema:** `PokemonViewModel.kt:200-279` declara 22+ objetos `LiveData`/`StateFlow`. Al arrancar, `_generations` y `_pokemonByGenerationCache` se actualizan repetidamente, cada actualización dispara recomposiciones del árbol de UI completo.
+**Problema:** `PokemonViewModel.kt` declaraba 9 `MutableStateFlow` independientes para búsqueda/filtros. Cada uno era un gatillo de recomposición independiente en `GenerationPagerScreen` (13 suscripciones en total).
 
-**Solución propuesta:**
-- Agrupar estados relacionados en un único `data class` con un solo `StateFlow`
-- Usar `derivedStateOf` donde sea posible para evitar recomposiciones innecesarias
+**Solución aplicada:**
+- `PokemonViewModel.kt`: Creado `data class PokemonFilterState` que agrupa los 9 estados (`searchQuery`, `selectedType1`, `selectedType2`, `showMegas`, `showGigamax`, `showRegionals`, `showLegendaries`, `showMythicals`, `isGridView`) en un único `MutableStateFlow<PokemonFilterState>`.
+- `ListaPokemon.kt`: De 9 `collectAsState()` individuales a 1 solo (`filters`). Todas las referencias actualizadas a `filters.campo`.
+- `MainActivity.kt`: BottomSheet actualizado de 8 `collectAsState()` a 1. Callbacks usan `pf.copy(campo = valor)`. Toggle grid/list actualizado.
 
-**Impacto esperado:** Menos recomposiciones en cascada, arranque más fluido.
+**Resultado:**
+- De 13 gatillos de recomposición independientes en `GenerationPagerScreen` a 5 (`generations`, `pokemonByGenerationCache`, `isLoadingAnyPokemon`, `filters`, `specialForms`)
+- Cambios simultáneos de filtros disparan una sola recomposición en vez de varias
 
 ---
 
-## 4. Simplificar animaciones de tarjetas — `PENDIENTE`
+## 4. Memoizar cálculos de tarjetas + simplificar animaciones — `IMPLEMENTADO (parcial)`
 
-**Problema:** `PokemonCard.kt:62-212` — Cada tarjeta tiene múltiples `animateFloatAsState` + gradientes radiales con 5 color stops que se recalculan por frame. Con 60-150 tarjetas visibles se produce overdraw masivo en la GPU.
+**Problema:** `PokemonCard.kt` — Cada tarjeta recalculaba colores, gradientes y nombres en cada recomposición. Además, cada tarjeta registra 3 `animateFloatAsState` aunque el 99% del tiempo no están animando.
 
-Detalle:
-- `animateFloatAsState` para scale, contentScale, pokeballAlpha (por cada tarjeta)
-- Shimmer con `Brush.radialGradient` de 5 color stops
-- `ColorFilter.tint` con `BlendMode.SrcAtop` por frame
-- Las animaciones se evalúan incluso para tarjetas fuera de pantalla
+**Solución aplicada (memoización — subproblema C):**
+- `PokemonCard.kt` (ambas variantes List y Grid): `color1`, `color2` envueltos en `remember(types)`.
+- `backgroundBrush` cacheado con `remember(types, color1, color2, gradientPair)`.
+- `displayName` cacheado con `remember(pokemonSummary.name)` — `adaptaNombre(transformPokemonNameToResourceName(...))` se ejecuta una sola vez por Pokémon.
 
-**Solución propuesta:**
-- Desactivar animaciones para tarjetas no visibles
-- Simplificar gradientes radiales del shimmer (menos color stops)
-- Considerar eliminar shimmer en dispositivos de gama baja
+**No aplicado (animaciones — subproblema A):**
+- Las 3 `animateFloatAsState` (`scale`, `contentScale`, `pokeballAlpha`) no se pueden mover dentro de un `if (isAnimating)` porque son `@Composable` y Compose no permite llamadas composables condicionales.
+- Cuando `isAnimating = false`, los `targetValue` ya son estáticos (1f, 0f), así que Compose no hace interpolación real — el overhead es solo del registro del estado en el snapshot system.
 
-**Impacto esperado:** Reducción significativa de carga GPU y overdraw.
+**No aplicado (shimmer — subproblema B):**
+- El shimmer radial solo se renderiza en la tarjeta que está siendo pulsada (1 a la vez), por lo que su impacto es bajo.
+
+**Resultado:**
+- Eliminadas llamadas redundantes a `getPokemonTypeColorClear()`, `getPokemonTypeGradientColors()`, `adaptaNombre()` y `transformPokemonNameToResourceName()` en cada recomposición
+- Menos allocations de objetos `Color` y `String` por frame durante scroll
 
 ---
 
@@ -79,12 +85,12 @@ Detalle:
 
 ---
 
-## 6. Precomputar strings y colores — `PENDIENTE`
+## 6. Reducir concurrencia del dispatcher de red — `PENDIENTE`
 
-**Problema:** `PokemonCard.kt:218` ejecuta `adaptaNombre(transformPokemonNameToResourceName(...))` en cada recomposición de cada tarjeta. Igualmente, `getPokemonTypeColorClear()` y `getPokemonTypeGradientColors()` se llaman por tarjeta en cada composición.
+**Problema:** `RetrofitClient.kt:26-36` configura `maxRequests = 100` y `maxRequestsPerHost = 50`. En móvil con 3G/4G esto causa agotamiento de sockets, TCP window stalls y timeouts en cascada.
 
 **Solución propuesta:**
-- Precomputar el nombre formateado al crear el `PokemonSummary`, no en el render
-- Cachear colores/gradientes por tipo en un `Map` estático
+- Reducir a `maxRequests = 20`, `maxRequestsPerHost = 10`
+- Implementar retry con backoff exponencial
 
-**Impacto esperado:** Menos allocations y ciclos CPU por frame, mejora acumulativa con muchas tarjetas.
+**Impacto esperado:** Menos fallos de red, menos memoria consumida por conexiones abiertas.

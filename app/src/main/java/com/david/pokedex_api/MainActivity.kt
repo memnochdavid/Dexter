@@ -166,7 +166,8 @@ fun PokedexApp(
 
     val isDetailRoute = currentRoute == Routes.POKEMON_DETAILS
 
-    val isGridView by pokemonViewModel.pokemonIsGridView.collectAsState()
+    val pokemonFilters by pokemonViewModel.pokemonFilters.collectAsState()
+    val isGridView = pokemonFilters.isGridView
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Composable de botones de navegacion reutilizable
@@ -221,7 +222,7 @@ fun PokedexApp(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        pokemonViewModel.pokemonIsGridView.value = !isGridView
+                        pokemonViewModel.pokemonFilters.value = pokemonFilters.copy(isGridView = !isGridView)
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -395,44 +396,37 @@ fun PokedexApp(
                 Column {
                     when (currentRoute) {
                         Routes.POKEMON_LIST -> {
-                            val sq by pokemonViewModel.pokemonSearchQuery.collectAsState()
-                            val t1 by pokemonViewModel.pokemonSelectedType1.collectAsState()
-                            val t2 by pokemonViewModel.pokemonSelectedType2.collectAsState()
-                            val showMegas by pokemonViewModel.pokemonShowMegas.collectAsState()
-                            val showGigamax by pokemonViewModel.pokemonShowGigamax.collectAsState()
-                            val showRegionals by pokemonViewModel.pokemonShowRegionals.collectAsState()
-                            val showLegendaries by pokemonViewModel.pokemonShowLegendaries.collectAsState()
-                            val showMythicals by pokemonViewModel.pokemonShowMythicals.collectAsState()
+                            val pf by pokemonViewModel.pokemonFilters.collectAsState()
                             PokemonSearchMenu(
-                                searchQuery = sq,
-                                selectedType1 = t1,
-                                selectedType2 = t2,
+                                searchQuery = pf.searchQuery,
+                                selectedType1 = pf.selectedType1,
+                                selectedType2 = pf.selectedType2,
                                 availableTypes = ALL_POKEMON_TYPES,
-                                showMegas = showMegas,
-                                showGigamax = showGigamax,
-                                showRegionals = showRegionals,
-                                showLegendaries = showLegendaries,
-                                showMythicals = showMythicals,
-                                onSearchQueryChanged = { pokemonViewModel.pokemonSearchQuery.value = it },
-                                onType1Changed = { pokemonViewModel.pokemonSelectedType1.value = it },
-                                onType2Changed = { pokemonViewModel.pokemonSelectedType2.value = it },
+                                showMegas = pf.showMegas,
+                                showGigamax = pf.showGigamax,
+                                showRegionals = pf.showRegionals,
+                                showLegendaries = pf.showLegendaries,
+                                showMythicals = pf.showMythicals,
+                                onSearchQueryChanged = { pokemonViewModel.pokemonFilters.value = pf.copy(searchQuery = it) },
+                                onType1Changed = { pokemonViewModel.pokemonFilters.value = pf.copy(selectedType1 = it) },
+                                onType2Changed = { pokemonViewModel.pokemonFilters.value = pf.copy(selectedType2 = it) },
                                 onShowMegasChanged = {
-                                    pokemonViewModel.pokemonShowMegas.value = it
+                                    pokemonViewModel.pokemonFilters.value = pf.copy(showMegas = it)
                                     if (it) pokemonViewModel.fetchSpecialForms()
                                 },
                                 onShowGigamaxChanged = {
-                                    pokemonViewModel.pokemonShowGigamax.value = it
+                                    pokemonViewModel.pokemonFilters.value = pf.copy(showGigamax = it)
                                     if (it) pokemonViewModel.fetchSpecialForms()
                                 },
                                 onShowRegionalsChanged = {
-                                    pokemonViewModel.pokemonShowRegionals.value = it
+                                    pokemonViewModel.pokemonFilters.value = pf.copy(showRegionals = it)
                                     if (it) pokemonViewModel.fetchSpecialForms()
                                 },
                                 onShowLegendariesChanged = {
-                                    pokemonViewModel.pokemonShowLegendaries.value = it
+                                    pokemonViewModel.pokemonFilters.value = pf.copy(showLegendaries = it)
                                 },
                                 onShowMythicalsChanged = {
-                                    pokemonViewModel.pokemonShowMythicals.value = it
+                                    pokemonViewModel.pokemonFilters.value = pf.copy(showMythicals = it)
                                 }
                             )
                         }
