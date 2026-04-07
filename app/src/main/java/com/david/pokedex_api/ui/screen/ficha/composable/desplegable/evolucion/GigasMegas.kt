@@ -13,19 +13,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,17 +35,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.david.pokedex_api.R
+import com.david.pokedex_api.api.model.PokemonSummary
 import com.david.pokedex_api.api.model.SpecialForm
 import com.david.pokedex_api.api.service.PokeApiService
+import com.david.pokedex_api.ui.screen.lista.composable.PokemonListItemCard
 import com.david.pokedex_api.util.Lottie
 import kotlinx.coroutines.launch
 
@@ -90,9 +84,13 @@ fun PokemonSpecialFormsView(
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
                     val forms = mutableListOf<SpecialForm>()
+                    // Extraer species ID del default variety (base form)
+                    val speciesId = speciesDetail.varieties
+                        .firstOrNull { it.isDefault }
+                        ?.pokemon?.url
+                        ?.trimEnd('/')?.substringAfterLast('/')?.toIntOrNull()
 
-                    // Asegúrate de que tu modelo PokemonSpeciesResponse tenga 'varieties'
-                    speciesDetail.varieties.forEach { variety ->
+                    speciesDetail.varieties.forEachIndexed { index, variety ->
                         if (!variety.isDefault) {
                             val formApiName = variety.pokemon.name
                             var displayName = ""
@@ -111,17 +109,27 @@ fun PokemonSpecialFormsView(
                             }
 
                             if (isSpecialForm) {
-                                // CAMBIO 2: Usa la función estándar para obtener detalles del Pokémon por nombre
-                                val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
-                                //                                             ^^^^^^^^^^^^^^^^^
-
-                                val sprite = if (formDetailsResponse.isSuccessful) {
-                                    formDetailsResponse.body()?.sprites?.other?.officialArtwork?.frontDefault
-                                        ?: formDetailsResponse.body()?.sprites?.frontDefault
-                                } else {
-                                    null
+                                val pokeId = variety.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                                // HOME icon: speciesId + form index (posición en varieties)
+                                var sprite: String? = null
+                                if (speciesId != null) {
+                                    sprite = "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${index.toString().padStart(2, '0')}_s0.png"
                                 }
-                                forms.add(SpecialForm(formApiName, displayName, sprite))
+                                // Fallback: official artwork desde la API
+                                var fallbackSprite: String? = null
+                                var formTypes: List<String> = emptyList()
+                                try {
+                                    val formDetailsResponse = pokemonApiService.getPokemonDetails(formApiName)
+                                    if (formDetailsResponse.isSuccessful) {
+                                        val body = formDetailsResponse.body()
+                                        fallbackSprite = body?.sprites?.other?.officialArtwork?.frontDefault
+                                            ?: body?.sprites?.frontDefault
+                                        formTypes = body?.types?.map { it.type.name } ?: emptyList()
+                                    }
+                                } catch (_: Exception) { }
+
+                                forms.add(SpecialForm(formApiName, displayName, sprite, fallbackSprite,
+                                    pokemonId = pokeId, types = formTypes))
                             }
                         }
                     }
@@ -170,13 +178,13 @@ fun PokemonSpecialFormsView(
 
     Card(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
             // No es necesario .background(cardColor) aquí ya que se define en CardDefaults
         ) {
             Row( // Encabezado clickeable
@@ -232,51 +240,31 @@ fun PokemonSpecialFormsView(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpecialFormItemView(
     specialForm: SpecialForm,
-    backgroundColor: Color,
-    colorTexto: Color,
+    backgroundColor: Color = Color.Transparent,
+    colorTexto: Color = Color.Unspecified,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    ElevatedCard(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = backgroundColor
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp)
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(specialForm.spriteUrl ?: "")
-                    .crossfade(true)
-                    .build(),
-                contentDescription = specialForm.displayName,
-                modifier = Modifier.size(90.dp),
-                contentScale = ContentScale.Fit
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = specialForm.displayName,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = colorTexto,
-                maxLines = 2,
-                modifier = Modifier.weight(1f)
-            )
-        }
+    val summary = remember(specialForm) {
+        PokemonSummary(
+            id = specialForm.pokemonId ?: 0,
+            name = specialForm.formName,
+            spriteUrl = specialForm.spriteUrl,
+            types = specialForm.types,
+            colorName = null,
+            fallbackSpriteUrl = specialForm.fallbackSpriteUrl
+        )
     }
+
+    PokemonListItemCard(
+        pokemonSummary = summary,
+        onRecallAndNavigate = onClick,
+        simpleClick = true,
+        useProvidedSprite = true
+    )
 }
 
 data class GigasMegasDescription(

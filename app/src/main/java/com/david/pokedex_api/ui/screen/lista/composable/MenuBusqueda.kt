@@ -4,6 +4,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,13 +16,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,12 +35,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.ui.screen.comun.NO_TYPE_SELECTED
 import com.david.pokedex_api.ui.screen.comun.PokemonTypeChip
 import com.david.pokedex_api.ui.screen.comun.getPokemonTypeColor
@@ -47,96 +55,98 @@ import com.david.pokedex_api.ui.theme.*
 @Composable
 fun PokemonSearchMenu(
     searchQuery: String,
-    selectedType1: String, // Nombre del tipo, ej: "fire", o NO_TYPE_SELECTED
-    selectedType2: String, // Nombre del tipo, ej: "water", o NO_TYPE_SELECTED
-    availableTypes: List<String>, // Lista de todos los nombres de tipos disponibles
+    selectedType1: String,
+    selectedType2: String,
+    availableTypes: List<String>,
+    showMegas: Boolean = false,
+    showGigamax: Boolean = false,
+    showRegionals: Boolean = false,
+    showLegendaries: Boolean = false,
+    showMythicals: Boolean = false,
     onSearchQueryChanged: (String) -> Unit,
-    onType1Changed: (String) -> Unit, // Devuelve el nombre del tipo o NO_TYPE_SELECTED
-    onType2Changed: (String) -> Unit, // Devuelve el nombre del tipo o NO_TYPE_SELECTED
+    onType1Changed: (String) -> Unit,
+    onType2Changed: (String) -> Unit,
+    onShowMegasChanged: (Boolean) -> Unit = {},
+    onShowGigamaxChanged: (Boolean) -> Unit = {},
+    onShowRegionalsChanged: (Boolean) -> Unit = {},
+    onShowLegendariesChanged: (Boolean) -> Unit = {},
+    onShowMythicalsChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    var isPressed by remember { mutableStateOf(false) }
-    val scale = animateFloatAsState(
-        targetValue = if (isPressed) 0.85f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy, // Moderate bouncing
-            stiffness = Spring.StiffnessMedium // Moderate stiffness
-        )
-    )
+    val hasActiveFilters = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED ||
+            selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals ||
+            showLegendaries || showMythicals
 
-    Box( // Contenedor externo para el fondo y la forma
-        modifier = modifier // El modifier principal se aplica a este Box
+    Box(
+        modifier = modifier
             .fillMaxWidth()
             .background(
-                color = color_menu_busqueda1,
-                shape = RoundedCornerShape(
-                    topStart = 0.dp,
-                    topEnd = 0.dp,
-                    bottomStart = 16.dp,
-                    bottomEnd = 16.dp
+                brush = Brush.verticalGradient(
+                    colors = listOf(color_menu_busqueda2, color_menu_busqueda1)
                 )
             )
     ) {
-        Column( // Contenedor interno para el contenido y su padding
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Padding para todo el contenido DENTRO del fondo
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp), // Ajusta el padding inferior según necesites
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // ── Header: titulo + boton limpiar ──
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
-
-            ){
+            ) {
                 Text(
                     "Filtrar Pokémon",
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(.8f)
+                    color = Color.White
                 )
 
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isPressed = true
-                        try {
+                if (hasActiveFilters) {
+                    FilledTonalButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSearchQueryChanged("")
                             onType1Changed(NO_TYPE_SELECTED)
                             onType2Changed(NO_TYPE_SELECTED)
-                        } finally {
-                            isPressed = false // Reset isPressed in finally block
-                        }
-                    },
-                    modifier = Modifier.size(35.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = color_fuego_card,
-                        contentColor = blanco80
-                    ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Limpiar filtros",
-                        modifier = Modifier.fillMaxSize()
-                    )
+                            onShowMegasChanged(false)
+                            onShowGigamaxChanged(false)
+                            onShowRegionalsChanged(false)
+                            onShowLegendariesChanged(false)
+                            onShowMythicalsChanged(false)
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.15f),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Limpiar",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Limpiar", fontSize = 12.sp)
+                    }
                 }
             }
 
+            // ── Barra de búsqueda ──
             NameSearchBar(
                 searchQuery = searchQuery,
                 onSearchQueryChanged = onSearchQueryChanged,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // ── Selectores de tipo ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TypeSelector(
@@ -152,11 +162,92 @@ fun PokemonSearchMenu(
                     availableTypes = availableTypes,
                     onTypeSelected = onType2Changed,
                     modifier = Modifier.weight(1f),
-                    // enabled = selectedType1 != NO_TYPE_SELECTED
                 )
             }
-            // No necesitas un Spacer al final si el padding inferior de la Column es suficiente
+
+            // ── Chips Mega / Gigamax / Regionales ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilterChipToggle(
+                    label = "Mega",
+                    checked = showMegas,
+                    onCheckedChange = onShowMegasChanged,
+                    activeColor = Color(0xFFFF6B6B),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChipToggle(
+                    label = "Gigamax",
+                    checked = showGigamax,
+                    onCheckedChange = onShowGigamaxChanged,
+                    activeColor = Color(0xFFFF9F43),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChipToggle(
+                    label = "Regionales",
+                    checked = showRegionals,
+                    onCheckedChange = onShowRegionalsChanged,
+                    activeColor = Color(0xFF4ECDC4),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // ── Chips Legendarios / Singulares ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilterChipToggle(
+                    label = "Legendarios",
+                    checked = showLegendaries,
+                    onCheckedChange = onShowLegendariesChanged,
+                    activeColor = Color(0xFFB8860B),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChipToggle(
+                    label = "Singulares",
+                    checked = showMythicals,
+                    onCheckedChange = onShowMythicalsChanged,
+                    activeColor = Color(0xFF9B59B6),
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun FilterChipToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    activeColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val bgColor = if (checked) activeColor else Color.White.copy(alpha = 0.1f)
+    val borderColor = if (checked) activeColor else Color.White.copy(alpha = 0.3f)
+    val textColor = if (checked) Color.White else Color.White.copy(alpha = 0.7f)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onCheckedChange(!checked)
+            }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontWeight = if (checked) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 14.sp
+        )
     }
 }
 
@@ -170,56 +261,36 @@ fun NameSearchBar(
         value = searchQuery,
         onValueChange = onSearchQueryChanged,
         modifier = modifier,
-        label = { Text("Buscar por nombre") },
-        placeholder = { Text("Ej: Pikachu") },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Buscar") },
+        placeholder = { Text("Buscar por nombre...") },
+        leadingIcon = {
+            Icon(Icons.Filled.Search, contentDescription = "Buscar",
+                tint = Color.White.copy(alpha = 0.7f))
+        },
         trailingIcon = {
             if (searchQuery.isNotEmpty()) {
                 IconButton(onClick = { onSearchQueryChanged("") }) {
-                    Icon(Icons.Filled.Clear, contentDescription = "Limpiar búsqueda")
+                    Icon(Icons.Filled.Clear, contentDescription = "Limpiar",
+                        tint = Color.White.copy(alpha = 0.8f))
                 }
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            // Personaliza colores si es necesario
-            focusedTextColor = MaterialTheme.colorScheme.primary,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f), // Alfa estándar para deshabilitado
-            cursorColor = MaterialTheme.colorScheme.secondary,
-
-            // --- Colores del Contenedor (Fondo del campo) ---
-            // Estos son los nombres correctos para el fondo del campo de texto en M3
-            focusedContainerColor = Color.White.copy(alpha = 0.7f), // O el color que desees, ej: MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-            unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-            disabledContainerColor = Color.Transparent,
-
-            // --- Colores del Borde ---
-            focusedBorderColor = Color.White.copy(alpha = 0.7f),
-            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-            disabledBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), // Alfa estándar para borde deshabilitado
-
-            // --- Colores de la Etiqueta (Label) ---
-            focusedLabelColor = MaterialTheme.colorScheme.secondary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            disabledLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-
-            // --- Colores del Placeholder ---
-            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), // Hice el placeholder enfocado un poco más visible
-            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-
-            // --- Colores de los Iconos (leading/trailing) ---
-            focusedLeadingIconColor = CardBorder,
-            unfocusedLeadingIconColor = CardBorder,
-            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-
-            focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
-            unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-
-            )
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+            cursorColor = Color.White,
+            focusedContainerColor = Color.White.copy(alpha = 0.12f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+            focusedBorderColor = Color.White.copy(alpha = 0.4f),
+            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+            focusedPlaceholderColor = Color.White.copy(alpha = 0.5f),
+            unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
+            focusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
+            unfocusedLeadingIconColor = Color.White.copy(alpha = 0.5f),
+            focusedTrailingIconColor = Color.White.copy(alpha = 0.8f),
+            unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
+        )
     )
 }
 
@@ -235,24 +306,10 @@ fun TypeSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    // Colores para el OutlinedTextField
-    val textFieldBackgroundColor = if (selectedType != NO_TYPE_SELECTED) {
-        getPokemonTypeColor(selectedType).copy(alpha = 0.7f) // Fondo sutil con el color del tipo
-    } else {
-        Color.White.copy(alpha = 0.5f) // Fondo sutil en blanco
-    }
-    val textFieldTextColor = if (selectedType != NO_TYPE_SELECTED) {
-        // Usa el color principal del tipo si contrasta bien con el fondo alfa,
-        // o calcula uno específico. Para un fondo con alfa bajo, el color onSurface suele ir bien.
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val textFieldBorderAndLabelColor = if (selectedType != NO_TYPE_SELECTED) {
-        getPokemonTypeColor(selectedType) // Borde y label con el color principal del tipo
-    } else {
-        Color.White.copy(alpha = 0.7f) // Color por defecto para el borde/label
-    }
+    val hasType = selectedType != NO_TYPE_SELECTED
+    val typeColor = if (hasType) getPokemonTypeColor(selectedType) else Color.Transparent
+    val bgColor = if (hasType) typeColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)
+    val borderColor = if (hasType) typeColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f)
 
     ExposedDropdownMenuBox(
         expanded = expanded && enabled,
@@ -263,30 +320,25 @@ fun TypeSelector(
             value = pokemonTypeNameTranslator(selectedType).replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
             onValueChange = {},
             readOnly = true,
-            label = { Text(label) },
+            label = { Text(label, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp) },
             modifier = Modifier
                 .menuAnchor()
                 .fillMaxWidth(),
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded && enabled)
             },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                focusedContainerColor = textFieldBackgroundColor,
-                unfocusedContainerColor = textFieldBackgroundColor,
-                disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                focusedTextColor = textFieldTextColor,
-                unfocusedTextColor = textFieldTextColor,
-                disabledTextColor = textFieldTextColor.copy(alpha = 0.38f),
-                focusedBorderColor = textFieldBorderAndLabelColor,
-                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                disabledBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                focusedLabelColor = textFieldBorderAndLabelColor,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                disabledLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                focusedTrailingIconColor = textFieldTextColor,
-                unfocusedTrailingIconColor = textFieldTextColor,
-                disabledTrailingIconColor = textFieldTextColor.copy(alpha = 0.38f)
+                focusedContainerColor = bgColor,
+                unfocusedContainerColor = bgColor,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                focusedBorderColor = borderColor,
+                unfocusedBorderColor = borderColor,
+                focusedLabelColor = Color.White.copy(alpha = 0.7f),
+                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
             ),
             enabled = enabled
         )

@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Sprites animados (demasiado grandes para git, se sirven desde hosting externo)
+app/src/main/res/raw/*.webp
+app/src/main/res/raw/*.webm

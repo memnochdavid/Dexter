@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.david.pokedex_api.R
@@ -48,7 +49,7 @@ fun ItemBrowserScreen(pokemonViewModel: PokemonViewModel) {
     val tabs = listOf("Items", "Bayas")
 
     Column(
-        modifier = Modifier.fillMaxSize().background(background_app)
+        modifier = Modifier.fillMaxSize().background(background_app_gradient)
     ) {
         TabRow(
             selectedTabIndex = currentTab,
@@ -90,7 +91,7 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(background_app)) {
+    Box(Modifier.fillMaxSize().background(background_app_gradient)) {
         if (isLoading && allItems.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
@@ -101,7 +102,7 @@ private fun ItemsTab(pokemonViewModel: PokemonViewModel) {
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredItems, key = { it.id }) { item ->
@@ -141,7 +142,7 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(background_app)) {
+    Box(Modifier.fillMaxSize().background(background_app_gradient)) {
         if (isLoading && allBerries.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Lottie(rawResId = R.raw.pokeball, modifier = Modifier.size(96.dp))
@@ -152,7 +153,7 @@ private fun BerriesTab(pokemonViewModel: PokemonViewModel) {
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredBerries, key = { it.id }) { berry ->
@@ -179,29 +180,40 @@ fun SearchMenu(title: String, query: String, onQueryChanged: (String) -> Unit, p
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color_menu_busqueda1, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+            .background(brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(color_menu_busqueda2, color_menu_busqueda1)
+            ))
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(.8f))
-                Button(
-                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onQueryChanged("") },
-                    modifier = Modifier.size(35.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = color_fuego_card, contentColor = blanco80),
-                    contentPadding = PaddingValues(4.dp)
-                ) { Icon(Icons.Default.Delete, "Limpiar", Modifier.fillMaxSize()) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                if (query.isNotBlank()) {
+                    FilledTonalButton(
+                        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onQueryChanged("") },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, "Limpiar", Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Limpiar", fontSize = 12.sp)
+                    }
+                }
             }
             OutlinedTextField(
                 value = query, onValueChange = onQueryChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar por nombre") }, placeholder = { Text(placeholder) },
-                leadingIcon = { Icon(Icons.Filled.Search, "Buscar") },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQueryChanged("") }) { Icon(Icons.Filled.Clear, "Limpiar") } },
-                singleLine = true, shape = RoundedCornerShape(8.dp),
+                placeholder = { Text(placeholder) },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar", tint = Color.White.copy(alpha = 0.7f)) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQueryChanged("") }) { Icon(Icons.Filled.Clear, "Limpiar", tint = Color.White.copy(alpha = 0.8f)) } },
+                singleLine = true, shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.copy(alpha = 0.7f), unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                    focusedBorderColor = Color.White.copy(alpha = 0.7f), unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                    cursorColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.12f), unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.4f), unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedPlaceholderColor = Color.White.copy(alpha = 0.5f), unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
                 )
             )
         }
@@ -229,45 +241,55 @@ fun ItemSearchMenu(pokemonViewModel: PokemonViewModel) {
         listOf("Todas") + itemSummaries.values.mapNotNull { it.category }.distinct().sorted()
     }
 
+    val hasFilters = query.isNotBlank() || (currentTab == 0 && selectedCategory != "Todas") || (currentTab == 1 && selectedType != "Sin tipo")
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color_menu_busqueda1, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+            .background(brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(color_menu_busqueda2, color_menu_busqueda1)
+            ))
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Text(
                     if (currentTab == 0) "Filtrar Items" else "Filtrar Bayas",
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(.8f)
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White
                 )
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onQueryChanged("")
-                        if (currentTab == 0) pokemonViewModel.itemSelectedCategory.value = "Todas"
-                        else pokemonViewModel.berrySelectedType.value = "Sin tipo"
-                    },
-                    modifier = Modifier.size(35.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = color_fuego_card, contentColor = blanco80),
-                    contentPadding = PaddingValues(4.dp)
-                ) { Icon(Icons.Default.Delete, "Limpiar", Modifier.fillMaxSize()) }
+                if (hasFilters) {
+                    FilledTonalButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onQueryChanged("")
+                            if (currentTab == 0) pokemonViewModel.itemSelectedCategory.value = "Todas"
+                            else pokemonViewModel.berrySelectedType.value = "Sin tipo"
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, "Limpiar", Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Limpiar", fontSize = 12.sp)
+                    }
+                }
             }
             OutlinedTextField(
                 value = query, onValueChange = onQueryChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar por nombre") },
-                placeholder = { Text(if (currentTab == 0) "Ej: Pocion, Piedra..." else "Ej: Aranja, Zreza...") },
-                leadingIcon = { Icon(Icons.Filled.Search, "Buscar") },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQueryChanged("") }) { Icon(Icons.Filled.Clear, "Limpiar") } },
-                singleLine = true, shape = RoundedCornerShape(8.dp),
+                placeholder = { Text(if (currentTab == 0) "Buscar item..." else "Buscar baya...") },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar", tint = Color.White.copy(alpha = 0.7f)) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onQueryChanged("") }) { Icon(Icons.Filled.Clear, "Limpiar", tint = Color.White.copy(alpha = 0.8f)) } },
+                singleLine = true, shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.copy(alpha = 0.7f), unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                    focusedBorderColor = Color.White.copy(alpha = 0.7f), unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    focusedLeadingIconColor = CardBorder, unfocusedLeadingIconColor = CardBorder
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                    cursorColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.12f), unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.4f), unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedPlaceholderColor = Color.White.copy(alpha = 0.5f), unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
                 )
             )
-
-            Spacer(Modifier.height(12.dp))
 
             if (currentTab == 0) {
                 // Filtro de categoría para items
@@ -306,12 +328,16 @@ private fun ItemCategoryFilter(
             readOnly = true,
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                focusedContainerColor = Color.White.copy(alpha = 0.5f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                focusedBorderColor = Color.White.copy(alpha = 0.7f),
-                unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                focusedBorderColor = Color.White.copy(alpha = 0.2f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
             )
         )
         ExposedDropdownMenu(
@@ -336,28 +362,31 @@ private fun BerryTypeFilter(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    val bgColor = if (selectedType != "Sin tipo") {
-        getPokemonTypeColor(selectedType).copy(alpha = 0.7f)
-    } else {
-        Color.White.copy(alpha = 0.5f)
-    }
+    val hasType = selectedType != "Sin tipo"
+    val typeColor = if (hasType) getPokemonTypeColor(selectedType) else Color.Transparent
+    val bgColor = if (hasType) typeColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)
+    val borderColor = if (hasType) typeColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded }
     ) {
         OutlinedTextField(
-            value = if (selectedType == "Sin tipo") "Tipo" else pokemonTypeNameTranslator(selectedType).replaceFirstChar { it.titlecase() },
+            value = if (!hasType) "Tipo" else pokemonTypeNameTranslator(selectedType).replaceFirstChar { it.titlecase() },
             onValueChange = {},
             readOnly = true,
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
                 focusedContainerColor = bgColor,
                 unfocusedContainerColor = bgColor,
-                focusedBorderColor = if (selectedType != "Sin tipo") getPokemonTypeColor(selectedType) else Color.White.copy(0.7f),
-                unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                focusedBorderColor = borderColor,
+                unfocusedBorderColor = borderColor,
+                focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
             )
         )
         ExposedDropdownMenu(

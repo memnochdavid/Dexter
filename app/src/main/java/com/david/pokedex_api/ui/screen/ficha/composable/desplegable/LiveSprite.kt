@@ -47,7 +47,6 @@ import coil.request.ImageRequest
 import com.david.pokedex_api.api.model.PokemonDetailResponse
 
 private enum class SpriteOption(val label: String, val hasShiny: Boolean, val isVideo: Boolean, val isAnimatedImage: Boolean) {
-    ANIMATED_3D("3D Animado", false, true, false),
     OFFICIAL_ART("Official Art", true, false, false),
     HOME("Home", true, false, false),
     GIF("GIF", true, false, true),
@@ -70,24 +69,15 @@ fun LiveSprites(
     var isShiny by rememberSaveable { mutableStateOf(false) }
     val option = SpriteOption.valueOf(selectedOption)
 
-    // WebM local
-    val webmResourceName = remember(nombreSpanish) {
-        transformPokemonNameToResourceName(nombreSpanish.lowercase())
-    }
-    val hasWebm = remember(webmResourceName) {
-        context.resources.getIdentifier(webmResourceName, "raw", context.packageName) != 0
-    }
-
     // Gigamax
     val gigamaxSprite = remember(pokemon.id) {
         dinamaxLiveSprites.find { it.pokeId == pokemon.id }
     }
 
     // Opciones disponibles
-    val availableOptions = remember(pokemon, gigamaxSprite, hasWebm) {
+    val availableOptions = remember(pokemon, gigamaxSprite) {
         SpriteOption.entries.filter { opt ->
             when (opt) {
-                SpriteOption.ANIMATED_3D -> hasWebm
                 SpriteOption.OFFICIAL_ART -> pokemon.sprites.other?.officialArtwork?.frontDefault != null
                 SpriteOption.HOME -> pokemon.sprites.other?.home?.frontDefault != null
                 SpriteOption.GIF -> pokemon.sprites.other?.showdown?.frontDefault != null
@@ -184,17 +174,7 @@ fun LiveSprites(
         Spacer(Modifier.height(8.dp))
 
         // Contenido
-        if (option.isVideo && hasWebm) {
-            Box(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                ExoPlayerSimple(
-                    pokemonInputName = nombreSpanish.lowercase(),
-                    modifier = Modifier.size(250.dp)
-                )
-            }
-        } else if (sprites.isEmpty()) {
+        if (sprites.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center
@@ -250,7 +230,7 @@ private fun SpriteCard(
                     .build()
             }
             AsyncImage(
-                model = ImageRequest.Builder(context).data(sprite.url).crossfade(true).build(),
+                model = ImageRequest.Builder(context).data(sprite.url).crossfade(true).allowHardware(false).build(),
                 imageLoader = imageLoader,
                 contentDescription = sprite.label,
                 modifier = Modifier.size(160.dp),
@@ -271,15 +251,13 @@ private fun buildSpriteList(
     pokemon: PokemonDetailResponse,
     option: SpriteOption,
     isShiny: Boolean,
-    gigamaxSprite: DinamaxLiveSprite?
+    gigamaxSprite: DinamaxLiveSprite?,
 ): List<LabeledSprite> {
     val list = mutableListOf<LabeledSprite>()
     val sprites = pokemon.sprites
     val other = sprites.other
 
     when (option) {
-        SpriteOption.ANIMATED_3D -> { /* ExoPlayer, no genera sprites */ }
-
         SpriteOption.OFFICIAL_ART -> {
             val art = other?.officialArtwork
             if (isShiny) {

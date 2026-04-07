@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.david.pokedex_api.R
 import com.david.pokedex_api.api.model.MoveSummary
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
@@ -73,7 +74,7 @@ fun MoveBrowserScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background_app)
+            .background(background_app_gradient)
     ) {
         if (isLoadingList && allMoves.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -88,7 +89,7 @@ fun MoveBrowserScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 80.dp),
+                contentPadding = PaddingValues(8.dp, 8.dp, 8.dp, 100.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(items = filteredMoves, key = { it.id }) { move ->
@@ -122,53 +123,50 @@ fun MoveSearchMenu(
     isLoading: Boolean
 ) {
     val haptic = LocalHapticFeedback.current
+    val hasFilters = searchQuery.isNotBlank() || selectedType != NO_TYPE_SELECTED || selectedDamageClass != "Todos"
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                color = color_menu_busqueda1,
-                shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-            )
+            .background(brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(color_menu_busqueda2, color_menu_busqueda1)
+            ))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "Filtrar Movimientos" + if (isLoading) " ($loadedCount...)" else " ($loadedCount)",
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(.8f)
+                    color = Color.White
                 )
-
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onSearchQueryChanged("")
-                        onTypeChanged(NO_TYPE_SELECTED)
-                        onDamageClassChanged("Todos")
-                    },
-                    modifier = Modifier.size(35.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = color_fuego_card,
-                        contentColor = blanco80
-                    ),
-                    contentPadding = PaddingValues(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Limpiar filtros",
-                        modifier = Modifier.fillMaxSize()
-                    )
+                if (hasFilters) {
+                    FilledTonalButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSearchQueryChanged("")
+                            onTypeChanged(NO_TYPE_SELECTED)
+                            onDamageClassChanged("Todos")
+                        },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.15f),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, "Limpiar", Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Limpiar", fontSize = 12.sp)
+                    }
                 }
             }
 
@@ -176,40 +174,33 @@ fun MoveSearchMenu(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Buscar por nombre") },
-                placeholder = { Text("Ej: Lanzallamas") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Buscar") },
+                placeholder = { Text("Buscar por nombre...") },
+                leadingIcon = { Icon(Icons.Filled.Search, "Buscar", tint = Color.White.copy(alpha = 0.7f)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChanged("") }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Limpiar")
+                            Icon(Icons.Filled.Clear, "Limpiar", tint = Color.White.copy(alpha = 0.8f))
                         }
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.primary,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    cursorColor = MaterialTheme.colorScheme.secondary,
-                    focusedContainerColor = Color.White.copy(alpha = 0.7f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                    focusedBorderColor = Color.White.copy(alpha = 0.7f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    focusedLabelColor = MaterialTheme.colorScheme.secondary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    focusedLeadingIconColor = CardBorder,
-                    unfocusedLeadingIconColor = CardBorder,
-                    focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
-                    unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                    cursorColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.12f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedBorderColor = Color.White.copy(alpha = 0.4f),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedPlaceholderColor = Color.White.copy(alpha = 0.5f),
+                    unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
                 )
             )
 
-            Spacer(Modifier.height(16.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MoveTypeFilter(
@@ -236,11 +227,10 @@ private fun MoveTypeFilter(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    val bgColor = if (selectedType != NO_TYPE_SELECTED) {
-        getPokemonTypeColor(selectedType).copy(alpha = 0.7f)
-    } else {
-        Color.White.copy(alpha = 0.5f)
-    }
+    val hasType = selectedType != NO_TYPE_SELECTED
+    val typeColor = if (hasType) getPokemonTypeColor(selectedType) else Color.Transparent
+    val bgColor = if (hasType) typeColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)
+    val borderColor = if (hasType) typeColor.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -253,12 +243,16 @@ private fun MoveTypeFilter(
             readOnly = true,
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
                 focusedContainerColor = bgColor,
                 unfocusedContainerColor = bgColor,
-                focusedBorderColor = if (selectedType != NO_TYPE_SELECTED) getPokemonTypeColor(selectedType) else Color.White.copy(0.7f),
-                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                focusedBorderColor = borderColor,
+                unfocusedBorderColor = borderColor,
+                focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
             )
         )
         ExposedDropdownMenu(
@@ -313,12 +307,16 @@ private fun DamageClassFilter(
             readOnly = true,
             modifier = Modifier.menuAnchor().fillMaxWidth(),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                focusedContainerColor = Color.White.copy(alpha = 0.5f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-                focusedBorderColor = Color.White.copy(alpha = 0.7f),
-                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White.copy(alpha = 0.9f),
+                focusedBorderColor = Color.White.copy(alpha = 0.2f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                focusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.5f),
             )
         )
         ExposedDropdownMenu(

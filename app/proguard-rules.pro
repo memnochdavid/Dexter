@@ -12,6 +12,11 @@
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+# Mantener la interfaz del servicio de la API intacta (tipos genéricos de retorno)
+-keep class com.david.pokedex_api.api.service.** { *; }
 -dontwarn retrofit2.**
 
 # --- Gson ---
@@ -34,6 +39,8 @@
 -dontwarn androidx.room.paging.**
 
 # --- Coil ---
+-keep class coil.** { *; }
+-keep class coil.decode.** { *; }
 -dontwarn coil.**
 
 # --- Jsoup ---

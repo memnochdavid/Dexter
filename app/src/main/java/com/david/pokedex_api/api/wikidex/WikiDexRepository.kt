@@ -21,6 +21,7 @@ class WikiDexRepository(private val dao: PokemonDao) {
     private val fetcher = WikiDexFetcher()
     private val flavorParser = FlavorTextParser()
     private val locationParser = LocationParser()
+    private val formSpritesParser = FormSpritesParser()
 
     // Cache del Document por Pokemon para evitar descargar la misma pagina dos veces
     private var cachedDocName: String? = null
@@ -102,4 +103,14 @@ class WikiDexRepository(private val dao: PokemonDao) {
      */
     suspend fun getLocations(spanishName: String): Map<String, String> =
         getMappedData(spanishName, DATA_TYPE_LOCATION, locationParser)
+
+    /**
+     * Sprites HOME de formas desde WikiDex.
+     * @return Map<clave_normalizada, url_imagen> donde la clave es el nombre de recurso
+     *         en minúscula (ej. "arceus_fuego", "unown_b").
+     */
+    suspend fun getFormSprites(spanishName: String): Map<String, String> {
+        val doc = getDocument(spanishName) ?: return emptyMap()
+        return formSpritesParser.parse(doc) ?: emptyMap()
+    }
 }

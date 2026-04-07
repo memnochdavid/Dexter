@@ -37,11 +37,145 @@ class PokemonViewModel : ViewModel() {
     private val pokemonDao = DexterApplication.database.pokemonDao()
     private val wikiDexRepository = WikiDexRepository(pokemonDao)
 
-    // --- Estados de búsqueda/filtro (compartidos con el BottomSheet de MainActivity) ---
-    // Pokemon
-    var pokemonSearchQuery = MutableStateFlow("")
-    var pokemonSelectedType1 = MutableStateFlow("Sin tipo")
-    var pokemonSelectedType2 = MutableStateFlow("Sin tipo")
+    /** Sprites HOME de formas desde WikiDex (para Pokémon con muchas formas). */
+    suspend fun getWikiDexFormSprites(spanishName: String): Map<String, String> =
+        wikiDexRepository.getFormSprites(spanishName)
+
+    // --- Card recall: trackea que Pokemon esta "dentro de la pokeball" ---
+    val recalledPokemonId = MutableStateFlow<Int?>(null)
+
+    // --- Estado consolidado de búsqueda/filtro (compartido con el BottomSheet de MainActivity) ---
+    data class PokemonFilterState(
+        val searchQuery: String = "",
+        val selectedType1: String = "Sin tipo",
+        val selectedType2: String = "Sin tipo",
+        val showMegas: Boolean = false,
+        val showGigamax: Boolean = false,
+        val showRegionals: Boolean = false,
+        val showLegendaries: Boolean = false,
+        val showMythicals: Boolean = false,
+        val isGridView: Boolean = false
+    )
+
+    val pokemonFilters = MutableStateFlow(PokemonFilterState())
+
+    // Cache de formas especiales (megas/gigas) — se cargan bajo demanda
+    private val _specialFormsSummaries = MutableLiveData<List<PokemonSummary>>(emptyList())
+    val specialFormsSummaries: LiveData<List<PokemonSummary>> = _specialFormsSummaries
+    private var specialFormsLoaded = false
+
+    // IDs de legendarios y singulares (datos estáticos de PokeAPI)
+    val legendaryIds = setOf(
+        144, 145, 146, 150, // Articuno, Zapdos, Moltres, Mewtwo
+        243, 244, 245, 249, 250, // Raikou, Entei, Suicune, Lugia, Ho-Oh
+        377, 378, 379, 380, 381, 382, 383, 384, // Regis, Lati@s, Weather trio
+        480, 481, 482, 483, 484, 485, 486, 487, 488, // Lake trio, Creation trio, Heatran, Regigigas, Giratina, Cresselia
+        638, 639, 640, 641, 642, 643, 644, 645, 646, // Swords, Forces, Tao trio
+        716, 717, 718, // Xerneas, Yveltal, Zygarde
+        772, 773, // Type: Null, Silvally
+        785, 786, 787, 788, 789, 790, 791, 792, 800, // Tapus, Cosmog line, Necrozma
+        888, 889, 890, 891, 892, 895, 896, 897, 898, // Zacian, Zamazenta, Eternatus, Kubfu, Urshifu, Regidrago, Regieleki, Spectrier, Glastrier, Calyrex
+        905, // Enamorus
+        1001, 1002, 1003, 1004, 1007, 1008, 1014, 1015, 1016, 1017, 1024, // Paldea legendaries
+    )
+    val mythicalIds = setOf(
+        151, // Mew
+        251, // Celebi
+        385, 386, // Jirachi, Deoxys
+        489, 490, 491, 492, 493, // Phione, Manaphy, Darkrai, Shaymin, Arceus
+        494, 647, 648, 649, // Victini, Keldeo, Meloetta, Genesect
+        719, 720, 721, // Diancie, Hoopa, Volcanion
+        801, 802, 807, 808, 809, // Magearna, Marshadow, Zeraora, Meltan, Melmetal
+        893, // Zarude
+        1025, // Pecharunt
+    )
+
+    fun fetchSpecialForms() {
+        if (specialFormsLoaded) return
+        specialFormsLoaded = true
+        viewModelScope.launch {
+            try {
+                // 1. Listar todas las formas alternativas de PokeAPI
+                val megaGmaxResources = mutableListOf<PokemonListItem>()
+                var offset = 1025
+                var hasMore = true
+                while (hasMore) {
+                    val response = withContext(Dispatchers.IO) {
+                        pokemonApiService.getPokemonList(limit = 200, offset = offset)
+                    }
+                    if (response.isSuccessful) {
+                        val results = response.body()?.results ?: emptyList()
+                        if (results.isEmpty()) { hasMore = false }
+                        else {
+                            megaGmaxResources.addAll(results.filter { r ->
+                                r.name.contains("-mega") || r.name.contains("-gmax") ||
+                                r.name.contains("-alola") || r.name.contains("-galar") ||
+                                r.name.contains("-hisui") || r.name.contains("-paldea")
+                            })
+                            offset += 200
+                        }
+                    } else { hasMore = false }
+                }
+
+                // 2. Obtener detalles de cada forma (tipos, species URL)
+                val semaphore = kotlinx.coroutines.sync.Semaphore(30)
+                data class FormDetail(val id: Int, val name: String, val types: List<String>,
+                    val speciesUrl: String, val fallbackSprite: String?)
+                val formDetails = megaGmaxResources.map { resource ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                val resp = pokemonApiService.getPokemonDetails(resource.name)
+                                if (resp.isSuccessful) {
+                                    val d = resp.body()!!
+                                    FormDetail(d.id, d.name, d.types.map { it.type.name },
+                                        d.species.url,
+                                        d.sprites.other?.officialArtwork?.frontDefault ?: d.sprites.frontDefault)
+                                } else null
+                            } catch (_: Exception) { null }
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+
+                // 3. Agrupar por species y obtener varieties para calcular form index
+                val bySpeciesUrl = formDetails.groupBy { it.speciesUrl }
+                // Cache de species → varieties (nombre → index)
+                val varietiesCache = mutableMapOf<String, Map<String, Int>>()
+                bySpeciesUrl.keys.map { speciesUrl ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            try {
+                                val resp = pokemonApiService.getPokemonSpeciesDetailsByUrl(speciesUrl)
+                                if (resp.isSuccessful) {
+                                    val varieties = resp.body()?.varieties ?: emptyList()
+                                    val indexMap = varieties.mapIndexed { index, v -> v.pokemon.name to index }.toMap()
+                                    synchronized(varietiesCache) { varietiesCache[speciesUrl] = indexMap }
+                                }
+                            } catch (_: Exception) { }
+                        }
+                    }
+                }.awaitAll()
+
+                // 4. Construir PokemonSummary con HOME URL
+                val allForms = formDetails.map { form ->
+                    val speciesId = form.speciesUrl.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                    val formIndex = varietiesCache[form.speciesUrl]?.get(form.name)
+                    val homeUrl = if (speciesId != null && formIndex != null) {
+                        "https://resource.pokemon-home.com/battledata/img/pokei128/icon${speciesId.toString().padStart(4, '0')}_f${formIndex.toString().padStart(2, '0')}_s0.png"
+                    } else null
+                    PokemonSummary(
+                        id = form.id,
+                        name = form.name,
+                        spriteUrl = homeUrl ?: form.fallbackSprite,
+                        types = form.types,
+                        colorName = null,
+                        fallbackSpriteUrl = if (homeUrl != null) form.fallbackSprite else null
+                    )
+                }
+                _specialFormsSummaries.postValue(allForms.sortedBy { it.id })
+            } catch (_: Exception) { }
+        }
+    }
     // Movimientos
     var moveSearchQuery = MutableStateFlow("")
     var moveSelectedType = MutableStateFlow("Sin tipo")
@@ -143,14 +277,337 @@ class PokemonViewModel : ViewModel() {
     private val _evoChainPokemonMap = MutableStateFlow<Map<Int, PreloadedPokemonData>>(emptyMap())
     val evoChainPokemonMap: StateFlow<Map<Int, PreloadedPokemonData>> = _evoChainPokemonMap.asStateFlow()
 
+    // IDs de formas especiales (mega/gmax) para incluir en el pager sin swipe
+    private val _specialFormNavIds = MutableLiveData<List<Int>>(emptyList())
+    val specialFormNavIds: LiveData<List<Int>> = _specialFormNavIds
+
+    /**
+     * Expande un ChainLink tree añadiendo ramas para variantes regionales.
+     *
+     * Para cada especie con variantes regionales, crea ramas como siblings del padre:
+     * - La rama base mantiene los sucesores que corresponden a la forma original
+     * - Cada variante regional se añade como sibling con sus sucesores propios
+     *
+     * Sucesores se asignan por:
+     * - Si tiene variante de esa región → rama regional (con species reemplazada)
+     * - Si es exclusivo (sin regionales, generación coincide) → rama regional
+     * - En otro caso → rama base
+     *
+     * Retorna el chain expandido + la lista de todos los IDs de pokemon a precargar.
+     */
+    suspend fun expandChainWithRegionals(
+        chain: ChainLink
+    ): Pair<ChainLink, List<Int>> = coroutineScope {
+        val allRegionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+        val regionToGeneration = mapOf(
+            "-alola" to 7, "-galar" to 8, "-hisui" to 8, "-paldea" to 9
+        )
+
+        // Paso 1: recopilar varieties y generación de TODAS las especies del chain
+        val allSpeciesIds = mutableListOf<Int>()
+        fun collectIds(link: ChainLink) {
+            link.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { allSpeciesIds.add(it) }
+            link.evolvesTo.forEach { collectIds(it) }
+        }
+        collectIds(chain)
+
+        data class SpeciesInfo(val varieties: List<PokemonVariety>, val generation: Int?)
+
+        val speciesInfoMap = allSpeciesIds.map { speciesId ->
+            async(Dispatchers.IO) {
+                try {
+                    val resp = pokemonApiService.getPokemonSpeciesDetailsById(speciesId)
+                    val body = resp.body()
+                    val gen = body?.generation?.url?.trimEnd('/')?.substringAfterLast('/')?.toIntOrNull()
+                    speciesId to SpeciesInfo(body?.varieties ?: emptyList(), gen)
+                } catch (_: Exception) { speciesId to SpeciesInfo(emptyList(), null) }
+            }
+        }.awaitAll().toMap()
+
+        val allPokemonIds = mutableListOf<Int>()
+
+        // Paso 2: expandir evolvesTo en cada nivel
+        // Procesa una lista de children: si algún child tiene variantes regionales,
+        // lo expande en múltiples siblings (base + regionales)
+        fun expandChildren(children: List<ChainLink>): List<ChainLink> {
+            val result = mutableListOf<ChainLink>()
+            for (child in children) {
+                val childSpeciesId = child.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                val childInfo = childSpeciesId?.let { speciesInfoMap[it] }
+                val childRegionals = childInfo?.varieties?.filter { v ->
+                    !v.isDefault && allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }
+                } ?: emptyList()
+
+                if (childSpeciesId != null) allPokemonIds.add(childSpeciesId)
+
+                if (childRegionals.isEmpty()) {
+                    // Sin variantes regionales → mantener, expandir nietos
+                    result.add(child.copy(evolvesTo = expandChildren(child.evolvesTo)))
+                    continue
+                }
+
+                // Tiene variantes regionales → crear ramas
+                childRegionals.forEach { v ->
+                    v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { allPokemonIds.add(it) }
+                }
+
+                // Expandir nietos primero
+                val expandedGrandchildren = expandChildren(child.evolvesTo)
+
+                // Clasificar cada nieto: ¿a qué rama(s) pertenece?
+                data class GrandchildAssignment(val grandchild: ChainLink, val regions: Set<String>)
+
+                val assignments = expandedGrandchildren.map { gc ->
+                    val assigned = mutableSetOf<String>()
+
+                    // Si el nieto ya tiene sufijo regional en el nombre (creado por
+                    // expansión interna), asignarlo directamente a esa región
+                    val gcNameSuffix = allRegionSuffixes.firstOrNull { s ->
+                        gc.species.name.contains(s)
+                    }
+                    if (gcNameSuffix != null) {
+                        assigned.add(gcNameSuffix)
+                    } else {
+                        val gcSpeciesId = gc.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                        val gcInfo = gcSpeciesId?.let { speciesInfoMap[it] }
+                        val gcVarieties = gcInfo?.varieties ?: emptyList()
+                        val gcGen = gcInfo?.generation
+
+                        val gcRegionalSuffixes = gcVarieties
+                            .filter { v -> !v.isDefault }
+                            .flatMap { v -> allRegionSuffixes.filter { s -> v.pokemon.name.contains(s) } }
+                            .toSet()
+
+                        if (gcRegionalSuffixes.isNotEmpty()) {
+                            // El nieto tiene regionales propias → solo base.
+                            // Las variantes regionales ya existen como entradas
+                            // separadas creadas por el expandChildren recursivo.
+                            assigned.add("base")
+                        } else if (gcGen != null) {
+                            // Sin regionales propias → ¿exclusivo de alguna región?
+                            val matching = childRegionals.mapNotNull { v ->
+                                val r = allRegionSuffixes.firstOrNull { s -> v.pokemon.name.contains(s) }
+                                if (r != null && regionToGeneration[r] == gcGen) r else null
+                            }
+                            if (matching.isNotEmpty()) assigned.addAll(matching)
+                            else assigned.add("base")
+                        } else {
+                            assigned.add("base")
+                        }
+                    }
+
+                    GrandchildAssignment(gc, assigned)
+                }
+
+                // Rama base: nietos asignados a "base"
+                val baseGrandchildren = assignments.filter { "base" in it.regions }.map { it.grandchild }
+                result.add(child.copy(evolvesTo = baseGrandchildren))
+
+                // Ramas regionales
+                for (regionalVar in childRegionals) {
+                    val region = allRegionSuffixes.firstOrNull { s -> regionalVar.pokemon.name.contains(s) } ?: continue
+
+                    val regionalGrandchildren = assignments
+                        .filter { region in it.regions }
+                        .map { assignment ->
+                            // Si el nieto tiene variante de esta región, reemplazar su species
+                            val gcSpeciesId = assignment.grandchild.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                            val gcVarieties = gcSpeciesId?.let { speciesInfoMap[it] }?.varieties ?: emptyList()
+                            val gcRegionalVar = gcVarieties.firstOrNull { v -> v.pokemon.name.contains(region) }
+
+                            if (gcRegionalVar != null) {
+                                val rId = gcRegionalVar.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+                                if (rId != null) allPokemonIds.add(rId)
+                                assignment.grandchild.copy(
+                                    species = NamedApiResource(gcRegionalVar.pokemon.name, gcRegionalVar.pokemon.url)
+                                )
+                            } else {
+                                assignment.grandchild
+                            }
+                        }
+
+                    result.add(ChainLink(
+                        isBaby = child.isBaby,
+                        species = NamedApiResource(regionalVar.pokemon.name, regionalVar.pokemon.url),
+                        evolutionDetails = child.evolutionDetails,
+                        evolvesTo = regionalGrandchildren
+                    ))
+                }
+            }
+            return result
+        }
+
+        // Expandir desde la raíz: la raíz se mantiene, se expanden sus hijos
+        val rootSpeciesId = chain.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull()
+        if (rootSpeciesId != null) allPokemonIds.add(rootSpeciesId)
+
+        val expandedChildren = expandChildren(chain.evolvesTo)
+
+        // Paso 3: expandir la raíz si tiene variantes regionales
+        // Si la raíz tiene formas regionales, crear ramas: raíz-base → hijos base,
+        // raíz-regional → hijos regionales (como hijos de la raíz base)
+        val rootInfo = rootSpeciesId?.let { speciesInfoMap[it] }
+        val rootRegionals = rootInfo?.varieties?.filter { v ->
+            !v.isDefault && allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }
+        } ?: emptyList()
+
+        val finalChain = if (rootRegionals.isNotEmpty()) {
+            // No añadir IDs de variantes regionales de la raíz aquí:
+            // para la vista base no se necesitan (se filtran), y para la vista
+            // regional se añade el ID del pokémon actual en FichaPokemon.
+
+            // Clasificar hijos expandidos por región
+            data class ChildAssignment(val child: ChainLink, val regions: Set<String>)
+
+            val childAssignments = expandedChildren.map { child ->
+                val childNameSuffix = allRegionSuffixes.firstOrNull { s ->
+                    child.species.name.contains(s)
+                }
+                val assigned = mutableSetOf<String>()
+
+                if (childNameSuffix != null) {
+                    // Ya es variante regional → asignar a esa región
+                    assigned.add(childNameSuffix)
+                } else {
+                    val childSpeciesId = child.species.url.trimEnd('/')
+                        .substringAfterLast('/').toIntOrNull()
+                    val childInfo = childSpeciesId?.let { speciesInfoMap[it] }
+                    val hasAnyRegional = childInfo?.varieties?.any { v ->
+                        !v.isDefault && allRegionSuffixes.any { s ->
+                            v.pokemon.name.contains(s)
+                        }
+                    } ?: false
+
+                    if (hasAnyRegional) {
+                        // Forma base de especie con regionales → solo rama base
+                        assigned.add("base")
+                    } else {
+                        // Sin regionales propias → comprobar si es exclusiva de región
+                        val gen = childInfo?.generation
+                        if (gen != null) {
+                            val matching = rootRegionals.mapNotNull { v ->
+                                val r = allRegionSuffixes.firstOrNull { s ->
+                                    v.pokemon.name.contains(s)
+                                }
+                                if (r != null && regionToGeneration[r] == gen) r else null
+                            }
+                            if (matching.isNotEmpty()) assigned.addAll(matching)
+                            else assigned.add("base")
+                        } else {
+                            assigned.add("base")
+                        }
+                    }
+                }
+                ChildAssignment(child, assigned)
+            }
+
+            // Rama base: hijos asignados a "base"
+            val baseChildren = childAssignments
+                .filter { "base" in it.regions }.map { it.child }
+
+            // Ramas regionales de la raíz
+            val regionalRootLinks = rootRegionals.mapNotNull { regionalVar ->
+                val region = allRegionSuffixes.firstOrNull { s ->
+                    regionalVar.pokemon.name.contains(s)
+                } ?: return@mapNotNull null
+                val regionalChildren = childAssignments
+                    .filter { region in it.regions }.map { it.child }
+                ChainLink(
+                    isBaby = chain.isBaby,
+                    species = NamedApiResource(
+                        regionalVar.pokemon.name,
+                        regionalVar.pokemon.url
+                    ),
+                    evolutionDetails = emptyList(),
+                    evolvesTo = regionalChildren
+                )
+            }
+
+            chain.copy(evolvesTo = baseChildren + regionalRootLinks)
+        } else {
+            chain.copy(evolvesTo = expandedChildren)
+        }
+
+        // Recopilar IDs de megas/gmax de todas las especies del chain
+        val specialFormIds = mutableListOf<Int>()
+        speciesInfoMap.values.forEach { info ->
+            info.varieties.forEach { v ->
+                if (!v.isDefault && (v.pokemon.name.contains("-mega") || v.pokemon.name.contains("-gmax"))) {
+                    v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { specialFormIds.add(it) }
+                }
+            }
+        }
+        _specialFormNavIds.postValue(specialFormIds.distinct())
+
+        Pair(finalChain, (allPokemonIds + specialFormIds).distinct())
+    }
+
+    /**
+     * Construye la cadena evolutiva adaptada a la región del Pokémon actual.
+     * - Si el Pokémon actual NO es regional → devuelve la cadena base tal cual.
+     * - Si ES regional → reemplaza cada especie base por su variedad regional.
+     *   Especies sin variedad regional en ninguna región se mantienen (ej: Perrserker, Obstagoon).
+     *   Especies con variedad regional pero NO de esta región se excluyen (ej: Persian en cadena Galar).
+     */
+    suspend fun buildChainForCurrentPokemon(
+        chainOrderIds: List<Int>,
+        currentPokemonName: String
+    ): List<Int> = coroutineScope {
+        val allRegionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+        val currentRegion = allRegionSuffixes.firstOrNull { currentPokemonName.contains(it) }
+
+        // Si no es regional, devolver la cadena base
+        if (currentRegion == null) return@coroutineScope chainOrderIds
+
+        val results = chainOrderIds.map { speciesId ->
+            async(Dispatchers.IO) {
+                try {
+                    val resp = pokemonApiService.getPokemonSpeciesDetailsById(speciesId)
+                    val varieties = resp.body()?.varieties ?: return@async speciesId // fallback
+
+                    // Buscar variedad de esta región
+                    val regionalVariety = varieties.firstOrNull { v ->
+                        v.pokemon.name.contains(currentRegion)
+                    }
+                    if (regionalVariety != null) {
+                        // Tiene variedad de esta región → usar su ID
+                        return@async regionalVariety.pokemon.url
+                            .trimEnd('/').substringAfterLast('/').toIntOrNull() ?: speciesId
+                    }
+
+                    // ¿Tiene variedades regionales de OTRAS regiones?
+                    val hasAnyRegional = varieties.any { v ->
+                        !v.isDefault && allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }
+                    }
+
+                    if (!hasAnyRegional) {
+                        // No tiene regionales en ninguna región → es especie exclusiva
+                        // (ej: Perrserker, Obstagoon, Runerigus) → incluir
+                        speciesId
+                    } else {
+                        // Tiene regionales de otra región pero no de esta → excluir
+                        // (ej: Persian tiene Alola pero no Galar → no va en cadena Galar)
+                        null
+                    }
+                } catch (_: Exception) { speciesId }
+            }
+        }.awaitAll()
+
+        results.filterNotNull()
+    }
+
     fun preloadEvolutionChain(pokemonIds: List<Int>) {
         viewModelScope.launch {
             pokemonIds.map { id ->
                 async(Dispatchers.IO) {
                     try {
                         val detailResp = pokemonApiService.getPokemonDetailsById(id)
-                        val speciesResp = pokemonApiService.getPokemonSpeciesDetailsById(id)
                         val detail = detailResp.body() ?: return@async
+                        // Species por ID; si falla (formas regionales ID>10000), usar species URL del detail
+                        var speciesResp = pokemonApiService.getPokemonSpeciesDetailsById(id)
+                        if (!speciesResp.isSuccessful) {
+                            speciesResp = pokemonApiService.getPokemonSpeciesDetailsByUrl(detail.species.url)
+                        }
                         _evoChainPokemonMap.update { it + (id to PreloadedPokemonData(detail, speciesResp.body())) }
                     } catch (_: Exception) { }
                 }
@@ -179,15 +636,32 @@ class PokemonViewModel : ViewModel() {
         preloaded.detail.id.let { fetchPokemonEncounters(it) }
 
         // WikiDex async
-        _wikiDexFlavorTexts.value = emptyMap()
-        _wikiDexLocations.value = emptyMap()
-        val spanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
-        if (spanishName != null) {
+
+        val baseSpanishName = species?.localizedNames?.firstOrNull { it.language.name == "es" }?.name
+        if (baseSpanishName != null) {
+            // Para formas regionales, buscar con nombre regional en WikiDex
+            val pokemonApiName = preloaded.detail.name
+            val regionalSuffix = mapOf(
+                "-alola" to " de Alola", "-galar" to " de Galar",
+                "-hisui" to " de Hisui", "-paldea" to " de Paldea"
+            ).entries.firstOrNull { pokemonApiName.contains(it.key) }?.value
+
+            val wikiSearchName = if (regionalSuffix != null) "$baseSpanishName$regionalSuffix" else baseSpanishName
+
             viewModelScope.launch {
-                _wikiDexFlavorTexts.value = wikiDexRepository.getFlavorTexts(spanishName)
+                // Intentar con nombre regional primero, fallback al nombre base
+                var texts = wikiDexRepository.getFlavorTexts(wikiSearchName)
+                if (texts.isEmpty() && regionalSuffix != null) {
+                    texts = wikiDexRepository.getFlavorTexts(baseSpanishName)
+                }
+                _wikiDexFlavorTexts.value = texts
             }
             viewModelScope.launch {
-                _wikiDexLocations.value = wikiDexRepository.getLocations(spanishName).mapKeys { (apiName, _) ->
+                var locations = wikiDexRepository.getLocations(wikiSearchName)
+                if (locations.isEmpty() && regionalSuffix != null) {
+                    locations = wikiDexRepository.getLocations(baseSpanishName)
+                }
+                _wikiDexLocations.value = locations.mapKeys { (apiName, _) ->
                     translateVersionName(apiName)
                 }
             }
@@ -262,7 +736,7 @@ class PokemonViewModel : ViewModel() {
 
                     // MEJORA 4: Semáforo subido a 50 para mayor paralelismo
                     val allSummaries = withContext(Dispatchers.IO) {
-                        val semaphore = Semaphore(50)
+                        val semaphore = Semaphore(15)
                         speciesList.map { resource ->
                             async {
                                 semaphore.withPermit { fetchSinglePokemonSummary(resource) }
@@ -320,8 +794,7 @@ class PokemonViewModel : ViewModel() {
         _isLoadingDetails.value = true
         _pokemonDetails.value = null
         _pokemonDescription.value = null
-        _wikiDexFlavorTexts.value = emptyMap()
-        _wikiDexLocations.value = emptyMap()
+
 
         detailFetchJob = viewModelScope.launch {
             try {
@@ -329,7 +802,30 @@ class PokemonViewModel : ViewModel() {
                 val dDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(name.lowercase().trim()) }
                 val sDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(name.lowercase().trim()) }
                 val dRes = dDef.await()
-                val sRes = sDef.await()
+                var sRes = sDef.await()
+
+                // Si la species no se encuentra (formas como mega, gmax, regionales),
+                // obtener la species URL del pokemon detail y reintentar
+                if (!sRes.isSuccessful && dRes.isSuccessful) {
+                    val speciesUrl = dRes.body()?.species?.url
+                    if (speciesUrl != null) {
+                        sRes = pokemonApiService.getPokemonSpeciesDetailsByUrl(speciesUrl)
+                    }
+                }
+
+                // Si el pokemon detail falla pero la species tiene éxito (ej: frillish →
+                // PokeAPI nombra la variedad default "frillish-male"), reintentar con el
+                // nombre de la variedad default de la species
+                var dRes2 = dRes
+                if (!dRes2.isSuccessful && sRes.isSuccessful) {
+                    val defaultVarietyName = sRes.body()?.varieties
+                        ?.firstOrNull { it.isDefault }?.pokemon?.name
+                    if (defaultVarietyName != null && defaultVarietyName != name.lowercase().trim()) {
+                        dRes2 = withContext(Dispatchers.IO) {
+                            pokemonApiService.getPokemonDetails(defaultVarietyName)
+                        }
+                    }
+                }
 
                 if (sRes.isSuccessful) {
                     val species = sRes.body()
@@ -363,8 +859,8 @@ class PokemonViewModel : ViewModel() {
                     }
                 }
 
-                if (dRes.isSuccessful) {
-                    val details = dRes.body()
+                if (dRes2.isSuccessful) {
+                    val details = dRes2.body()
                     _pokemonDetails.value = details
                     // Carga masiva y reactiva de movimientos
                     details?.let { fetchMovesDetailsParallel(it.moves) }
@@ -456,11 +952,12 @@ class PokemonViewModel : ViewModel() {
         val moveTypeDef = detail.knownMoveType?.let { async { fetchLocalizedName(it.url, it.name, "type") } }
         val locationDef = detail.location?.let { async { fetchLocalizedName(it.url, it.name, "location") } }
 
-        var cond = trigger
+        // Si el trigger es "use-item", no mostrar "Objeto" (ya se muestra el icono del item)
+        var cond = if (detail.trigger.name == "use-item") "" else trigger
         detail.minLevel?.let { cond += " $it" }
 
-        itemDef?.await()?.let { cond += "\nUsando $it" }
-        heldItemDef?.await()?.let { cond += "\nCon $it equipado" }
+        itemDef?.await()?.let { cond += if (cond.isBlank()) it else "\nUsando $it" }
+        heldItemDef?.await()?.let { cond += if (cond.isBlank()) "$it equipado" else "\nCon $it equipado" }
 
         detail.minHappiness?.let { cond += "\nFelicidad mín.: $it" }
         detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let {
@@ -546,6 +1043,18 @@ class PokemonViewModel : ViewModel() {
         }
     }
 
+    /** Carga en segundo plano todas las generaciones que aún no estén en caché (para búsqueda/filtros). */
+    fun ensureAllGenerationsLoaded() {
+        val gens = _generations.value ?: return
+        val currentCache = _pokemonByGenerationCache.value ?: emptyMap()
+        gens.forEach { gen ->
+            val id = gen.getGenerationIdFromUrl()
+            if (id != null && !currentCache.containsKey(id)) {
+                fetchPokemonForGeneration(id)
+            }
+        }
+    }
+
     private fun NamedApiResource.getGenerationIdFromUrl(): Int? = url.split("/").dropLast(1).lastOrNull()?.toIntOrNull()
     private fun handleError(msg: String) { if (!errorShownThisFetch) { _error.postValue(msg); errorShownThisFetch = true } }
     fun clearError() { _error.value = null }
@@ -569,6 +1078,7 @@ class PokemonViewModel : ViewModel() {
         _wikiDexLocations.value = emptyMap()
         _pokemonEncounters.value = emptyList()
         _navigationList.value = emptyList()
+        _specialFormNavIds.value = emptyList()
         _evoChainPokemonMap.value = emptyMap()
         animatedPokemonIds.clear()
         selectedDetailSection.value = "DESC"

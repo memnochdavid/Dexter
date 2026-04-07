@@ -32,10 +32,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        getByName("debug") {}
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -100,7 +105,7 @@ dependencies {
     //gifs
     implementation("com.google.accompanist:accompanist-drawablepainter:0.35.0-alpha")
     implementation("com.google.accompanist:accompanist-pager:0.28.0")
-    implementation("androidx.navigation:navigation-compose:2.7.5")
+    implementation("androidx.navigation:navigation-compose:2.8.4")
 
     //coil
     implementation("io.coil-kt:coil-compose:2.6.0")

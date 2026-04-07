@@ -46,6 +46,7 @@ import com.david.pokedex_api.ui.screen.ficha.composable.getGameCoverResId
 import com.david.pokedex_api.ui.screen.ficha.composable.getGameReleaseOrder
 import com.david.pokedex_api.ui.screen.ficha.composable.translateGameVersion
 import com.david.pokedex_api.util.Lottie
+import com.david.pokedex_api.util.htmlToAnnotatedString
 
 @Composable
 fun PokemonEncountersView(
@@ -58,6 +59,10 @@ fun PokemonEncountersView(
     colorAccent: Color = colorFondo,
     modifier: Modifier = Modifier
 ) {
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val selectorWeight = if (isLandscape) 0.20f else 0.35f
+    val contentWeight = if (isLandscape) 0.80f else 0.65f
+
     // Merge: WikiDex (primario, español) + PokeAPI (fallback, puede tener inglés)
     val allVersions = remember(encounters, wikiDexLocations) {
         val wikiVersions = wikiDexLocations.keys.toList()
@@ -105,27 +110,42 @@ fun PokemonEncountersView(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 8.dp, end = 8.dp, top = 8.dp)
+                    .padding(start = 10.dp, end = 10.dp, top = 10.dp)
             ) {
-                // Titulo
-                Text(
-                    text = "Ubicaciones",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colorTexto,
-                    textAlign = TextAlign.Center,
+                // Titulo: Ubicaciones + nombre del juego
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                )
+                        .padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Ubicaciones",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colorTexto
+                    )
+                    Text(
+                        text = "  \u2022  ",
+                        fontSize = 14.sp,
+                        color = colorTexto.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = translateGameVersion(effectiveSelected),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colorAccent
+                    )
+                }
 
                 Row(modifier = Modifier.fillMaxSize()) {
                     // Columna izquierda: selector de juego con caratulas
                     LazyColumn(
                         modifier = Modifier
-                            .weight(0.38f)
+                            .weight(selectorWeight)
                             .fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(4.dp)
                     ) {
                         items(allVersions, key = { it }) { version ->
@@ -136,23 +156,23 @@ fun PokemonEncountersView(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) colorDropdown.copy(alpha = 0.7f)
+                                        else colorDropdown.copy(alpha = 0.15f)
+                                    )
                                     .then(
                                         if (isSelected) Modifier.border(
                                             2.dp,
                                             colorAccent,
-                                            RoundedCornerShape(8.dp)
+                                            RoundedCornerShape(10.dp)
                                         ) else Modifier
-                                    )
-                                    .background(
-                                        if (isSelected) colorDropdown.copy(alpha = 0.6f)
-                                        else Color.Transparent
                                     )
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         selectedVersion = version
                                     }
-                                    .padding(4.dp),
+                                    .padding(6.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 if (coverRes != 0) {
@@ -167,35 +187,26 @@ fun PokemonEncountersView(
                                 }
                                 Text(
                                     text = translateGameVersion(version),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colorTexto.copy(alpha = if (isSelected) 1f else 0.7f),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                    color = colorTexto.copy(alpha = if (isSelected) 1f else 0.55f),
                                     textAlign = TextAlign.Center,
                                     maxLines = 2,
-                                    modifier = Modifier.padding(top = 2.dp)
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
                         }
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(10.dp))
 
                     // Columna derecha: contenido de ubicaciones
                     Column(
                         modifier = Modifier
-                            .weight(0.62f)
-                            .fillMaxSize()
-                            .padding(top = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .weight(contentWeight)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        Text(
-                            text = translateGameVersion(effectiveSelected),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colorTexto,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
                         if (wikiDexText != null) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxWidth().weight(1f),
@@ -205,12 +216,12 @@ fun PokemonEncountersView(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(colorTexto.copy(alpha = 0.05f))
-                                            .padding(10.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(colorDropdown.copy(alpha = 0.4f))
+                                            .padding(16.dp)
                                     ) {
                                         Text(
-                                            text = wikiDexText,
+                                            text = htmlToAnnotatedString(wikiDexText, linkColor = colorAccent),
                                             fontSize = 15.sp,
                                             lineHeight = 22.sp,
                                             color = colorTexto
@@ -224,7 +235,7 @@ fun PokemonEncountersView(
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 items(items = pokeApiLocations, key = { it.locationName }) { location ->
-                                    LocationEncounterRow(location = location, colorTexto = colorTexto)
+                                    LocationEncounterRow(location = location, colorTexto = colorTexto, colorDropdown = colorDropdown)
                                 }
                             }
                         } else {
@@ -249,14 +260,15 @@ fun PokemonEncountersView(
 @Composable
 private fun LocationEncounterRow(
     location: GameEncounterLocation,
-    colorTexto: Color
+    colorTexto: Color,
+    colorDropdown: Color = colorTexto
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(colorTexto.copy(alpha = 0.05f))
-            .padding(8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colorDropdown.copy(alpha = 0.4f))
+            .padding(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

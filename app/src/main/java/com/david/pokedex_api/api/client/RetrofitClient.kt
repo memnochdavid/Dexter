@@ -24,8 +24,8 @@ object RetrofitClient {
         val cache = Cache(File(context.cacheDir, "pokeapi_cache"), cacheSize)
 
         val dispatcher = Dispatcher().apply {
-            maxRequests = 100
-            maxRequestsPerHost = 50 // Subido de 20 a 50 para mayor paralelismo
+            maxRequests = 20
+            maxRequestsPerHost = 10
         }
 
         val okHttpClient = OkHttpClient.Builder()

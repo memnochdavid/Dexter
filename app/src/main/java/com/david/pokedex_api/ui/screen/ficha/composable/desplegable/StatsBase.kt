@@ -1,5 +1,6 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -141,16 +142,7 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
 
     // false = radar grande, true = barras grandes
     var showBars by remember { mutableStateOf(false) }
-    val radarWeight by animateFloatAsState(
-        targetValue = if (showBars) 0.15f else 0.85f,
-        animationSpec = tween(400),
-        label = "radarWeight"
-    )
-    val barsWeight by animateFloatAsState(
-        targetValue = if (showBars) 0.85f else 0.15f,
-        animationSpec = tween(400),
-        label = "barsWeight"
-    )
+    // Ya no usamos weights animados — se pliega/despliega con AnimatedVisibility
 
     Column(
         modifier = Modifier
@@ -159,219 +151,197 @@ fun MuestraStatsBase(stats: List<StatSlot>, colorFondo: Color = Color.Black, col
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Titulo + Total
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Stats",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = colorTexto
-            )
-            Text(
-                text = "  \u2022  ",
-                fontSize = 12.sp,
-                color = colorTexto.copy(alpha = 0.3f)
-            )
-            Text(
-                text = "Total $animatedTotal",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colorTexto.copy(alpha = 0.6f)
-            )
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        // Radar chart — peso animado
-        Box(
+        // Toggle: toca para cambiar entre radar y barras
+        Crossfade(
+            targetState = showBars,
+            animationSpec = tween(400),
+            label = "statsToggle",
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(radarWeight)
-                .clip(RoundedCornerShape(12.dp))
+                .weight(1f)
                 .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showBars = false
+                    showBars = !showBars
                 }
-                .padding(horizontal = 4.dp)
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val centerX = size.width / 2f
-                val centerY = size.height / 2f
-                val radius = size.minDimension * 0.30f
-                val labelRadius = size.minDimension * 0.43f
-                val numSides = 6
-                val angleOffset = -PI / 2.0
+        ) { isBars ->
+            if (!isBars) {
+                // ── Vista Radar ──
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Titulo + Total a la izquierda
+                    Column(
+                        modifier = Modifier.padding(start = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Stats",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorTexto
+                        )
+                        Text(
+                            text = "Total",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = colorTexto.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            text = "$animatedTotal",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = colorTexto.copy(alpha = 0.7f)
+                        )
+                    }
 
-                fun hexPoint(index: Int, r: Float): Offset {
-                    val angle = angleOffset + (2 * PI * index / numSides)
-                    return Offset(
-                        x = centerX + (r * cos(angle)).toFloat(),
-                        y = centerY + (r * sin(angle)).toFloat()
-                    )
-                }
-
-                // Anillos de referencia (3 niveles)
-                listOf(0.33f, 0.66f, 1f).forEach { level ->
-                    val ringPath = Path().apply {
-                        for (i in 0 until numSides) {
-                            val p = hexPoint(i, radius * level)
-                            if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
+                    // Hexagono
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawRadarChart(
+                                orderedStats, animatedValues, statColors, avgColor,
+                                colorTexto, density, size
+                            )
                         }
-                        close()
-                    }
-                    drawPath(
-                        path = ringPath,
-                        color = colorTexto.copy(alpha = if (level == 1f) 0.15f else 0.07f),
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                }
-
-                // Lineas desde el centro a cada vértice
-                for (i in 0 until numSides) {
-                    val p = hexPoint(i, radius)
-                    drawLine(
-                        color = colorTexto.copy(alpha = 0.07f),
-                        start = Offset(centerX, centerY),
-                        end = p,
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
-
-                // Polígono de stats (relleno)
-                if (animatedValues.size == numSides) {
-                    val statsPath = Path().apply {
-                        for (i in 0 until numSides) {
-                            val p = hexPoint(i, radius * animatedValues[i])
-                            if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
-                        }
-                        close()
-                    }
-
-                    // Fill con gradiente radial
-                    drawPath(
-                        path = statsPath,
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                avgColor.copy(alpha = 0.45f),
-                                avgColor.copy(alpha = 0.15f)
-                            ),
-                            center = Offset(centerX, centerY),
-                            radius = radius
-                        )
-                    )
-
-                    // Borde del polígono de stats
-                    drawPath(
-                        path = statsPath,
-                        color = avgColor.copy(alpha = 0.8f),
-                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                    )
-
-                    // Puntos en cada vértice de la stat
-                    for (i in 0 until numSides) {
-                        val p = hexPoint(i, radius * animatedValues[i])
-                        drawCircle(
-                            color = statColors[i],
-                            radius = 4.dp.toPx(),
-                            center = p
-                        )
-                        drawCircle(
-                            color = Color.White,
-                            radius = 2.dp.toPx(),
-                            center = p
-                        )
                     }
                 }
+            } else {
+                // ── Vista Barras ──
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Stats", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorTexto)
+                        Text("  \u2022  ", fontSize = 12.sp, color = colorTexto.copy(alpha = 0.3f))
+                        Text("Total $animatedTotal", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colorTexto.copy(alpha = 0.6f))
+                    }
 
-                // Labels — tamaño proporcional al espacio disponible
-                val scaleFactor = (size.minDimension / with(density) { 300.dp.toPx() }).coerceIn(0.4f, 1f)
-                val labelFontSize = with(density) { 11.sp.toPx() } * scaleFactor
-                val valueFontSize = with(density) { 13.sp.toPx() } * scaleFactor
-                val labelGap = with(density) { 13.dp.toPx() } * scaleFactor
+                    orderedStats.forEachIndexed { index, statSlot ->
+                        val animVal by animateIntAsState(
+                            targetValue = if (animationStarted) statSlot.baseStat else 0,
+                            animationSpec = animSpecInt,
+                            label = "bar_${statSlot.stat.name}"
+                        )
+                        val statColor = statColors.getOrElse(index) { Color.Gray }
 
-                val textPaint = android.graphics.Paint().apply {
-                    isAntiAlias = true
-                    textSize = labelFontSize
-                    typeface = android.graphics.Typeface.create(
-                        android.graphics.Typeface.DEFAULT,
-                        android.graphics.Typeface.BOLD
-                    )
-                    textAlign = android.graphics.Paint.Align.CENTER
-                }
-
-                val valuePaint = android.graphics.Paint().apply {
-                    isAntiAlias = true
-                    textSize = valueFontSize
-                    typeface = android.graphics.Typeface.create(
-                        android.graphics.Typeface.DEFAULT,
-                        android.graphics.Typeface.BOLD
-                    )
-                    textAlign = android.graphics.Paint.Align.CENTER
-                }
-
-                for (i in orderedStats.indices) {
-                    val lp = hexPoint(i, labelRadius)
-                    val stat = orderedStats[i]
-                    val statColor = statColors[i]
-
-                    textPaint.color = colorTexto.copy(alpha = 0.5f).hashCode()
-                    drawContext.canvas.nativeCanvas.drawText(
-                        formatStatName(stat.stat.name),
-                        lp.x,
-                        lp.y - with(density) { 2.dp.toPx() } * scaleFactor,
-                        textPaint
-                    )
-
-                    valuePaint.color = statColor.hashCode()
-                    drawContext.canvas.nativeCanvas.drawText(
-                        stat.baseStat.toString(),
-                        lp.x,
-                        lp.y + labelGap,
-                        valuePaint
-                    )
+                        MiniStatBar(
+                            label = formatStatNameLong(statSlot.stat.name),
+                            value = animVal,
+                            progress = animatedValues.getOrElse(index) { 0f },
+                            color = statColor,
+                            colorTexto = colorTexto
+                        )
+                    }
                 }
             }
         }
+    }
+}
 
-        Spacer(Modifier.height(4.dp))
+private fun DrawScope.drawRadarChart(
+    orderedStats: List<StatSlot>,
+    animatedValues: List<Float>,
+    statColors: List<Color>,
+    avgColor: Color,
+    colorTexto: Color,
+    density: androidx.compose.ui.unit.Density,
+    canvasSize: Size
+) {
+    val centerX = canvasSize.width / 2f
+    val centerY = canvasSize.height / 2f
+    val radius = canvasSize.minDimension * 0.30f
+    val labelRadius = canvasSize.minDimension * 0.43f
+    val numSides = 6
+    val angleOffset = -PI / 2.0
 
-        // Barras — peso animado
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(barsWeight)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    showBars = true
-                }
-                .padding(horizontal = 4.dp),
-            verticalArrangement = Arrangement.SpaceEvenly
-        ) {
-            orderedStats.forEachIndexed { index, statSlot ->
-                val animVal by animateIntAsState(
-                    targetValue = if (animationStarted) statSlot.baseStat else 0,
-                    animationSpec = animSpecInt,
-                    label = "bar_${statSlot.stat.name}"
-                )
-                val statColor = statColors.getOrElse(index) { Color.Gray }
+    fun hexPoint(index: Int, r: Float): Offset {
+        val angle = angleOffset + (2 * PI * index / numSides)
+        return Offset(
+            x = centerX + (r * cos(angle)).toFloat(),
+            y = centerY + (r * sin(angle)).toFloat()
+        )
+    }
 
-                MiniStatBar(
-                    label = formatStatNameLong(statSlot.stat.name),
-                    value = animVal,
-                    progress = animatedValues.getOrElse(index) { 0f },
-                    color = statColor,
-                    colorTexto = colorTexto,
-                    expanded = showBars
-                )
+    // Anillos de referencia
+    listOf(0.33f, 0.66f, 1f).forEach { level ->
+        val ringPath = Path().apply {
+            for (i in 0 until numSides) {
+                val p = hexPoint(i, radius * level)
+                if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
             }
+            close()
         }
+        drawPath(ringPath, colorTexto.copy(alpha = if (level == 1f) 0.15f else 0.07f), style = Stroke(width = 1.dp.toPx()))
+    }
 
-        Spacer(Modifier.height(4.dp))
+    // Lineas centro → vertices
+    for (i in 0 until numSides) {
+        drawLine(colorTexto.copy(alpha = 0.07f), Offset(centerX, centerY), hexPoint(i, radius), strokeWidth = 1.dp.toPx())
+    }
+
+    // Poligono de stats
+    if (animatedValues.size == numSides) {
+        val statsPath = Path().apply {
+            for (i in 0 until numSides) {
+                val p = hexPoint(i, radius * animatedValues[i])
+                if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
+            }
+            close()
+        }
+        drawPath(statsPath, brush = Brush.radialGradient(
+            listOf(avgColor.copy(alpha = 0.45f), avgColor.copy(alpha = 0.15f)),
+            center = Offset(centerX, centerY), radius = radius
+        ))
+        drawPath(statsPath, avgColor.copy(alpha = 0.8f), style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+
+        for (i in 0 until numSides) {
+            val p = hexPoint(i, radius * animatedValues[i])
+            drawCircle(statColors[i], 4.dp.toPx(), p)
+            drawCircle(Color.White, 2.dp.toPx(), p)
+        }
+    }
+
+    // Labels
+    val scaleFactor = (canvasSize.minDimension / with(density) { 300.dp.toPx() }).coerceIn(0.4f, 1f)
+    val labelFontSize = with(density) { 11.sp.toPx() } * scaleFactor
+    val valueFontSize = with(density) { 13.sp.toPx() } * scaleFactor
+    val labelGap = with(density) { 13.dp.toPx() } * scaleFactor
+
+    val textPaint = android.graphics.Paint().apply {
+        isAntiAlias = true; textSize = labelFontSize
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        textAlign = android.graphics.Paint.Align.CENTER
+    }
+    val valuePaint = android.graphics.Paint().apply {
+        isAntiAlias = true; textSize = valueFontSize
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        textAlign = android.graphics.Paint.Align.CENTER
+    }
+
+    for (i in orderedStats.indices) {
+        val lp = hexPoint(i, labelRadius)
+        textPaint.color = colorTexto.copy(alpha = 0.5f).hashCode()
+        drawContext.canvas.nativeCanvas.drawText(
+            formatStatName(orderedStats[i].stat.name), lp.x,
+            lp.y - with(density) { 2.dp.toPx() } * scaleFactor, textPaint
+        )
+        valuePaint.color = statColors[i].hashCode()
+        drawContext.canvas.nativeCanvas.drawText(
+            orderedStats[i].baseStat.toString(), lp.x, lp.y + labelGap, valuePaint
+        )
     }
 }
 
@@ -381,50 +351,33 @@ private fun MiniStatBar(
     value: Int,
     progress: Float,
     color: Color,
-    colorTexto: Color,
-    expanded: Boolean = false
+    colorTexto: Color
 ) {
-    val barHeight by animateFloatAsState(
-        targetValue = if (expanded) 14f else 6f,
-        animationSpec = tween(400),
-        label = "barH_$label"
-    )
-    val labelSize by animateFloatAsState(
-        targetValue = if (expanded) 14f else 11f,
-        animationSpec = tween(400),
-        label = "labelS_$label"
-    )
-    val valueSize by animateFloatAsState(
-        targetValue = if (expanded) 15f else 12f,
-        animationSpec = tween(400),
-        label = "valS_$label"
-    )
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            fontSize = labelSize.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = colorTexto.copy(alpha = if (expanded) 0.85f else 0.6f),
-            modifier = Modifier.width(if (expanded) 72.dp else 62.dp)
+            color = colorTexto.copy(alpha = 0.85f),
+            modifier = Modifier.width(72.dp)
         )
         Text(
             text = value.toString(),
-            fontSize = valueSize.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = color,
             textAlign = TextAlign.End,
-            modifier = Modifier.width(if (expanded) 38.dp else 30.dp)
+            modifier = Modifier.width(38.dp)
         )
         Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(barHeight.dp)
-                .clip(RoundedCornerShape(barHeight.dp / 2))
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cornerPx = size.height / 2
