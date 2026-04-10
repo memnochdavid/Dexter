@@ -219,17 +219,35 @@ fun PokemonDetailScreen(
             }
 
             val expanded = rawExpandedChain ?: return@let
-            val currentName = pokemonDetail?.name ?: ""
-            val filteredChain = filterChainForPokemon(expanded, currentName)
+            val regionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
 
-            // Construir lista de navegación desde la cadena FILTRADA (no la cruda)
+            // Construir lista de navegación: cadena base + cada cadena regional
             val navIds = mutableListOf<Int>()
-            fun traverse(link: com.david.pokedex_api.api.model.ChainLink) {
-                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()?.let { navIds.add(it) }
-                link.evolvesTo.forEach { traverse(it) }
+            fun getLinkId(link: com.david.pokedex_api.api.model.ChainLink): Int? =
+                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()
+            fun traverseLinear(link: com.david.pokedex_api.api.model.ChainLink) {
+                getLinkId(link)?.let { if (!navIds.contains(it)) navIds.add(it) }
+                link.evolvesTo.forEach { traverseLinear(it) }
             }
-            traverse(filteredChain)
 
+            // Separar hijos: base vs regionales
+            val baseChildren = expanded.evolvesTo.filter { child ->
+                !regionSuffixes.any { s -> child.species.name.contains(s) }
+            }
+            val regionalChildren = expanded.evolvesTo.filter { child ->
+                regionSuffixes.any { s -> child.species.name.contains(s) }
+            }
+
+            // 1. Cadena base: root + hijos base
+            val baseChain = expanded.copy(evolvesTo = baseChildren)
+            traverseLinear(baseChain)
+
+            // 2. Cadenas regionales: cada rama regional completa
+            regionalChildren.forEach { regionalRoot ->
+                traverseLinear(regionalRoot)
+            }
+
+            // Asegurar que el pokémon actual esté en la lista
             val currentId = pokemonDetail?.id
             if (currentId != null && !navIds.contains(currentId)) {
                 val speciesUrl = pokemonDetail?.species?.url
@@ -294,7 +312,9 @@ fun PokemonDetailScreen(
             val fullNavList = remember(navList, specialFormTarget) {
                 navList + listOfNotNull(specialFormTarget)
             }
-            val allPreloaded = navList.size > 1 && navList.all { evoMap.containsKey(it) }
+            val allPreloaded = navList.isNotEmpty()
+                    && (navList.size > 1 || specialFormIds.isNotEmpty())
+                    && navList.all { evoMap.containsKey(it) }
                     && specialFormIds.all { evoMap.containsKey(it) }
 
             // Chain expandido con ramas regionales (para la visualización de línea evolutiva)
@@ -409,7 +429,12 @@ fun PokemonDetailScreen(
 
                                 if (isSpecial && targetId != null) {
                                     // Abrir slot especial con este form y scroll a la última página
+                                    val alreadyOnSlot = pagerState.currentPage == swipeablePageCount && specialFormTarget != null
                                     specialFormTarget = targetId
+                                    if (alreadyOnSlot) {
+                                        // Ya estamos en el slot: actualizar ViewModel directamente
+                                        pokemonViewModel.switchToPreloadedPokemon(targetId)
+                                    }
                                     pagerCoroutineScope.launch {
                                         snapshotFlow { pagerState.pageCount }.first { it > swipeablePageCount }
                                         pagerState.animateScrollToPage(swipeablePageCount)
@@ -438,7 +463,7 @@ fun PokemonDetailScreen(
                 // Vista simple: transitoria (cadena aun cargando) o definitiva (pokemon sin pager)
                 // Es definitiva si la cadena ya cargo pero este pokemon no entrara en el pager
                 val chainLoaded = evolutionChain != null && !isLoadingEvolutionChain
-                val pagerWillTakeOver = !chainLoaded || (navList.size > 1 && (navList.contains(pokemonDetail!!.id) || fullNavList.contains(pokemonDetail!!.id)))
+                val pagerWillTakeOver = !chainLoaded || ((navList.size > 1 || specialFormIds.isNotEmpty()) && (navList.contains(pokemonDetail!!.id) || fullNavList.contains(pokemonDetail!!.id)))
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,

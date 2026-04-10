@@ -63,6 +63,7 @@ fun PokemonSearchMenu(
     showRegionals: Boolean = false,
     showLegendaries: Boolean = false,
     showMythicals: Boolean = false,
+    evoChainLength: Int = 0,
     onSearchQueryChanged: (String) -> Unit,
     onType1Changed: (String) -> Unit,
     onType2Changed: (String) -> Unit,
@@ -71,12 +72,13 @@ fun PokemonSearchMenu(
     onShowRegionalsChanged: (Boolean) -> Unit = {},
     onShowLegendariesChanged: (Boolean) -> Unit = {},
     onShowMythicalsChanged: (Boolean) -> Unit = {},
+    onEvoChainLengthChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val hasActiveFilters = searchQuery.isNotBlank() || selectedType1 != NO_TYPE_SELECTED ||
             selectedType2 != NO_TYPE_SELECTED || showMegas || showGigamax || showRegionals ||
-            showLegendaries || showMythicals
+            showLegendaries || showMythicals || evoChainLength > 0
 
     Box(
         modifier = modifier
@@ -118,6 +120,7 @@ fun PokemonSearchMenu(
                             onShowRegionalsChanged(false)
                             onShowLegendariesChanged(false)
                             onShowMythicalsChanged(false)
+                            onEvoChainLengthChanged(0)
                         },
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = Color.White.copy(alpha = 0.15f),
@@ -212,6 +215,43 @@ fun PokemonSearchMenu(
                     activeColor = Color(0xFF9B59B6),
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // ── Selector línea evolutiva ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Línea evolutiva",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                listOf(1 to "1", 2 to "2", 3 to "3+").forEach { (value, label) ->
+                    val isSelected = evoChainLength == value
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) Color(0xFF5B86E5) else Color.White.copy(alpha = 0.1f))
+                            .border(1.dp, if (isSelected) Color(0xFF5B86E5) else Color.White.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onEvoChainLengthChanged(if (isSelected) 0 else value)
+                            }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
         }
     }

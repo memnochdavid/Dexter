@@ -70,7 +70,8 @@ fun GenerationPagerScreen(
     }
 
     val isSearching = filters.searchQuery.isNotBlank() || filters.selectedType1 != NO_TYPE_SELECTED || filters.selectedType2 != NO_TYPE_SELECTED ||
-        filters.showMegas || filters.showGigamax || filters.showRegionals || filters.showLegendaries || filters.showMythicals
+        filters.showMegas || filters.showGigamax || filters.showRegionals || filters.showLegendaries || filters.showMythicals ||
+        filters.evoChainLength > 0
 
     // Cuando el usuario activa búsqueda/filtros, cargar todas las generaciones en segundo plano
     LaunchedEffect(isSearching) {
@@ -105,7 +106,10 @@ fun GenerationPagerScreen(
             (basePokemon + megaForms + gmaxForms + regionalForms).distinctBy { it.id }.filter { p ->
                 (filters.searchQuery.isBlank() || p.name.contains(filters.searchQuery, true)) &&
                 (filters.selectedType1 == NO_TYPE_SELECTED || p.types.any { it.equals(filters.selectedType1, true) }) &&
-                (filters.selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(filters.selectedType2, true) })
+                (filters.selectedType2 == NO_TYPE_SELECTED || p.types.any { it.equals(filters.selectedType2, true) }) &&
+                (filters.evoChainLength == 0 ||
+                    (filters.evoChainLength < 3 && p.evoChainLength == filters.evoChainLength) ||
+                    (filters.evoChainLength >= 3 && p.evoChainLength >= 3))
             }
         }
     }

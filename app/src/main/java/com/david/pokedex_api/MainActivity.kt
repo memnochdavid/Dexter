@@ -78,6 +78,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.update
 import com.david.pokedex_api.api.model.NamedApiResource
 import com.david.pokedex_api.api.viewModel.PokemonViewModel
 import com.david.pokedex_api.ui.screen.comun.ALL_POKEMON_TYPES
@@ -407,26 +408,30 @@ fun PokedexApp(
                                 showRegionals = pf.showRegionals,
                                 showLegendaries = pf.showLegendaries,
                                 showMythicals = pf.showMythicals,
-                                onSearchQueryChanged = { pokemonViewModel.pokemonFilters.value = pf.copy(searchQuery = it) },
-                                onType1Changed = { pokemonViewModel.pokemonFilters.value = pf.copy(selectedType1 = it) },
-                                onType2Changed = { pokemonViewModel.pokemonFilters.value = pf.copy(selectedType2 = it) },
-                                onShowMegasChanged = {
-                                    pokemonViewModel.pokemonFilters.value = pf.copy(showMegas = it)
-                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                evoChainLength = pf.evoChainLength,
+                                onSearchQueryChanged = { v -> pokemonViewModel.pokemonFilters.update { it.copy(searchQuery = v) } },
+                                onType1Changed = { v -> pokemonViewModel.pokemonFilters.update { it.copy(selectedType1 = v) } },
+                                onType2Changed = { v -> pokemonViewModel.pokemonFilters.update { it.copy(selectedType2 = v) } },
+                                onShowMegasChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(showMegas = v) }
+                                    if (v) pokemonViewModel.fetchSpecialForms()
                                 },
-                                onShowGigamaxChanged = {
-                                    pokemonViewModel.pokemonFilters.value = pf.copy(showGigamax = it)
-                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                onShowGigamaxChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(showGigamax = v) }
+                                    if (v) pokemonViewModel.fetchSpecialForms()
                                 },
-                                onShowRegionalsChanged = {
-                                    pokemonViewModel.pokemonFilters.value = pf.copy(showRegionals = it)
-                                    if (it) pokemonViewModel.fetchSpecialForms()
+                                onShowRegionalsChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(showRegionals = v) }
+                                    if (v) pokemonViewModel.fetchSpecialForms()
                                 },
-                                onShowLegendariesChanged = {
-                                    pokemonViewModel.pokemonFilters.value = pf.copy(showLegendaries = it)
+                                onShowLegendariesChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(showLegendaries = v) }
                                 },
-                                onShowMythicalsChanged = {
-                                    pokemonViewModel.pokemonFilters.value = pf.copy(showMythicals = it)
+                                onShowMythicalsChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(showMythicals = v) }
+                                },
+                                onEvoChainLengthChanged = { v ->
+                                    pokemonViewModel.pokemonFilters.update { it.copy(evoChainLength = v) }
                                 }
                             )
                         }

@@ -11,14 +11,16 @@ data class PokemonSummaryEntity(
     val spriteUrl: String?,
     val types: String,       // Tipos separados por coma: "Fire,Flying"
     val colorName: String?,
-    val generationId: Int
+    val generationId: Int,
+    val evoChainLength: Int = 0
 ) {
     fun toPokemonSummary(): PokemonSummary = PokemonSummary(
         id = id,
         name = name,
         spriteUrl = spriteUrl,
         types = types.split(",").filter { it.isNotBlank() },
-        colorName = colorName
+        colorName = colorName,
+        evoChainLength = evoChainLength
     )
 
     companion object {
@@ -29,7 +31,8 @@ data class PokemonSummaryEntity(
                 spriteUrl = summary.spriteUrl,
                 types = summary.types.joinToString(","),
                 colorName = summary.colorName,
-                generationId = generationId
+                generationId = generationId,
+                evoChainLength = summary.evoChainLength
             )
     }
 }

@@ -54,7 +54,8 @@ class PokemonViewModel : ViewModel() {
         val showRegionals: Boolean = false,
         val showLegendaries: Boolean = false,
         val showMythicals: Boolean = false,
-        val isGridView: Boolean = false
+        val isGridView: Boolean = false,
+        val evoChainLength: Int = 0 // 0 = sin filtro, 1/2/3 = nº de miembros en la cadena
     )
 
     val pokemonFilters = MutableStateFlow(PokemonFilterState())
@@ -528,12 +529,11 @@ class PokemonViewModel : ViewModel() {
             chain.copy(evolvesTo = expandedChildren)
         }
 
-        // Recopilar IDs de formas especiales (mega/gmax/regionales) de todas las especies del chain
+        // Recopilar IDs de formas especiales NO regionales (mega/gmax/otras variedades) del chain
         val specialFormIds = mutableListOf<Int>()
         speciesInfoMap.values.forEach { info ->
             info.varieties.forEach { v ->
-                if (!v.isDefault && (v.pokemon.name.contains("-mega") || v.pokemon.name.contains("-gmax")
-                    || allRegionSuffixes.any { s -> v.pokemon.name.contains(s) })) {
+                if (!v.isDefault && !allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }) {
                     v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { specialFormIds.add(it) }
                 }
             }
@@ -723,7 +723,8 @@ class PokemonViewModel : ViewModel() {
                     pokemonDao.getSummariesByGeneration(generationId)
                 }
 
-                if (!forceRefresh && cachedSummaries.isNotEmpty()) {
+                val needsEvoChainData = cachedSummaries.isNotEmpty() && cachedSummaries.all { it.evoChainLength == 0 }
+                if (!forceRefresh && cachedSummaries.isNotEmpty() && !needsEvoChainData) {
                     val summaries = cachedSummaries.map { it.toPokemonSummary() }
                     withContext(Dispatchers.Main) {
                         val newCache = _pokemonByGenerationCache.value?.toMutableMap() ?: mutableMapOf()
@@ -738,14 +739,36 @@ class PokemonViewModel : ViewModel() {
                 if (response.isSuccessful) {
                     val speciesList = response.body()?.pokemonSpecies ?: emptyList()
 
-                    // MEJORA 4: Semáforo subido a 50 para mayor paralelismo
                     val allSummaries = withContext(Dispatchers.IO) {
                         val semaphore = Semaphore(15)
-                        speciesList.map { resource ->
+                        val resultsWithChain = speciesList.map { resource ->
                             async {
                                 semaphore.withPermit { fetchSinglePokemonSummary(resource) }
                             }
-                        }.awaitAll().filterNotNull().sortedBy { it.id }
+                        }.awaitAll().filterNotNull()
+
+                        // Resolver longitudes de cadenas evolutivas (deduplicando por URL)
+                        val uniqueChainUrls = resultsWithChain.mapNotNull { it.evoChainUrl }.distinct()
+                            .filter { !evoChainLengthCache.containsKey(it) }
+                        uniqueChainUrls.map { url ->
+                            async {
+                                semaphore.withPermit {
+                                    try {
+                                        val resp = pokemonApiService.getEvolutionChainDetailsByUrl(url)
+                                        if (resp.isSuccessful) {
+                                            resp.body()?.chain?.let { chain ->
+                                                evoChainLengthCache[url] = countChainMembers(chain)
+                                            }
+                                        }
+                                    } catch (_: Exception) { }
+                                }
+                            }
+                        }.awaitAll()
+
+                        resultsWithChain.map { r ->
+                            val length = r.evoChainUrl?.let { evoChainLengthCache[it] } ?: 0
+                            r.summary.copy(evoChainLength = length)
+                        }.sortedBy { it.id }
                     }
 
                     // Guardar en Room para futuras cargas
@@ -769,10 +792,14 @@ class PokemonViewModel : ViewModel() {
         }
     }
 
-    private suspend fun fetchSinglePokemonSummary(speciesResource: NamedApiResource): PokemonSummary? = coroutineScope {
+    private data class SummaryWithChainUrl(val summary: PokemonSummary, val evoChainUrl: String?)
+
+    // Cache de evoChainUrl → longitud de la cadena
+    private val evoChainLengthCache = ConcurrentHashMap<String, Int>()
+
+    private suspend fun fetchSinglePokemonSummary(speciesResource: NamedApiResource): SummaryWithChainUrl? = coroutineScope {
         val id = speciesResource.url.split("/").dropLast(1).lastOrNull() ?: return@coroutineScope null
         try {
-            // Paralelizamos las dos llamadas básicas para obtener el resumen (nombre localizado y datos base)
             val speciesDef = async(Dispatchers.IO) { pokemonApiService.getPokemonSpeciesDetails(id) }
             val detailsDef = async(Dispatchers.IO) { pokemonApiService.getPokemonDetails(id) }
             val sRes = speciesDef.await()
@@ -781,15 +808,20 @@ class PokemonViewModel : ViewModel() {
             if (dRes.isSuccessful) {
                 val detail = dRes.body()!!
                 val species = sRes.body()
-                PokemonSummary(
+                val summary = PokemonSummary(
                     id = detail.id,
                     name = species?.localizedNames?.find { it.language.name == "es" }?.name ?: detail.name,
                     spriteUrl = detail.sprites.other?.officialArtwork?.frontDefault ?: detail.sprites.frontDefault,
                     types = detail.types.map { it.type.name.replaceFirstChar(Char::titlecase) },
                     colorName = species?.color?.name
                 )
+                SummaryWithChainUrl(summary, species?.evolutionChain?.url)
             } else null
         } catch (e: Exception) { null }
+    }
+
+    private fun countChainMembers(link: ChainLink): Int {
+        return 1 + link.evolvesTo.sumOf { countChainMembers(it) }
     }
 
     fun fetchPokemonDetailsByName(name: String, lang: String) {

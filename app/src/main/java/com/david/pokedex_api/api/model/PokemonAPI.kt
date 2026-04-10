@@ -165,7 +165,8 @@ data class PokemonSummary(
     val spriteUrl: String?,
     val types: List<String>, // Lista de nombres de tipos
     val colorName: String?,
-    val fallbackSpriteUrl: String? = null
+    val fallbackSpriteUrl: String? = null,
+    val evoChainLength: Int = 0 // Nº de Pokémon en la línea evolutiva (0 = desconocido)
 )
 
 data class GenerationListResponse(
