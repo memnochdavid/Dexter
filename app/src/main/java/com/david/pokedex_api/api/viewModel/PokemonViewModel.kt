@@ -528,11 +528,12 @@ class PokemonViewModel : ViewModel() {
             chain.copy(evolvesTo = expandedChildren)
         }
 
-        // Recopilar IDs de megas/gmax de todas las especies del chain
+        // Recopilar IDs de formas especiales (mega/gmax/regionales) de todas las especies del chain
         val specialFormIds = mutableListOf<Int>()
         speciesInfoMap.values.forEach { info ->
             info.varieties.forEach { v ->
-                if (!v.isDefault && (v.pokemon.name.contains("-mega") || v.pokemon.name.contains("-gmax"))) {
+                if (!v.isDefault && (v.pokemon.name.contains("-mega") || v.pokemon.name.contains("-gmax")
+                    || allRegionSuffixes.any { s -> v.pokemon.name.contains(s) })) {
                     v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { specialFormIds.add(it) }
                 }
             }
@@ -683,6 +684,9 @@ class PokemonViewModel : ViewModel() {
     private val evolutionChainCache = ConcurrentHashMap<String, EvolutionChainDetailResponse>()
 
     init {
+        // Precargar formas especiales (Mega, Gigamax, Regionales) en background
+        fetchSpecialForms()
+
         combine(
             generations.asFlow(),
             pokemonByGenerationCache.asFlow(),
@@ -960,6 +964,7 @@ class PokemonViewModel : ViewModel() {
         heldItemDef?.await()?.let { cond += if (cond.isBlank()) "$it equipado" else "\nCon $it equipado" }
 
         detail.minHappiness?.let { cond += "\nFelicidad mín.: $it" }
+        detail.minAffection?.let { cond += "\nCariño mín.: $it" }
         detail.timeOfDay?.takeIf { it.isNotEmpty() }?.let {
             cond += "\nDurante el ${if(it.lowercase() == "day") "día" else "noche"}"
         }

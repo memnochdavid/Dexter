@@ -605,9 +605,11 @@ fun PokemonDetailsView(
                 modifier = Modifier.fillMaxWidth(),
                 tipo = pokemon.types[0].type.name,
                 cryUrl = pokemon.cries?.latest,
-                generationNum = pokemonSpecies?.generation?.name
-                    ?.removePrefix("generation-")
-                    ?.let { romanToInt(it) },
+                generationNum = mapOf("-alola" to 7, "-galar" to 8, "-hisui" to 8, "-paldea" to 9)
+                    .entries.firstOrNull { pokemon.name.contains(it.key) }?.value
+                    ?: pokemonSpecies?.generation?.name
+                        ?.removePrefix("generation-")
+                        ?.let { romanToInt(it) },
                 regionTag = regionTag,
                 isLegendary = pokemonSpecies?.isLegendary == true,
                 isMythical = pokemonSpecies?.isMythical == true,

@@ -582,9 +582,15 @@ fun DetallesDesplegables(
                             .padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        val basePokemonName = pokemon.name.let { name ->
+                            listOf("-alola", "-galar", "-hisui", "-paldea").fold(name) { acc, suffix ->
+                                if (acc.contains(suffix)) acc.substringBefore(suffix) else acc
+                            }
+                        }
                         PokemonRegionalFormsView(
                             pokemonSpeciesUrl = pokemon.species.url,
-                            basePokemonName = pokemon.name,
+                            basePokemonName = basePokemonName,
+                            currentPokemonName = pokemon.name,
                             pokemonApiService = pokemonApiService,
                             onFormClick = { onEvolutionPokemonClick(it) },
                             cardColor = colorSoft,

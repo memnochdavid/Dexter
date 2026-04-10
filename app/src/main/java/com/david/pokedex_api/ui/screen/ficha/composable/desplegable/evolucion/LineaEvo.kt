@@ -1,7 +1,9 @@
 package com.david.pokedex_api.ui.screen.ficha.composable.desplegable.evolucion
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -431,7 +433,7 @@ fun EvolutionCompactCard(
 /** Conector con condición evolutiva — chip integrado en la línea de flujo */
 @Composable
 private fun EvolutionConnectorWithCondition(
-    evolutionDetail: EvolutionDetail?,
+    evolutionDetails: List<EvolutionDetail>,
     viewModel: PokemonViewModel,
     connectorColor: Color,
     textColor: Color,
@@ -439,29 +441,76 @@ private fun EvolutionConnectorWithCondition(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
+    val primaryDetail = evolutionDetails.firstOrNull()
+    val hasMultiple = evolutionDetails.size > 1
+    var expanded by remember { mutableStateOf(false) }
+
+    val condition by produceState<String?>(initialValue = null, primaryDetail) {
+        value = primaryDetail?.let { viewModel.buildEvolutionConditionString(it) }
     }
-    val icon = getConditionIcon(evolutionDetail)
-    val itemUrl = getConditionItemSpriteUrl(evolutionDetail)
+    val icon = getConditionIcon(primaryDetail)
+    val itemUrl = getConditionItemSpriteUrl(primaryDetail)
+
+    // Precalcular condiciones alternativas
+    val alternativeConditions = if (hasMultiple) {
+        evolutionDetails.drop(1).map { detail ->
+            Triple(
+                getConditionItemSpriteUrl(detail),
+                getConditionIcon(detail),
+                detail
+            )
+        }
+    } else emptyList()
 
     if (horizontal) {
         Column(
-            modifier = modifier,
+            modifier = modifier.animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f)),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(10.dp))
-            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context)
+            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context,
+                hasAlternatives = hasMultiple, expanded = expanded, onToggle = { expanded = !expanded })
+            if (expanded) {
+                alternativeConditions.forEach { (altItemUrl, altIcon, altDetail) ->
+                    Text("ó", fontSize = 9.sp, color = textColor.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                    ExpandableAlternativeConditionChip(altDetail, altItemUrl, altIcon, viewModel, textColor, context)
+                }
+            }
             EnergyFlowConnector(color = connectorColor, horizontal = true, modifier = Modifier.fillMaxWidth().height(10.dp))
         }
     } else {
-        Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = modifier.animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f)),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(14.dp))
-            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context)
+            ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context,
+                hasAlternatives = hasMultiple, expanded = expanded, onToggle = { expanded = !expanded })
+            if (expanded) {
+                alternativeConditions.forEach { (altItemUrl, altIcon, altDetail) ->
+                    Text("ó", fontSize = 9.sp, color = textColor.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                    ExpandableAlternativeConditionChip(altDetail, altItemUrl, altIcon, viewModel, textColor, context)
+                }
+            }
             EnergyFlowConnector(color = connectorColor, modifier = Modifier.width(24.dp).height(14.dp))
         }
     }
+}
+
+@Composable
+private fun ExpandableAlternativeConditionChip(
+    detail: EvolutionDetail,
+    itemUrl: String?,
+    icon: String,
+    viewModel: PokemonViewModel,
+    textColor: Color,
+    context: android.content.Context
+) {
+    val condition by produceState<String?>(initialValue = null, detail) {
+        value = viewModel.buildEvolutionConditionString(detail)
+    }
+    ConditionChip(itemUrl = itemUrl, icon = icon, condition = condition, textColor = textColor, context = context)
 }
 
 /** Chip visual para condición evolutiva */
@@ -471,13 +520,18 @@ private fun ConditionChip(
     icon: String,
     condition: String?,
     textColor: Color,
-    context: android.content.Context
+    context: android.content.Context,
+    hasAlternatives: Boolean = false,
+    expanded: Boolean = false,
+    onToggle: (() -> Unit)? = null
 ) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
         shadowElevation = 2.dp,
-        modifier = Modifier.padding(vertical = 2.dp)
+        modifier = Modifier
+            .padding(vertical = 2.dp)
+            .then(if (onToggle != null) Modifier.clickable { onToggle() } else Modifier)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -507,6 +561,14 @@ private fun ConditionChip(
                     maxLines = 3
                 )
             }
+            if (hasAlternatives) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = if (expanded) "▲" else "▼",
+                    fontSize = 8.sp,
+                    color = textColor.copy(alpha = 0.5f)
+                )
+            }
         }
     }
 }
@@ -514,37 +576,107 @@ private fun ConditionChip(
 /** Etiqueta de condición compacta para bifurcaciones (encima de compact cards) */
 @Composable
 private fun EvolutionConditionLabel(
-    evolutionDetail: EvolutionDetail?,
+    evolutionDetails: List<EvolutionDetail>,
     viewModel: PokemonViewModel,
     textColor: Color
 ) {
     val context = LocalContext.current
-    val condition by produceState<String?>(initialValue = null, evolutionDetail) {
-        value = evolutionDetail?.let { viewModel.buildEvolutionConditionString(it) }
-    }
-    val icon = getConditionIcon(evolutionDetail)
-    val itemUrl = getConditionItemSpriteUrl(evolutionDetail)
+    val primaryDetail = evolutionDetails.firstOrNull()
+    val hasMultiple = evolutionDetails.size > 1
+    var expanded by remember { mutableStateOf(false) }
 
+    val condition by produceState<String?>(initialValue = null, primaryDetail) {
+        value = primaryDetail?.let { viewModel.buildEvolutionConditionString(it) }
+    }
+    val icon = getConditionIcon(primaryDetail)
+    val itemUrl = getConditionItemSpriteUrl(primaryDetail)
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 300f))
+    ) {
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
+            modifier = Modifier
+                .padding(vertical = 3.dp)
+                .then(if (hasMultiple) Modifier.clickable { expanded = !expanded } else Modifier)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            ) {
+                if (itemUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(96).build(),
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else if (icon.isNotEmpty()) {
+                    Text(text = icon, fontSize = 16.sp)
+                }
+                condition?.let {
+                    Text(
+                        text = it,
+                        fontSize = 9.sp,
+                        color = textColor.copy(alpha = 0.8f),
+                        lineHeight = 11.sp,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 3
+                    )
+                }
+                if (hasMultiple) {
+                    Text(
+                        text = if (expanded) "▲" else "▼",
+                        fontSize = 7.sp,
+                        color = textColor.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+        if (expanded) {
+            evolutionDetails.drop(1).forEach { altDetail ->
+                Text("ó", fontSize = 8.sp, color = textColor.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                ExpandableAlternativeConditionLabel(altDetail, viewModel, textColor, context)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableAlternativeConditionLabel(
+    detail: EvolutionDetail,
+    viewModel: PokemonViewModel,
+    textColor: Color,
+    context: android.content.Context
+) {
+    val altItemUrl = getConditionItemSpriteUrl(detail)
+    val altIcon = getConditionIcon(detail)
+    val altCondition by produceState<String?>(initialValue = null, detail) {
+        value = viewModel.buildEvolutionConditionString(detail)
+    }
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
-        modifier = Modifier.padding(vertical = 3.dp)
+        modifier = Modifier.padding(vertical = 2.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
         ) {
-            if (itemUrl != null) {
+            if (altItemUrl != null) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(itemUrl).crossfade(true).size(96).build(),
+                    model = ImageRequest.Builder(context).data(altItemUrl).crossfade(true).size(96).build(),
                     contentDescription = null,
                     modifier = Modifier.size(26.dp),
                     contentScale = ContentScale.Fit
                 )
-            } else if (icon.isNotEmpty()) {
-                Text(text = icon, fontSize = 16.sp)
+            } else if (altIcon.isNotEmpty()) {
+                Text(text = altIcon, fontSize = 16.sp)
             }
-            condition?.let {
+            altCondition?.let {
                 Text(
                     text = it,
                     fontSize = 9.sp,
@@ -691,7 +823,7 @@ fun PokemonEvolutionChainView(
                                     if (index < linearEvolutionPath.size - 1) {
                                         val nextDetail = linearEvolutionPath[index + 1].second
                                         EvolutionConnectorWithCondition(
-                                            evolutionDetail = nextDetail,
+                                            evolutionDetails = nextDetail,
                                             viewModel = viewModel,
                                             connectorColor = colorTexto.copy(alpha = 0.6f),
                                             textColor = colorTexto,
@@ -725,7 +857,7 @@ fun PokemonEvolutionChainView(
                                         item(key = "connector_$index") {
                                             val nextDetail = linearEvolutionPath[index + 1].second
                                             EvolutionConnectorWithCondition(
-                                                evolutionDetail = nextDetail,
+                                                evolutionDetails = nextDetail,
                                                 viewModel = viewModel,
                                                 connectorColor = colorTexto.copy(alpha = 0.6f),
                                                 textColor = colorTexto
@@ -798,7 +930,7 @@ fun EvolutionStepDisplay(
 
                 // Conector from → middle con condición
                 EvolutionConnectorWithCondition(
-                    evolutionDetail = step.middleEvolutionDetail,
+                    evolutionDetails = step.middleEvolutionDetail,
                     viewModel = viewModel,
                     connectorColor = connectorColor,
                     textColor = textColor
@@ -813,9 +945,10 @@ fun EvolutionStepDisplay(
                     )
                 }
 
-                // Conector Y hacia las ramas
+                // Conector Y hacia las ramas (máx 2 columnas visibles)
+                val branchCols = step.toEvolutions.size.coerceAtMost(2)
                 BranchingConnector(
-                    branchCount = step.toEvolutions.size.coerceIn(2, 4),
+                    branchCount = branchCols,
                     color = connectorColor,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -823,9 +956,10 @@ fun EvolutionStepDisplay(
                         .height(48.dp)
                 )
             } else if (step.toEvolutions.size > 1) {
-                // Bifurcación sin fusión (ej: Mime Jr.) → conector Y
+                // Bifurcación sin fusión (ej: Mime Jr.) → conector Y (máx 2 columnas visibles)
+                val branchCols = step.toEvolutions.size.coerceAtMost(2)
                 BranchingConnector(
-                    branchCount = step.toEvolutions.size.coerceIn(2, 4),
+                    branchCount = branchCols,
                     color = connectorColor,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -863,7 +997,7 @@ fun EvolutionStepDisplay(
                                     modifier = Modifier.width(105.dp).fillMaxHeight()
                                 ) {
                                     EvolutionConditionLabel(
-                                        evolutionDetail = evolutionDetail,
+                                        evolutionDetails = evolutionDetail,
                                         viewModel = viewModel,
                                         textColor = textColor
                                     )
@@ -892,7 +1026,7 @@ fun EvolutionStepDisplay(
                             modifier = Modifier.weight(1f)
                         ) {
                             EvolutionConditionLabel(
-                                evolutionDetail = evolutionDetail,
+                                evolutionDetails = evolutionDetail,
                                 viewModel = viewModel,
                                 textColor = textColor
                             )
@@ -914,29 +1048,29 @@ fun EvolutionStepDisplay(
 
 data class EvolutionStep(
     val fromPokemon: ChainLink,
-    val fromPokemonEvolutionDetail: EvolutionDetail?,
-    val toEvolutions: List<Pair<ChainLink, EvolutionDetail?>>,
+    val fromPokemonEvolutionDetail: List<EvolutionDetail>,
+    val toEvolutions: List<Pair<ChainLink, List<EvolutionDetail>>>,
     // Step fusionado: Pokémon intermedio entre from y la bifurcación
     val middlePokemon: ChainLink? = null,
-    val middleEvolutionDetail: EvolutionDetail? = null
+    val middleEvolutionDetail: List<EvolutionDetail> = emptyList()
 )
 
 fun getEvolutionSteps(baseChainLink: ChainLink): List<EvolutionStep> {
     val steps = mutableListOf<EvolutionStep>()
-    val queue = ArrayDeque<Pair<ChainLink, EvolutionDetail?>>()
+    val queue = ArrayDeque<Pair<ChainLink, List<EvolutionDetail>>>()
     val processedAsFromPokemon = mutableSetOf<String>()
 
     steps.add(
         EvolutionStep(
             fromPokemon = baseChainLink,
-            fromPokemonEvolutionDetail = null,
-            toEvolutions = baseChainLink.evolvesTo.map { Pair(it, it.evolutionDetails.firstOrNull()) }
+            fromPokemonEvolutionDetail = emptyList(),
+            toEvolutions = baseChainLink.evolvesTo.map { Pair(it, it.evolutionDetails) }
         )
     )
     processedAsFromPokemon.add(baseChainLink.species.name)
 
     baseChainLink.evolvesTo.forEach {
-        queue.add(Pair(it, it.evolutionDetails.firstOrNull()))
+        queue.add(Pair(it, it.evolutionDetails))
     }
 
     while (queue.isNotEmpty()) {
@@ -946,11 +1080,11 @@ fun getEvolutionSteps(baseChainLink: ChainLink): List<EvolutionStep> {
                 EvolutionStep(
                     fromPokemon = currentLink,
                     fromPokemonEvolutionDetail = detailToReachCurrent,
-                    toEvolutions = currentLink.evolvesTo.map { Pair(it, it.evolutionDetails.firstOrNull()) }
+                    toEvolutions = currentLink.evolvesTo.map { Pair(it, it.evolutionDetails) }
                 )
             )
             processedAsFromPokemon.add(currentLink.species.name)
-            currentLink.evolvesTo.forEach { queue.add(Pair(it, it.evolutionDetails.firstOrNull())) }
+            currentLink.evolvesTo.forEach { queue.add(Pair(it, it.evolutionDetails)) }
         }
     }
 
@@ -990,16 +1124,16 @@ fun isChainPredominantlyLinear(evolutionSteps: List<EvolutionStep>): Boolean {
     return evolutionSteps.all { it.toEvolutions.size <= 1 }
 }
 
-fun flattenEvolutionChainForLinearDisplay(baseChainLink: ChainLink): List<Pair<ChainLink, EvolutionDetail?>> {
-    val path = mutableListOf<Pair<ChainLink, EvolutionDetail?>>()
-    fun traverse(link: ChainLink, detail: EvolutionDetail?) {
-        path.add(Pair(link, detail))
+fun flattenEvolutionChainForLinearDisplay(baseChainLink: ChainLink): List<Pair<ChainLink, List<EvolutionDetail>>> {
+    val path = mutableListOf<Pair<ChainLink, List<EvolutionDetail>>>()
+    fun traverse(link: ChainLink, details: List<EvolutionDetail>) {
+        path.add(Pair(link, details))
         if (link.evolvesTo.isNotEmpty()) {
             val next = link.evolvesTo[0]
-            traverse(next, next.evolutionDetails.firstOrNull())
+            traverse(next, next.evolutionDetails)
         }
     }
-    traverse(baseChainLink, null)
+    traverse(baseChainLink, emptyList())
     return path
 }
 

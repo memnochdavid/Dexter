@@ -61,8 +61,9 @@ import java.util.Locale
 @Composable
 fun PokemonRegionalFormsView(
     pokemonSpeciesUrl: String?, // URL de la especie del Pokémon actual
-    basePokemonName: String, // Nombre del Pokémon base para referencia en el título y displayNames
-    pokemonApiService: PokeApiService, // Asegúrate que es tu interfaz de servicio actualizada
+    basePokemonName: String, // Nombre del Pokémon base (sin sufijo regional)
+    currentPokemonName: String = basePokemonName, // Nombre completo del Pokémon actual (para excluirlo)
+    pokemonApiService: PokeApiService,
     cardColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     itemCardColor: Color = MaterialTheme.colorScheme.surface,
     colorTexto: Color = MaterialTheme.colorScheme.onSurface,
@@ -94,12 +95,16 @@ fun PokemonRegionalFormsView(
                 if (speciesResponse.isSuccessful && speciesResponse.body() != null) {
                     val speciesDetail = speciesResponse.body()!!
 
-                    // Filtrar variedades regionales y cargarlas en PARALELO
+                    // Filtrar variedades regionales (y la forma base si estamos en un regional)
+                    val isCurrentRegional = currentPokemonName != basePokemonName
                     val regionalVarieties = speciesDetail.varieties.filter { variety ->
-                        if (variety.isDefault) return@filter false
                         val name = variety.pokemon.name
+                        // Excluir la forma que ya estamos viendo
+                        if (name == currentPokemonName) return@filter false
+                        // Incluir la forma base (default) si estamos viendo un regional
+                        if (variety.isDefault) return@filter isCurrentRegional
+                        // Incluir otras formas regionales
                         knownRegions.any { region ->
-                            // Exacto: "baseName-region" o con sufijo breed para paldea
                             name == "$basePokemonName-$region" ||
                                 (region == "paldea" && name.startsWith("$basePokemonName-$region-"))
                         }
@@ -566,7 +571,11 @@ fun PokemonFormsView(
             // Primero: comprobar cuántas formas hay para decidir modo
             val speciesResponse = pokemonApiService.getPokemonSpeciesDetailsByUrl(pokemonSpeciesUrl)
             val species = speciesResponse.body()
-            val baseName = pokemon.name
+            val baseName = pokemon.name.let { n ->
+                listOf("-alola", "-galar", "-hisui", "-paldea").fold(n) { acc, suffix ->
+                    if (acc.contains(suffix)) acc.substringBefore(suffix) else acc
+                }
+            }
 
             val otherVarieties = species?.varieties?.filter { variety ->
                 if (variety.isDefault) return@filter false
