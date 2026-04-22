@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -220,50 +222,59 @@ fun PokemonDetailScreen(
 
             val expanded = rawExpandedChain ?: return@let
             val regionSuffixes = listOf("-alola", "-galar", "-hisui", "-paldea")
+            val sInfoMap = pokemonViewModel.speciesInfoMap.value
 
-            // Construir lista de navegación: cadena base + cada cadena regional
-            val navIds = mutableListOf<Int>()
-            fun getLinkId(link: com.david.pokedex_api.api.model.ChainLink): Int? =
-                link.species.url.trimEnd('/').split("/").lastOrNull()?.toIntOrNull()
-            fun traverseLinear(link: com.david.pokedex_api.api.model.ChainLink) {
-                getLinkId(link)?.let { if (!navIds.contains(it)) navIds.add(it) }
-                link.evolvesTo.forEach { traverseLinear(it) }
+            // Extraer líneas evolutivas completas del expanded chain
+            // grid[línea][posición] — cada línea es una cadena evolutiva horizontal
+            fun extractLineIds(link: com.david.pokedex_api.api.model.ChainLink): List<Int> {
+                val id = link.species.url.trimEnd('/').substringAfterLast('/').toIntOrNull() ?: return emptyList()
+                val rest = if (link.evolvesTo.size == 1) extractLineIds(link.evolvesTo[0])
+                    else link.evolvesTo.flatMap { extractLineIds(it) }
+                return listOf(id) + rest
             }
 
-            // Separar hijos: base vs regionales
+            val grid = mutableListOf<List<Int>>()
+            val baseLineIndex: Int // índice de la línea base
+
+            // Separar hijos del root: base vs regionales
             val baseChildren = expanded.evolvesTo.filter { child ->
                 !regionSuffixes.any { s -> child.species.name.contains(s) }
             }
-            val regionalChildren = expanded.evolvesTo.filter { child ->
+            val regionalRoots = expanded.evolvesTo.filter { child ->
                 regionSuffixes.any { s -> child.species.name.contains(s) }
             }
 
-            // 1. Cadena base: root + hijos base
+            // Línea base
             val baseChain = expanded.copy(evolvesTo = baseChildren)
-            traverseLinear(baseChain)
+            val baseLineIds = extractLineIds(baseChain)
 
-            // 2. Cadenas regionales: cada rama regional completa
-            regionalChildren.forEach { regionalRoot ->
-                traverseLinear(regionalRoot)
+            // Líneas mega/gmax: una por cada mega/gmax de CUALQUIER especie en la cadena
+            val megaGmaxLines = baseLineIds.flatMap { speciesId ->
+                val info = sInfoMap[speciesId]
+                info?.varieties
+                    ?.filter { !it.isDefault && (it.pokemon.name.contains("-mega") || it.pokemon.name.contains("-gmax")) }
+                    ?.mapNotNull { v -> v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { listOf(it) } }
+                    ?: emptyList()
             }
 
-            // Asegurar que el pokémon actual esté en la lista
+            // Agregar: megas arriba, línea base, líneas regionales abajo
+            grid.addAll(megaGmaxLines)
+            baseLineIndex = grid.size
+            grid.add(baseLineIds)
+            regionalRoots.forEach { grid.add(extractLineIds(it)) }
+
+            // Asegurar que el pokémon actual esté en el grid
             val currentId = pokemonDetail?.id
-            if (currentId != null && !navIds.contains(currentId)) {
-                val speciesUrl = pokemonDetail?.species?.url
-                val baseSpeciesId = speciesUrl?.trimEnd('/')?.split("/")?.lastOrNull()?.toIntOrNull()
-                val insertIdx = if (baseSpeciesId != null) {
-                    val baseIdx = navIds.indexOf(baseSpeciesId)
-                    if (baseIdx >= 0) baseIdx + 1 else navIds.size
-                } else navIds.size
-                navIds.add(insertIdx, currentId)
+            if (currentId != null && grid.none { it.contains(currentId) }) {
+                grid.add(listOf(currentId))
             }
 
-            // Precargar IDs de la cadena filtrada + IDs extra para display de evolución
-            val finalIds = navIds.toMutableList()
+            // Precargar todos los IDs del grid + IDs extra para display de evolución
+            val allGridIds = grid.flatten()
+            val finalIds = allGridIds.toMutableList()
             expandedAllIds.forEach { id -> if (!finalIds.contains(id)) finalIds.add(id) }
 
-            pokemonViewModel.setNavigationList(navIds)
+            pokemonViewModel.setNavigationGrid(grid, listOf(baseLineIndex))
             pokemonViewModel.preloadEvolutionChain(finalIds)
         }
     }
@@ -303,19 +314,12 @@ fun PokemonDetailScreen(
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            val navList by pokemonViewModel.navigationList.observeAsState(emptyList())
-            val specialFormIds by pokemonViewModel.specialFormNavIds.observeAsState(emptyList())
+            val navGrid by pokemonViewModel.navigationGrid.observeAsState(emptyList())
+            val baseFormIndices by pokemonViewModel.baseFormIndices.observeAsState(emptyList())
             val evoMap by pokemonViewModel.evoChainPokemonMap.collectAsState()
-            val swipeablePageCount = navList.size
-            // Slot único para forma especial activa (mega/gmax) — solo existe 1 página extra
-            var specialFormTarget by remember { mutableStateOf<Int?>(null) }
-            val fullNavList = remember(navList, specialFormTarget) {
-                navList + listOfNotNull(specialFormTarget)
-            }
-            val allPreloaded = navList.isNotEmpty()
-                    && (navList.size > 1 || specialFormIds.isNotEmpty())
-                    && navList.all { evoMap.containsKey(it) }
-                    && specialFormIds.all { evoMap.containsKey(it) }
+
+            val allGridIds = remember(navGrid) { navGrid.flatten() }
+            val allPreloaded = navGrid.isNotEmpty() && allGridIds.all { evoMap.containsKey(it) }
 
             // Chain expandido con ramas regionales (para la visualización de línea evolutiva)
             val displayChain = remember(expandedChain, evolutionChain) {
@@ -332,19 +336,16 @@ fun PokemonDetailScreen(
                 val sharedTransitionScope = LocalSharedTransitionScope.current
                 val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
-                // Replica la estructura del layout final: 35% imagen + 65% contenido
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(background_app_gradient)
                 ) {
-                    // Zona superior (35%): donde ira ComponenteImagen
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(0.35f)
                     ) {
-                        // Pokeball en la misma posicion que tendra en ComponenteImagen
                         if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                             with(sharedTransitionScope) {
                                 AnimatedPokeball(
@@ -361,38 +362,31 @@ fun PokemonDetailScreen(
                             }
                         }
                     }
-                    // Zona inferior (65%): placeholder vacio
                     Spacer(modifier = Modifier.fillMaxWidth().weight(0.65f))
                 }
-            } else if (allPreloaded && (navList.contains(pokemonDetail!!.id) || specialFormIds.contains(pokemonDetail!!.id))) {
-                // Pager: línea evolutiva + 1 slot extra para forma especial activa
-                val isInitialSpecial = specialFormIds.contains(pokemonDetail!!.id)
-                if (isInitialSpecial) specialFormTarget = pokemonDetail!!.id
-                val initialPage = if (isInitialSpecial) swipeablePageCount else navList.indexOf(pokemonDetail!!.id).coerceAtLeast(0)
-                val pagerState = rememberPagerState(
-                    initialPage = initialPage,
-                    pageCount = { swipeablePageCount + (if (specialFormTarget != null) 1 else 0) }
-                )
+            } else if (allPreloaded && allGridIds.contains(pokemonDetail!!.id)) {
+                // Pager 2D: vertical = línea evolutiva (megas↑ base regionales↓), horizontal = evolución dentro de la línea
+                // grid[línea][posición]: cada línea es una cadena evolutiva completa
+                val currentId = pokemonDetail!!.id
+                val initialVLine = navGrid.indexOfFirst { line -> line.contains(currentId) }.coerceAtLeast(0)
+                val initialHPos = navGrid.getOrNull(initialVLine)?.indexOf(currentId)?.coerceAtLeast(0) ?: 0
+                val baseLineIdx = baseFormIndices.firstOrNull() ?: 0
 
+                val vPagerState = rememberPagerState(
+                    initialPage = initialVLine,
+                    pageCount = { navGrid.size }
+                )
                 val pagerCoroutineScope = rememberCoroutineScope()
 
-                // Cuando cambia la pagina, cargar datos y limpiar slot especial si volvió
-                LaunchedEffect(pagerState) {
-                    snapshotFlow { pagerState.settledPage }
-                        .distinctUntilChanged()
-                        .collect { page ->
-                            val id = fullNavList.getOrNull(page) ?: return@collect
-                            pokemonViewModel.switchToPreloadedPokemon(id)
-                            if (page < swipeablePageCount) {
-                                specialFormTarget = null
-                            }
-                        }
-                }
+                // Posición horizontal activa (se sincroniza entre líneas al hacer swipe vertical)
+                var activeHorizontalPos by remember { mutableIntStateOf(initialHPos) }
+                // Navegación pendiente (para clicks que cruzan línea+posición)
+                var pendingTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (línea, posición)
 
-                // Pre-cachear imagenes de artwork para swipe fluido
+                // Pre-cachear imágenes para swipe fluido
                 val imageLoader = remember { coil.ImageLoader(context) }
                 LaunchedEffect(allPreloaded) {
-                    (navList + specialFormIds).forEach { id ->
+                    allGridIds.forEach { id ->
                         evoMap[id]?.detail?.sprites?.other?.officialArtwork?.frontDefault?.let { url ->
                             val request = coil.request.ImageRequest.Builder(context)
                                 .data(url)
@@ -403,67 +397,113 @@ fun PokemonDetailScreen(
                     }
                 }
 
-                HorizontalPager(
-                    state = pagerState,
+                // Callback compartido para clicks en evolución/formas
+                val onEvoPokemonClick: (String) -> Unit = { clickedName ->
+                    val targetId = clickedName.toIntOrNull()
+                        ?: evoMap.entries.firstOrNull { it.value.detail.name == clickedName }?.key
+                        ?: evoMap.entries.firstOrNull { it.value.detail.species.name == clickedName }?.key
+
+                    if (targetId != null) {
+                        val targetLine = navGrid.indexOfFirst { it.contains(targetId) }
+                        if (targetLine >= 0) {
+                            val targetPos = navGrid[targetLine].indexOf(targetId)
+                            pendingTarget = Pair(targetLine, targetPos)
+                            pagerCoroutineScope.launch {
+                                vPagerState.animateScrollToPage(targetLine)
+                            }
+                        } else {
+                            pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                        }
+                    } else {
+                        pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                    }
+                }
+
+                VerticalPager(
+                    state = vPagerState,
                     modifier = Modifier.fillMaxSize(),
                     beyondViewportPageCount = 1
-                ) { page ->
-                    val preloaded = fullNavList.getOrNull(page)?.let { evoMap[it] }
-                    if (preloaded != null) {
-                        PokemonDetailsView(
-                            pokemon = preloaded.detail,
-                            pokemonSpecies = preloaded.species,
-                            description = null,
-                            evolutionChainDetailResponse = displayChain,
-                            isLoadingEvolutionChain = isLoadingEvolutionChain,
-                            onEvolutionPokemonClick = { clickedName ->
-                                // Buscar el pokemon en el pager por nombre o ID
-                                val targetId = clickedName.toIntOrNull()
-                                    ?: evoMap.entries.firstOrNull { it.value.detail.name == clickedName }?.key
-                                    ?: evoMap.entries.firstOrNull { it.value.detail.species.name == clickedName }?.key
+                ) { vLine ->
+                    val line = navGrid.getOrNull(vLine) ?: return@VerticalPager
+                    val initialHForLine = if (vLine == initialVLine) initialHPos
+                        else activeHorizontalPos.coerceIn(0, (line.size - 1).coerceAtLeast(0))
 
-                                // ¿Es forma especial (mega/gmax)?
-                                val isSpecial = targetId != null && specialFormIds.contains(targetId)
-                                // ¿Está en la línea evolutiva regular?
-                                val regularIndex = if (targetId != null) navList.indexOf(targetId) else -1
+                    val hPagerState = rememberPagerState(
+                        initialPage = initialHForLine,
+                        pageCount = { line.size }
+                    )
 
-                                if (isSpecial && targetId != null) {
-                                    // Abrir slot especial con este form y scroll a la última página
-                                    val alreadyOnSlot = pagerState.currentPage == swipeablePageCount && specialFormTarget != null
-                                    specialFormTarget = targetId
-                                    if (alreadyOnSlot) {
-                                        // Ya estamos en el slot: actualizar ViewModel directamente
-                                        pokemonViewModel.switchToPreloadedPokemon(targetId)
-                                    }
-                                    pagerCoroutineScope.launch {
-                                        snapshotFlow { pagerState.pageCount }.first { it > swipeablePageCount }
-                                        pagerState.animateScrollToPage(swipeablePageCount)
-                                    }
-                                } else if (regularIndex >= 0) {
-                                    pagerCoroutineScope.launch { pagerState.animateScrollToPage(regularIndex) }
-                                } else {
-                                    // Pokemon no esta en el pager: fetch completo
-                                    pokemonViewModel.fetchPokemonDetailsByName(clickedName, "es")
+                    // Sincronizar ViewModel y posición horizontal activa
+                    LaunchedEffect(hPagerState) {
+                        snapshotFlow { hPagerState.settledPage }
+                            .distinctUntilChanged()
+                            .collect { hPos ->
+                                if (vLine == vPagerState.settledPage) {
+                                    activeHorizontalPos = hPos
+                                    val id = line.getOrNull(hPos) ?: return@collect
+                                    pokemonViewModel.switchToPreloadedPokemon(id)
                                 }
-                            },
-                            pokemonViewModel = pokemonViewModel,
-                            moveDetailsMap = moveDetailsMap,
-                            wikiDexFlavorTexts = wikiDexFlavorTexts,
-                            wikiDexLocations = wikiDexLocations,
-                            encounters = encounters,
-                            isLoadingEncounters = isLoadingEncounters,
-                            isActivePage = page == pagerState.settledPage,
-                            selectedSection = pokemonViewModel.selectedDetailSection.collectAsState().value,
-                            onNavigateBack = onNavigateBack,
-                            shouldAnimate = true
-                        )
+                            }
+                    }
+
+                    // Sincronizar posición horizontal al llegar a esta línea por swipe vertical
+                    LaunchedEffect(vPagerState.settledPage) {
+                        if (vPagerState.settledPage == vLine) {
+                            val target = pendingTarget
+                            if (target != null && target.first == vLine) {
+                                hPagerState.animateScrollToPage(target.second)
+                                pendingTarget = null
+                            } else {
+                                val targetPos = activeHorizontalPos.coerceIn(0, (line.size - 1).coerceAtLeast(0))
+                                if (hPagerState.currentPage != targetPos) {
+                                    hPagerState.scrollToPage(targetPos)
+                                }
+                            }
+                        }
+                    }
+
+                    // Atender target pendiente
+                    LaunchedEffect(pendingTarget) {
+                        val target = pendingTarget ?: return@LaunchedEffect
+                        if (target.first == vLine && vPagerState.settledPage == vLine) {
+                            hPagerState.animateScrollToPage(target.second)
+                            pendingTarget = null
+                        }
+                    }
+
+                    HorizontalPager(
+                        state = hPagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 1
+                    ) { hPos ->
+                        val pokemonId = line.getOrNull(hPos) ?: return@HorizontalPager
+                        val preloaded = evoMap[pokemonId]
+                        if (preloaded != null) {
+                            PokemonDetailsView(
+                                pokemon = preloaded.detail,
+                                pokemonSpecies = preloaded.species,
+                                description = null,
+                                evolutionChainDetailResponse = displayChain,
+                                isLoadingEvolutionChain = isLoadingEvolutionChain,
+                                onEvolutionPokemonClick = onEvoPokemonClick,
+                                pokemonViewModel = pokemonViewModel,
+                                moveDetailsMap = moveDetailsMap,
+                                wikiDexFlavorTexts = wikiDexFlavorTexts,
+                                wikiDexLocations = wikiDexLocations,
+                                encounters = encounters,
+                                isLoadingEncounters = isLoadingEncounters,
+                                isActivePage = vLine == vPagerState.settledPage && hPos == hPagerState.settledPage,
+                                selectedSection = pokemonViewModel.selectedDetailSection.collectAsState().value,
+                                onNavigateBack = onNavigateBack,
+                                shouldAnimate = true
+                            )
+                        }
                     }
                 }
             } else {
                 // Vista simple: transitoria (cadena aun cargando) o definitiva (pokemon sin pager)
-                // Es definitiva si la cadena ya cargo pero este pokemon no entrara en el pager
                 val chainLoaded = evolutionChain != null && !isLoadingEvolutionChain
-                val pagerWillTakeOver = !chainLoaded || ((navList.size > 1 || specialFormIds.isNotEmpty()) && (navList.contains(pokemonDetail!!.id) || fullNavList.contains(pokemonDetail!!.id)))
+                val pagerWillTakeOver = !chainLoaded || (navGrid.isNotEmpty() && allGridIds.contains(pokemonDetail!!.id))
                 PokemonDetailsView(
                     pokemon = pokemonDetail!!,
                     pokemonSpecies = pokemonSpecies,

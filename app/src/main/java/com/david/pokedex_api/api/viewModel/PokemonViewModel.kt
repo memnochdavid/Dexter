@@ -262,12 +262,18 @@ class PokemonViewModel : ViewModel() {
     private val _pokemonFormsAndVarieties = MutableLiveData<List<DisplayablePokemonVariety>>()
     val pokemonFormsAndVarieties: LiveData<List<DisplayablePokemonVariety>> = _pokemonFormsAndVarieties
 
-    // Navegacion por linea evolutiva: lista ordenada de IDs + datos pre-cargados
-    private val _navigationList = MutableLiveData<List<Int>>(emptyList())
-    val navigationList: LiveData<List<Int>> = _navigationList
+    // Navegación 2D: grid[columna][fila] = pokemonId
+    // Horizontal = cadena evolutiva, Vertical = [megas/gmax..., base, regionales...]
+    private val _navigationGrid = MutableLiveData<List<List<Int>>>(emptyList())
+    val navigationGrid: LiveData<List<List<Int>>> = _navigationGrid
 
-    fun setNavigationList(list: List<Int>) {
-        _navigationList.value = list
+    // Índice de la forma base dentro de cada columna
+    private val _baseFormIndices = MutableLiveData<List<Int>>(emptyList())
+    val baseFormIndices: LiveData<List<Int>> = _baseFormIndices
+
+    fun setNavigationGrid(grid: List<List<Int>>, baseIndices: List<Int>) {
+        _navigationGrid.value = grid
+        _baseFormIndices.value = baseIndices
     }
 
     data class PreloadedPokemonData(
@@ -278,9 +284,10 @@ class PokemonViewModel : ViewModel() {
     private val _evoChainPokemonMap = MutableStateFlow<Map<Int, PreloadedPokemonData>>(emptyMap())
     val evoChainPokemonMap: StateFlow<Map<Int, PreloadedPokemonData>> = _evoChainPokemonMap.asStateFlow()
 
-    // IDs de formas especiales (mega/gmax) para incluir en el pager sin swipe
-    private val _specialFormNavIds = MutableLiveData<List<Int>>(emptyList())
-    val specialFormNavIds: LiveData<List<Int>> = _specialFormNavIds
+    // Info de especies para construir el grid (varieties por especie)
+    data class SpeciesFormInfo(val varieties: List<PokemonVariety>, val generation: Int?)
+    private val _speciesInfoMap = MutableStateFlow<Map<Int, SpeciesFormInfo>>(emptyMap())
+    val speciesInfoMap: StateFlow<Map<Int, SpeciesFormInfo>> = _speciesInfoMap.asStateFlow()
 
     /**
      * Expande un ChainLink tree añadiendo ramas para variantes regionales.
@@ -312,18 +319,19 @@ class PokemonViewModel : ViewModel() {
         }
         collectIds(chain)
 
-        data class SpeciesInfo(val varieties: List<PokemonVariety>, val generation: Int?)
-
         val speciesInfoMap = allSpeciesIds.map { speciesId ->
             async(Dispatchers.IO) {
                 try {
                     val resp = pokemonApiService.getPokemonSpeciesDetailsById(speciesId)
                     val body = resp.body()
                     val gen = body?.generation?.url?.trimEnd('/')?.substringAfterLast('/')?.toIntOrNull()
-                    speciesId to SpeciesInfo(body?.varieties ?: emptyList(), gen)
-                } catch (_: Exception) { speciesId to SpeciesInfo(emptyList(), null) }
+                    speciesId to SpeciesFormInfo(body?.varieties ?: emptyList(), gen)
+                } catch (_: Exception) { speciesId to SpeciesFormInfo(emptyList(), null) }
             }
         }.awaitAll().toMap()
+
+        // Guardar info de especies para construir el grid 2D en la UI
+        _speciesInfoMap.value = speciesInfoMap
 
         val allPokemonIds = mutableListOf<Int>()
 
@@ -529,18 +537,17 @@ class PokemonViewModel : ViewModel() {
             chain.copy(evolvesTo = expandedChildren)
         }
 
-        // Recopilar IDs de formas especiales NO regionales (mega/gmax/otras variedades) del chain
-        val specialFormIds = mutableListOf<Int>()
+        // Recopilar IDs de TODAS las variedades no-default para precargar
+        val allVarietyIds = mutableListOf<Int>()
         speciesInfoMap.values.forEach { info ->
             info.varieties.forEach { v ->
-                if (!v.isDefault && !allRegionSuffixes.any { s -> v.pokemon.name.contains(s) }) {
-                    v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { specialFormIds.add(it) }
+                if (!v.isDefault) {
+                    v.pokemon.url.trimEnd('/').substringAfterLast('/').toIntOrNull()?.let { allVarietyIds.add(it) }
                 }
             }
         }
-        _specialFormNavIds.postValue(specialFormIds.distinct())
 
-        Pair(finalChain, (allPokemonIds + specialFormIds).distinct())
+        Pair(finalChain, (allPokemonIds + allVarietyIds).distinct())
     }
 
     /**
@@ -671,7 +678,8 @@ class PokemonViewModel : ViewModel() {
 
     fun clearEvoChainPreload() {
         _evoChainPokemonMap.value = emptyMap()
-        _navigationList.value = emptyList()
+        _navigationGrid.value = emptyList()
+        _baseFormIndices.value = emptyList()
     }
 
     private val _isLoadingForms = MutableLiveData<Boolean>(false)
@@ -1114,8 +1122,9 @@ class PokemonViewModel : ViewModel() {
         _wikiDexFlavorTexts.value = emptyMap()
         _wikiDexLocations.value = emptyMap()
         _pokemonEncounters.value = emptyList()
-        _navigationList.value = emptyList()
-        _specialFormNavIds.value = emptyList()
+        _navigationGrid.value = emptyList()
+        _baseFormIndices.value = emptyList()
+        _speciesInfoMap.value = emptyMap()
         _evoChainPokemonMap.value = emptyMap()
         animatedPokemonIds.clear()
         selectedDetailSection.value = "DESC"
