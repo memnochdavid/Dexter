@@ -70,7 +70,9 @@
       "Bash(git checkout:*)",
       "Bash(file:*)",
       "Bash(./gradlew assembleRelease)",
-      "Bash(./gradlew --stop)"
+      "Bash(./gradlew --stop)",
+      "Bash(./gradlew dependencyInsight --dependency generativeai --configuration debugRuntimeClasspath)",
+      "WebFetch(domain:i.etsystatic.com)"
     ]
   }
 }

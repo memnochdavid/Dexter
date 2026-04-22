@@ -29,6 +29,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties["GEMINI_API_KEY"] ?: ""}\"")
     }
 
     signingConfigs {
@@ -55,6 +57,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
 }
@@ -101,6 +104,9 @@ dependencies {
     //accompanist
     implementation("com.google.accompanist:accompanist-drawablepainter:0.35.0-alpha")
     implementation("com.google.accompanist:accompanist-permissions:0.33.2-alpha")
+
+    //gemini AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     //navigation
     implementation("androidx.navigation:navigation-compose:2.8.4")

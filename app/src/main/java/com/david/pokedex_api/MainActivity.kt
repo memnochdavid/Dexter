@@ -95,6 +95,7 @@ import com.david.pokedex_api.ui.screen.lista.GenerationPagerScreen
 import com.david.pokedex_api.ui.screen.lista.composable.PokemonSearchMenu
 import com.david.pokedex_api.ui.screen.movimientos.MoveBrowserScreen
 import com.david.pokedex_api.ui.screen.movimientos.MoveSearchMenu
+import com.david.pokedex_api.ui.screen.camara.CameraIdentifyScreen
 import com.david.pokedex_api.ui.screen.regiones.RegionBrowserScreen
 import com.david.pokedex_api.ui.theme.CardBorder
 import com.david.pokedex_api.ui.theme.background_app
@@ -113,6 +114,7 @@ object Routes {
     const val ITEM_BROWSER = "item_browser"
     const val REGION_BROWSER = "region_browser"
     const val EXTRAS_BROWSER = "extras_browser"
+    const val CAMERA_IDENTIFY = "camera_identify"
     const val POKEMON_DETAILS = "pokemon_details/{pokemonName}"
 
     fun pokemonDetails(pokemonName: String) = "pokemon_details/$pokemonName"
@@ -166,10 +168,15 @@ fun PokedexApp(
     var showBottomSheet by remember { mutableStateOf(false) }
 
     val isDetailRoute = currentRoute == Routes.POKEMON_DETAILS
+    val isCameraRoute = currentRoute == Routes.CAMERA_IDENTIFY
 
     val pokemonFilters by pokemonViewModel.pokemonFilters.collectAsState()
     val isGridView = pokemonFilters.isGridView
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // Tamaño de botones: mas compacto en pokemon_list (8 items) vs resto (6 items)
+    val navButtonSize = if (currentRoute == Routes.POKEMON_LIST) 34.dp else 40.dp
+    val navIconSize = if (currentRoute == Routes.POKEMON_LIST) 18.dp else 20.dp
 
     // Composable de botones de navegacion reutilizable
     @Composable
@@ -179,7 +186,7 @@ fun PokedexApp(
             val selected = currentRoute == item.route
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(navButtonSize)
                     .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (selected) Color.White.copy(alpha = 0.22f)
@@ -200,7 +207,7 @@ fun PokedexApp(
                 Icon(
                     imageVector = ImageVector.vectorResource(id = item.iconResId),
                     contentDescription = item.label,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(navIconSize),
                     tint = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
                 )
             }
@@ -211,15 +218,38 @@ fun PokedexApp(
             modifier = if (isLandscape) {
                 Modifier.padding(vertical = 4.dp).height(1.dp).width(24.dp)
             } else {
-                Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp)
+                Modifier.padding(horizontal = 2.dp).width(1.dp).height(24.dp)
             }.background(Color.White.copy(alpha = 0.2f))
         )
+
+        // Boton camara (solo en pokemon list)
+        if (currentRoute == Routes.POKEMON_LIST) {
+            Box(
+                modifier = Modifier
+                    .size(navButtonSize)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        navController.navigate(Routes.CAMERA_IDENTIFY) {
+                            launchSingleTop = true
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_camera_identify),
+                    contentDescription = "Identificar Pokemon",
+                    modifier = Modifier.size(navIconSize),
+                    tint = Color.White.copy(alpha = 0.8f)
+                )
+            }
+        }
 
         // Toggle lista/grid (solo en pokemon list)
         if (currentRoute == Routes.POKEMON_LIST) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(navButtonSize)
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -232,7 +262,7 @@ fun PokedexApp(
                         id = if (isGridView) R.drawable.ic_view_list else R.drawable.ic_view_grid
                     ),
                     contentDescription = if (isGridView) "Vista lista" else "Vista grid",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = Color.White.copy(alpha = 0.8f)
                 )
             }
@@ -241,7 +271,7 @@ fun PokedexApp(
         // Boton busqueda/filtros
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(navButtonSize)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -252,7 +282,7 @@ fun PokedexApp(
             Icon(
                 imageVector = Icons.Filled.Search,
                 contentDescription = "Buscar",
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(navIconSize),
                 tint = Color.White.copy(alpha = 0.8f)
             )
         }
@@ -261,13 +291,14 @@ fun PokedexApp(
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            if (!isDetailRoute && !isLandscape) {
+            if (!isDetailRoute && !isCameraRoute && !isLandscape) {
+                val bottomPadH = if (currentRoute == Routes.POKEMON_LIST) 12.dp else 24.dp
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(background_app_bottom)
                         .navigationBarsPadding()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                        .padding(horizontal = bottomPadH, vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -289,7 +320,7 @@ fun PokedexApp(
 
             Row(modifier = Modifier.fillMaxSize()) {
                 // Barra lateral izquierda (solo landscape, no en ficha)
-                if (isLandscape && !isDetailRoute) {
+                if (isLandscape && !isDetailRoute && !isCameraRoute) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -315,7 +346,8 @@ fun PokedexApp(
                     modifier = Modifier
                         .weight(1f)
                         .then(
-                            if (isLandscape) Modifier
+                            if (isCameraRoute) Modifier
+                            else if (isLandscape) Modifier
                                 .statusBarsPadding()
                                 .navigationBarsPadding()
                             else Modifier
@@ -353,6 +385,23 @@ fun PokedexApp(
                     ExtrasBrowserScreen(pokemonViewModel = pokemonViewModel)
                 }
                 composable(
+                    route = Routes.CAMERA_IDENTIFY,
+                    enterTransition = { fadeIn(tween(300)) },
+                    exitTransition = { fadeOut(tween(300)) },
+                    popEnterTransition = { fadeIn(tween(300)) },
+                    popExitTransition = { fadeOut(tween(300)) }
+                ) {
+                    CameraIdentifyScreen(
+                        onNavigateToDetails = { pokemonName ->
+                            pokemonViewModel.resetDetailState()
+                            navController.navigate(Routes.pokemonDetails(pokemonName)) {
+                                popUpTo(Routes.CAMERA_IDENTIFY) { inclusive = true }
+                            }
+                        },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+                composable(
                     route = Routes.POKEMON_DETAILS,
                     arguments = listOf(navArgument("pokemonName") { type = NavType.StringType }),
                     enterTransition = { fadeIn(tween(300)) },
@@ -385,7 +434,7 @@ fun PokedexApp(
     } // Scaffold
 
     // BottomSheet contextual (solo fuera de la ficha)
-    if (showBottomSheet && !isDetailRoute) {
+    if (showBottomSheet && !isDetailRoute && !isCameraRoute) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
             containerColor = color_menu_busqueda2,
