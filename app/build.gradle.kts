@@ -31,6 +31,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties["GEMINI_API_KEY"] ?: ""}\"")
+        buildConfigField("String", "GEMINI_API_KEY_2", "\"${localProperties["GEMINI_API_KEY_2"] ?: ""}\"")
     }
 
     signingConfigs {

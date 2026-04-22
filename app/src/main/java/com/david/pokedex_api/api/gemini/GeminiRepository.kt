@@ -67,25 +67,48 @@ class GeminiRepository {
     }
 
     suspend fun identifyPokemon(bitmap: Bitmap): PokemonIdentification? = withContext(Dispatchers.IO) {
-        try {
-            // Redimensionar a max 768px lado largo
-            val scaled = scaleBitmap(bitmap, 768)
-
-            val response = GeminiClient.model.generateContent(
-                content {
-                    image(scaled)
-                    text(PROMPT)
-                }
-            )
-
-            val rawText = response.text?.trim() ?: return@withContext null
-            Log.d(TAG, "Gemini raw response: $rawText")
-
-            parseResponse(rawText)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error identifying pokemon", e)
-            null
+        val scaled = scaleBitmap(bitmap, 768)
+        val total = GeminiClient.comboCount
+        if (total == 0) {
+            Log.e(TAG, "No hay keys de Gemini configuradas")
+            return@withContext null
         }
+
+        var lastError: Exception? = null
+        for (offset in 0 until total) {
+            val (combo, model) = GeminiClient.modelAt(offset)
+            try {
+                val response = model.generateContent(
+                    content {
+                        image(scaled)
+                        text(PROMPT)
+                    }
+                )
+                val rawText = response.text?.trim()
+                if (rawText == null) {
+                    Log.w(TAG, "Respuesta vacía de ${combo.label}")
+                    return@withContext null
+                }
+                Log.d(TAG, "Gemini (${combo.label}) raw response: $rawText")
+                GeminiClient.markWorking(offset)
+                return@withContext parseResponse(rawText)
+            } catch (e: Exception) {
+                lastError = e
+                if (isQuotaError(e) && offset < total - 1) {
+                    Log.w(TAG, "Cuota agotada en ${combo.label}, rotando al siguiente combo")
+                    continue
+                }
+                Log.e(TAG, "Error identifying pokemon en ${combo.label}", e)
+                return@withContext null
+            }
+        }
+        Log.e(TAG, "Todos los combos de Gemini agotados", lastError)
+        null
+    }
+
+    private fun isQuotaError(e: Throwable): Boolean {
+        val msg = (e.message ?: "").lowercase()
+        return "quota" in msg || "exceeded" in msg || "429" in msg || "rate" in msg
     }
 
     private fun parseResponse(rawText: String): PokemonIdentification? {
